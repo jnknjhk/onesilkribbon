@@ -1,10 +1,10 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useCart } from '@/lib/cart'
 
-// --- 实用工具函数 (保持不变) ---
+// --- 工具函数 ---
 const safe = (val) => (val === null || val === undefined ? '' : String(val))
 const safeNum = (val) => {
   const n = parseFloat(val)
@@ -18,20 +18,16 @@ export default function ProductPage({ params }) {
   const [skus, setSkus] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedSku, setSelectedSku] = useState(null)
+  const [mainImg, setMainImg] = useState(null)
   const [qty, setQty] = useState(1)
   const [added, setAdded] = useState(false)
-  const [zoomedImg, setZoomedImg] = useState(null)
   const { addItem } = useCart()
+  const scrollRef = useRef(null)
 
   useEffect(() => {
-    // 兼容 Next.js 动态路由和 window.location
-    if (params?.slug) {
-      setSlug(params.slug)
-    } else {
-      const parts = window.location.pathname.split('/')
-      setSlug(parts[parts.length - 1] || '')
-    }
-  }, [params])
+    const parts = window.location.pathname.split('/')
+    setSlug(parts[parts.length - 1] || '')
+  }, [])
 
   useEffect(() => {
     if (!slug) return
@@ -45,26 +41,16 @@ export default function ProductPage({ params }) {
         const list = skuData || []
         setSkus(list)
         if (list.length > 0) setSelectedSku(list[0])
+        if (prod.images?.length > 0) setMainImg(prod.images[0])
       } catch (e) { console.error(e) }
       setLoading(false)
     }
     load()
   }, [slug])
 
-  if (loading) return (
-    <div className="v2-loading">
-      <div className="v2-loading-spinner"></div>
-      <p style={{fontFamily:'var(--font-serif)', fontStyle:'italic', color:'var(--taupe)'}}>Awaiting Perfection…</p>
-    </div>
-  )
+  if (loading) return <div className="loader">Artisan Archive Loading...</div>
 
-  if (!product) return (
-    <div className="v2-error">
-      <h2 style={{fontFamily:'var(--font-serif)', fontWeight:300}}>Piece Not Found</h2>
-      <p>The requested artisanal ribbon is currently unavailable.</p>
-      <Link href="/collections" className="v2-btn-secondary">Return to Collections</Link>
-    </div>
-  )
+  if (!product) return <div className="loader">Product not found.</div>
 
   const handleAdd = () => {
     if (!selectedSku) return
@@ -72,15 +58,15 @@ export default function ProductPage({ params }) {
       skuId: safe(selectedSku.id),
       productId: safe(product.id),
       name: safe(product.name),
-      skuDesc: safe(selectedSku.colour) + (selectedSku.width_mm ? ` · ${safe(selectedSku.width_mm)}mm` : ''),
+      skuDesc: `${safe(selectedSku.colour)} ${selectedSku.width_mm ? `· ${selectedSku.width_mm}mm` : ''}`,
       colour: safe(selectedSku.colour),
       colourHex: safe(selectedSku.colour_hex),
       price: safeNum(selectedSku.price_gbp),
       qty,
-      image: Array.isArray(product.images) ? (product.images[0] || null) : null,
+      image: mainImg,
     })
     setAdded(true)
-    setTimeout(() => setAdded(false), 2800)
+    setTimeout(() => setAdded(false), 2000)
   }
 
   const images = Array.isArray(product.images) ? product.images : []
@@ -88,371 +74,244 @@ export default function ProductPage({ params }) {
   const price = selectedSku ? safeNum(selectedSku.price_gbp) : 0
   const inStock = selectedSku ? safeNum(selectedSku.stock_qty) > 0 : false
 
-  // 提取唯一颜色和宽度
+  // 筛选唯一选项
   const uniqueColours = Array.from(new Set(skus.map(s => s.colour))).map(c => skus.find(s => s.colour === c))
   const uniqueWidths = Array.from(new Set(skus.map(s => s.width_mm))).filter(Boolean).sort((a, b) => a - b)
 
   return (
     <>
-      {/* 注入 Google Fonts - 必须使用优雅的衬线体 */}
-      <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Montserrat:wght@300;400&display=swap" rel="stylesheet" />
+      <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Inter:wght@300;400&display=swap" rel="stylesheet" />
 
-      <main className="v2-pp-layout">
-        
-        {/* 左侧：错落有致的沉浸式画廊 */}
-        <div className="v2-gallery">
-          {images.map((img, i) => (
-            <div 
-              key={i} 
-              className={`v2-img-frame ${i % 2 === 0 ? 'v2-frame-portrait' : 'v2-frame-landscape'} fade-in-up`}
-              style={{ animationDelay: `${i * 0.15}s` }}
-              onClick={() => setZoomedImg(img)}
-            >
-              <img src={img} alt={`${product.name} artisanal detail ${i}`} loading="lazy" />
-              <div className="v2-frame-overlay">Click to Enlarge</div>
+      <div className="v3-wrapper">
+        {/* 顶部面包屑 - 确保在 Header 之下 */}
+        <nav className="v3-nav">
+          <Link href="/collections">Archive</Link> / <span>{collectionName}</span>
+        </nav>
+
+        <div className="v3-container">
+          {/* 左侧：画廊区 - 解决了拉得太长的问题 */}
+          <div className="v3-gallery-section">
+            <div className="v3-main-stage">
+              <img src={mainImg} alt={product.name} />
             </div>
-          ))}
-          {images.length === 0 && <div className="v2-image-placeholder fade-in-up" />}
-        </div>
-
-        {/* 右侧：固定悬浮的奢华信息面板 */}
-        <aside className="v2-details-sticky">
-          <div className="v2-details-inner fade-in-up" style={{ animationDelay: '0.3s' }}>
-            
-            <header className="v2-header">
-              <nav className="v2-breadcrumb">
-                <Link href="/collections">Archive</Link> / <Link href={`/collections/${product.collection}`}>{collectionName}</Link>
-              </nav>
-              <p className="v2-collection-name">{collectionName}</p>
-              <h1 className="v2-product-title">{product.name}</h1>
-              
-              <div className="v2-price-line">
-                <span className="v2-price-amount">{fmt(price)}</span>
-                <span className="v2-vat-note">Inc. VAT / {inStock ? 'In Stock' : 'Made to Order'}</span>
-              </div>
-            </header>
-
-            {/* 选择器区域 */}
-            <div className="v2-selectors">
-              {/* 宽度：采用更有质感的极简按钮 */}
-              {uniqueWidths.length > 1 && (
-                <div className="v2-selector-group">
-                  <label className="v2-label-micro">Width — {selectedSku?.width_mm}mm</label>
-                  <div className="v2-width-pills">
-                    {uniqueWidths.map(w => (
-                      <button 
-                        key={w} 
-                        className={selectedSku?.width_mm === w ? 'active' : ''}
-                        onClick={() => setSelectedSku(skus.find(s => s.width_mm === w && s.colour === (selectedSku?.colour || skus[0].colour)))}
-                      >
-                        {w}mm
-                      </button>
-                    ))}
-                  </div>
+            <div className="v3-thumb-grid">
+              {images.map((img, i) => (
+                <div 
+                  key={i} 
+                  className={`v3-thumb ${mainImg === img ? 'active' : ''}`}
+                  onClick={() => setMainImg(img)}
+                >
+                  <img src={img} alt="" />
                 </div>
-              )}
-
-              {/* 颜色：带有精致边框的色块 */}
-              {uniqueColours.length > 1 && (
-                <div className="v2-selector-group">
-                  <label className="v2-label-micro">Palette — {selectedSku?.colour}</label>
-                  <div className="v2-colour-grid">
-                    {uniqueColours.map(c => (
-                      <button
-                        key={c.id}
-                        title={c.colour}
-                        onClick={() => setSelectedSku(skus.find(s => s.colour === c.colour && s.width_mm === (selectedSku?.width_mm || skus[0].width_mm)))}
-                        style={{ '--colour-hex': safe(c.colour_hex) || '#D4C5B0' }}
-                        className={selectedSku?.colour === c.colour ? 'active' : ''}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
+              ))}
             </div>
-
-            {/* 购买区域：更具仪式感 */}
-            <div className="v2-purchase-area">
-              <div className="v2-qty-selector">
-                <button onClick={() => setQty(Math.max(1, qty - 1))}>−</button>
-                <span className="v2-qty-num">{qty}</span>
-                <button onClick={() => setQty(qty + 1)}>+</button>
-              </div>
-              
-              <button 
-                className={`v2-btn-primary v2-shimmer-effect ${added ? 'is-added' : ''}`}
-                onClick={handleAdd}
-                disabled={!selectedSku}
-              >
-                <span className="v2-btn-text">
-                  {added ? '✓ Added to Archive' : (!inStock ? 'Join Waitlist' : 'Add to Basket')}
-                </span>
-              </button>
-            </div>
-
-            <p className="v2-shipping-nudge">
-              Complimentary UK shipping over £45. Dispatched within 2-3 artisan days.
-            </p>
-
-            {/* 信息手风琴：增加质感和行高 */}
-            <div className="v2-accordion">
-              <details open>
-                <summary>The Artisan Story</summary>
-                <div className="v2-accordion-content" dangerouslySetInnerHTML={{ __html: safe(product.description).replace(/\n/g, '<br/>') }} />
-              </details>
-              <details>
-                <summary>Preservation Guide</summary>
-                <div className="v2-accordion-content">
-                  <p>As this is a vegetable-dyed, hand-torn silk, treat it as an heirloom. Hand wash gently in pH-neutral soap. Iron on a low setting while slightly damp to restore its lustre.</p>
-                </div>
-              </details>
-            </div>
-
           </div>
-        </aside>
-      </main>
 
-      {/* 奢华全屏图片灯箱 */}
-      {zoomedImg && (
-        <div className="v2-lightbox" onClick={() => setZoomedImg(null)}>
-          <img src={zoomedImg} alt="Close-up artisanal detail" />
-          <div className="v2-lightbox-close">Close</div>
+          {/* 右侧：信息区 - 始终吸附且不遮挡 */}
+          <aside className="v3-info-panel">
+            <div className="v3-sticky-content">
+              <div className="v3-header">
+                <p className="v3-tag">{collectionName}</p>
+                <h1 className="v3-title">{product.name}</h1>
+                <p className="v3-price">{fmt(price)}</p>
+              </div>
+
+              <div className="v3-options">
+                {/* 宽度选择 */}
+                {uniqueWidths.length > 1 && (
+                  <div className="v3-group">
+                    <label>Width <span>{selectedSku?.width_mm}mm</span></label>
+                    <div className="v3-pills">
+                      {uniqueWidths.map(w => (
+                        <button 
+                          key={w} 
+                          className={selectedSku?.width_mm === w ? 'active' : ''}
+                          onClick={() => setSelectedSku(skus.find(s => s.width_mm === w && s.colour === (selectedSku?.colour || skus[0].colour)))}
+                        >
+                          {w}mm
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 颜色选择 */}
+                {uniqueColours.length > 1 && (
+                  <div className="v3-group">
+                    <label>Colour <span>{selectedSku?.colour}</span></label>
+                    <div className="v3-swatches">
+                      {uniqueColours.map(c => (
+                        <button
+                          key={c.id}
+                          className={selectedSku?.colour === c.colour ? 'active' : ''}
+                          onClick={() => setSelectedSku(skus.find(s => s.colour === c.colour && s.width_mm === (selectedSku?.width_mm || skus[0].width_mm)))}
+                          style={{ '--hex': c.colour_hex || '#e5e5e5' }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 核心动作 */}
+              <div className="v3-buy-box">
+                <div className="v3-qty">
+                  <button onClick={() => setQty(Math.max(1, qty - 1))}>−</button>
+                  <span>{qty}</span>
+                  <button onClick={() => setQty(qty + 1)}>+</button>
+                </div>
+                <button 
+                  className={`v3-add-btn ${added ? 'success' : ''}`}
+                  onClick={handleAdd}
+                  disabled={!inStock}
+                >
+                  {added ? 'Added to Basket' : inStock ? 'Add to Basket' : 'Sold Out'}
+                </button>
+              </div>
+
+              {/* 品牌叙事手风琴 */}
+              <div className="v3-accordion">
+                <details open>
+                  <summary>Details</summary>
+                  <div className="v3-text" dangerouslySetInnerHTML={{ __html: safe(product.description) }} />
+                </details>
+                <details>
+                  <summary>Shipping & Returns</summary>
+                  <div className="v3-text">
+                    Complimentary UK delivery on orders over £45. We ship globally with sustainable packaging.
+                  </div>
+                </details>
+              </div>
+            </div>
+          </aside>
         </div>
-      )}
+      </div>
 
-      {/* 注入此页面专属的高端样式 v2 */}
       <style jsx global>{`
         :root {
-          --v2-cream: #FDFBFA; /* 更暖的奶油底色 */
-          --v2-sand: #F5F1EB;   /* 用于对比的沙砾色 */
-          --v2-taupe: #968C83;  /* 优雅的灰褐色 */
-          --v2-ink: #1A1817;    /* 深邃但不死板的墨色 */
-          --v2-gold: #B89F7D;   /* 更显奢华的哑光金 */
-          --v2-border: #E8E2DA; /* 极细的边框颜色 */
-          --v2-font-serif: 'Cormorant Garamond', serif;
-          --v2-font-sans: 'Montserrat', sans-serif;
+          --v3-bg: #ffffff;
+          --v3-ink: #111111;
+          --v3-grey: #757575;
+          --v3-line: #eeeeee;
+          --v3-accent: #a69177;
+          --v3-serif: 'Cormorant Garamond', serif;
+          --v3-sans: 'Inter', sans-serif;
         }
 
-        /* 动画基础 */
-        @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(15px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .fade-in-up {
-          opacity: 0;
-          animation: fadeInUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-        }
-
-        body { background-color: var(--v2-cream); margin: 0; color: var(--v2-ink); font-family: var(--v2-font-sans); }
-
-        .v2-pp-layout {
-          display: grid;
-          grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr);
+        .v3-wrapper {
+          background: var(--v3-bg);
+          padding-top: 80px; /* 预留给标头的空间，防止覆盖 */
           min-height: 100vh;
         }
 
-        /* 左侧画廊 - 错落排版 */
-        .v2-gallery {
-          display: flex;
-          flex-direction: column;
-          gap: 10px; /* 极小的间距，制造沉浸感 */
-          padding: 10px;
-          background-color: var(--v2-sand);
+        .v3-nav {
+          padding: 20px 5%;
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          color: var(--v3-grey);
+          border-bottom: 1px solid var(--v3-line);
         }
-        .v2-img-frame {
-          width: 100%;
-          position: relative;
+        .v3-nav span { color: var(--v3-ink); }
+        .v3-nav a { color: inherit; text-decoration: none; }
+
+        .v3-container {
+          display: grid;
+          grid-template-columns: 1.1fr 0.9fr;
+          max-width: 1600px;
+          margin: 0 auto;
+        }
+
+        /* 画廊 */
+        .v3-gallery-section {
+          padding: 40px 5%;
+          border-right: 1px solid var(--v3-line);
+        }
+        .v3-main-stage {
+          aspect-ratio: 4/5;
+          background: #fbfbfb;
           overflow: hidden;
-          cursor: zoom-in;
-          background: #fff;
+          margin-bottom: 20px;
         }
-        .v2-img-frame img {
-          width: 100%;
-          height: 100%;
-          display: block;
-          object-fit: cover;
-          transition: transform 1.5s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        .v2-img-frame:hover img { transform: scale(1.05); }
-
-        /* 错落的画廊尺寸 */
-        .v2-frame-portrait { aspect-ratio: 3/4; width: 90%; margin-left: auto; } /* 窄图靠右 */
-        .v2-frame-landscape { aspect-ratio: 16/10; width: 100%; } /* 宽图占满 */
-        .v2-frame-portrait:nth-child(even) { margin-left: 0; margin-right: auto; } /* 偶数 Narrow 靠左 */
-
-        .v2-frame-overlay {
-          position: absolute; bottom: 20px; right: 20px;
-          background: rgba(255,255,255,0.8); backdrop-filter: blur(4px);
-          padding: 6px 12px; font-size: 9px; text-transform: uppercase;
-          letter-spacing: 0.2em; color: var(--v2-taupe); opacity: 0; transition: opacity 0.3s;
-        }
-        .v2-img-frame:hover .v2-frame-overlay { opacity: 1; }
-
-        .v2-image-placeholder { aspect-ratio: 3/4; background: linear-gradient(135deg, #eee 0%, #ddd 100%); width: 100%; }
-
-        /* 右侧详情 - 提升层次 */
-        .v2-details-sticky {
-          position: sticky; top: 0; height: 100vh;
-          overflow-y: auto; scrollbar-width: none;
-          background: var(--v2-cream);
-          border-left: 1px solid var(--v2-border);
-        }
-        .v2-details-sticky::-webkit-scrollbar { display: none; }
+        .v3-main-stage img { width: 100%; height: 100%; object-fit: cover; }
         
-        .v2-details-inner {
-          padding: 80px 15% 120px; /* 增大留白 */
-          max-width: 650px;
+        .v3-thumb-grid {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 10px;
+        }
+        .v3-thumb {
+          aspect-ratio: 1;
+          cursor: pointer;
+          opacity: 0.6;
+          transition: 0.3s;
+          border: 1px solid transparent;
+        }
+        .v3-thumb:hover, .v3-thumb.active { opacity: 1; border-color: var(--v3-ink); }
+        .v3-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* 信息面板 */
+        .v3-info-panel {
+          padding: 60px 10%;
+        }
+        .v3-sticky-content {
+          position: sticky;
+          top: 120px;
         }
 
-        .v2-breadcrumb {
-          font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em;
-          color: var(--v2-taupe); margin-bottom: 50px;
-        }
-        .v2-breadcrumb a { color: inherit; text-decoration: none; transition: color 0.3s; }
-        .v2-breadcrumb a:hover { color: var(--v2-ink); }
+        .v3-tag { font-size: 12px; color: var(--v3-accent); text-transform: uppercase; margin-bottom: 8px; }
+        .v3-title { font-family: var(--v3-serif); font-size: 42px; font-weight: 300; line-height: 1.1; margin-bottom: 15px; }
+        .v3-price { font-size: 24px; font-weight: 300; margin-bottom: 40px; }
 
-        .v2-collection-name {
-          font-size: 12px; text-transform: uppercase; letter-spacing: 0.3em;
-          color: var(--v2-gold); font-weight: 400; margin-bottom: 12px;
-        }
-        .v2-product-title {
-          font-family: var(--v2-font-serif);
-          font-size: clamp(32px, 4vw, 48px); /* 动态大小标题 */
-          font-weight: 300; line-height: 1.1; margin-bottom: 24px;
-        }
-        .v2-price-line {
-          display: flex; align-items: baseline; gap: 15px;
-          margin-bottom: 80px; padding-bottom: 20px; border-bottom: 1px solid var(--v2-border);
-        }
-        .v2-price-amount { font-family: var(--v2-font-serif); font-size: 30px; font-weight: 300; }
-        .v2-vat-note { font-size: 11px; color: var(--v2-taupe); font-style: italic; }
+        .v3-group { margin-bottom: 35px; }
+        .v3-group label { display: block; font-size: 11px; text-transform: uppercase; margin-bottom: 15px; color: var(--v3-grey); }
+        .v3-group label span { color: var(--v3-ink); margin-left: 10px; }
 
-        /* 选择器 v2 */
-        .v2-selector-group { margin-bottom: 50px; }
-        .v2-label-micro {
-          display: block; font-size: 10px; text-transform: uppercase;
-          letter-spacing: 0.2em; margin-bottom: 18px; color: var(--v2-taupe);
+        .v3-pills { display: flex; gap: 8px; }
+        .v3-pills button {
+          border: 1px solid var(--v3-line); background: none; padding: 10px 20px; font-size: 13px; cursor: pointer;
         }
-        
-        .v2-width-pills { display: flex; gap: 8px; flex-wrap: wrap; }
-        .v2-width-pills button {
-          background: #fff; border: 1px solid var(--v2-border);
-          padding: 10px 22px; font-size: 12px; color: var(--v2-ink);
-          cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          border-radius: 2px;
-        }
-        .v2-width-pills button.active { border-color: var(--v2-ink); background: var(--v2-ink); color: #fff; }
-        .v2-width-pills button:hover:not(.active) { border-color: var(--v2-taupe); }
+        .v3-pills button.active { background: var(--v3-ink); color: white; border-color: var(--v3-ink); }
 
-        .v2-colour-grid { display: flex; gap: 15px; flex-wrap: wrap; }
-        .v2-colour-grid button {
-          width: 38px; height: 38px; border-radius: 2px;
-          background-color: var(--colour-hex);
-          border: 1px solid rgba(0,0,0,0.05); /* 微小的内边框，模拟质感 */
-          cursor: pointer; position: relative; transition: all 0.3s;
+        .v3-swatches { display: flex; gap: 12px; }
+        .v3-swatches button {
+          width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--v3-line);
+          background: var(--hex); cursor: pointer; position: relative;
         }
-        /* 选中的颜色增加金属质感边框 */
-        .v2-colour-grid button.active {
-          box-shadow: 0 0 0 2px var(--v2-cream), 0 0 0 3px var(--v2-gold);
-          transform: translateY(-2px);
+        .v3-swatches button.active::after {
+          content: ''; position: absolute; inset: -4px; border: 1px solid var(--v3-ink); border-radius: 50%;
         }
 
-        /* 购买区域 v2 */
-        .v2-purchase-area {
-          display: flex; gap: 15px; height: 58px; margin-bottom: 20px;
-        }
-        .v2-qty-selector {
-          display: flex; align-items: center; background: #fff; border: 1px solid var(--v2-border); border-radius: 2px;
-        }
-        .v2-qty-selector button {
-          width: 45px; height: 100%; background: none; border: none; cursor: pointer;
-          font-size: 18px; color: var(--v2-taupe); transition: color 0.3s;
-        }
-        .v2-qty-selector button:hover { color: var(--v2-ink); }
-        .v2-qty-num { width: 30px; text-align: center; font-size: 14px; font-weight: 300; }
+        .v3-buy-box { display: flex; gap: 10px; margin-top: 50px; height: 55px; }
+        .v3-qty { display: flex; align-items: center; border: 1px solid var(--v3-line); }
+        .v3-qty button { width: 40px; height: 100%; background: none; border: none; cursor: pointer; font-size: 18px; }
+        .v3-qty span { width: 30px; text-align: center; font-size: 14px; }
 
-        .v2-btn-primary {
-          flex: 1; border: none; background: var(--v2-ink); color: #fff;
-          text-transform: uppercase; letter-spacing: 0.25em; font-size: 11px;
-          cursor: pointer; transition: all 0.4s; border-radius: 2px;
-          position: relative; overflow: hidden;
+        .v3-add-btn {
+          flex: 1; background: var(--v3-ink); color: white; border: none;
+          text-transform: uppercase; letter-spacing: 0.1em; font-size: 12px; cursor: pointer;
+          transition: 0.3s;
         }
-        .v2-btn-primary.is-added { background: var(--v2-gold); }
-        .v2-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+        .v3-add-btn:hover { opacity: 0.9; }
+        .v3-add-btn.success { background: #2d5a27; }
 
-        /* 微光掠过动效 */
-        @keyframes shimmer { 100% { left: 125%; } }
-        .v2-shimmer-effect::after {
-          content: ""; position: absolute; top: -50%; left: -125%;
-          width: 125%; height: 200%;
-          background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0) 100%);
-          transform: rotate(30deg);
+        .v3-accordion { margin-top: 60px; border-top: 1px solid var(--v3-line); }
+        .v3-accordion summary { 
+          padding: 20px 0; list-style: none; font-size: 12px; text-transform: uppercase; 
+          cursor: pointer; display: flex; justify-content: space-between;
         }
-        .v2-btn-primary:hover:not(:disabled)::after {
-          animation: shimmer 1s cubic-bezier(0.19, 1, 0.22, 1);
+        .v3-accordion summary::after { content: '+'; }
+        .v3-accordion details[open] summary::after { content: '-'; }
+        .v3-text { padding-bottom: 20px; font-size: 14px; line-height: 1.6; color: var(--v3-grey); }
+
+        @media (max-width: 900px) {
+          .v3-container { grid-template-columns: 1fr; }
+          .v3-gallery-section { border-right: none; border-bottom: 1px solid var(--v3-line); }
+          .v3-sticky-content { position: static; }
+          .v3-info-panel { padding: 40px 5%; }
         }
 
-        .v2-shipping-nudge {
-          font-size: 11px; line-height: 1.7; color: var(--v2-taupe);
-          margin-bottom: 90px; font-style: italic; font-weight: 300;
-        }
-
-        /* 信息手风琴 v2 */
-        .v2-accordion details { border-top: 1px solid var(--v2-border); }
-        .v2-accordion summary {
-          padding: 24px 0; list-style: none; cursor: pointer;
-          font-size: 11px; text-transform: uppercase; letter-spacing: 0.2em;
-          display: flex; justify-content: space-between; align-items: center; color: var(--v2-ink);
-        }
-        .v2-accordion summary::after { content: '→'; font-weight: 300; font-size: 14px; transition: transform 0.3s; }
-        .v2-accordion details[open] summary::after { transform: rotate(90deg); }
-        
-        .v2-accordion-content {
-          padding-bottom: 40px; font-size: 14px; line-height: 1.9; color: var(--v2-taupe);
-          max-width: 500px; font-weight: 300;
-        }
-        .v2-accordion-content b { color: var(--v2-ink); font-weight: 400; }
-
-        /* 奢华全屏灯箱 */
-        .v2-lightbox {
-          position: fixed; inset: 0; z-index: 1000;
-          background: rgba(26,24,23,0.97); backdrop-filter: blur(5px);
-          display: flex; align-items: center; justify-content: center; cursor: zoom-out;
-          animation: fadeInUp 0.5s ease;
-        }
-        .v2-lightbox img { max-width: 90%; max-height: 90vh; object-fit: contain; box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
-        .v2-lightbox-close {
-          position: absolute; top: 30px; right: 40px; color: #fff;
-          font-size: 11px; text-transform: uppercase; letter-spacing: 0.2em; cursor: pointer;
-        }
-
-        /* 移动端奢华适配 */
-        @media (max-width: 1024px) {
-          .v2-pp-layout { grid-template-columns: 1fr; }
-          .v2-details-sticky { height: auto; position: relative; border-left: none; }
-          .v2-details-inner { padding: 50px 24px; }
-          .v2-gallery { flex-direction: row; overflow-x: auto; scroll-snap-type: x mandatory; padding: 0; gap: 0; }
-          .v2-img-frame { flex: 0 0 100%; scroll-snap-align: center; aspect-ratio: 1/1 !important; width: 100% !important; margin: 0 !important; }
-          .v2-frame-overlay { display: none; }
-          .v2-price-line { margin-bottom: 50px; }
-        }
-
-        /* 重新设计的 Loading 和 Error */
-        .v2-loading, .v2-error {
-          height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
-          background: var(--v2-cream); color: var(--v2-taupe); gap: 20px; padding: 40px; text-align: center;
-        }
-        .v2-loading-spinner {
-          width: 30px; height: 30px; border: 1px solid var(--v2-border); border-top-color: var(--v2-gold);
-          border-radius: 50%; animation: spin 1s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .v2-btn-secondary {
-          background: none; border: 1px solid var(--v2-border); padding: 12px 30px;
-          color: var(--v2-ink); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
-          text-decoration: none; border-radius: 2px; transition: all 0.3s;
-        }
-        .v2-btn-secondary:hover { border-color: var(--v2-ink); }
+        .loader { height: 100vh; display: flex; align-items: center; justify-content: center; font-family: var(--v3-serif); font-style: italic; }
       `}</style>
     </>
   )

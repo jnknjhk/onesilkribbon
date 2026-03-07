@@ -7,8 +7,10 @@ import { formatGBP, calculateTotals } from '@/lib/pricing'
 
 export default function CheckoutPage() {
   const router = useRouter()
-  const { items, subtotal, clearCart } = useCart()
-  const totals = calculateTotals(subtotal)
+  const { items, getSubtotal, clearCart } = useCart()
+  const subtotalValue = getSubtotal ? getSubtotal() : 0
+  const totals = calculateTotals(subtotalValue)
+
 
   const [step, setStep] = useState('details') // details | payment
   const [loading, setLoading] = useState(false)

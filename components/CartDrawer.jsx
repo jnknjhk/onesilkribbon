@@ -8,8 +8,9 @@ export function CartProvider({ children }) {
 }
 
 export function CartDrawer() {
-  const { items, isOpen, closeCart, removeItem, updateQty, subtotal } = useCart()
-  const totals = calculateTotals(subtotal)
+    const { items, isOpen, closeCart, removeItem, updateQty, getSubtotal } = useCart()
+    const totals = calculateTotals(getSubtotal ? getSubtotal() : 0)
+
 
   return (
     <>

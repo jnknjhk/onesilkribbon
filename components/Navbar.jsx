@@ -6,8 +6,10 @@ import { useCart } from '@/lib/cart'
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  const { items, isOpen, toggleCart } = useCart()
-  const itemCount = items.reduce((s, i) => s + i.qty, 0)
+  
+  // 修复点：从 useCart 中解构 getItemCount 方法，并调用它获取 itemCount
+  const { items, isOpen, toggleCart, getItemCount } = useCart()
+  const itemCount = getItemCount ? getItemCount() : 0
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50)
@@ -110,7 +112,7 @@ export function Navbar() {
                 fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 300,
                 color: 'var(--ink)', padding: '12px 0',
               }}>
-              {c.name}
+                {c.name}
             </Link>
           ))}
           <div style={{ height: 1, width: 60, background: 'var(--warm)', margin: '16px 0' }} />

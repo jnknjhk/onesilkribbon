@@ -6,7 +6,8 @@ import { useCart } from '@/lib/cart'
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  const { itemCount, toggleCart } = useCart()
+  const { items, isOpen, toggleCart } = useCart()
+  const itemCount = items.reduce((s, i) => s + i.qty, 0)
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50)
@@ -34,7 +35,6 @@ export function Navbar() {
         borderBottom: scrolled ? '1px solid var(--sand)' : 'none',
         transition: 'all 0.4s ease',
       }}>
-        {/* Logo */}
         <Link href="/" style={{
           fontFamily: 'var(--font-display)', fontSize: 18,
           letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink)',
@@ -42,7 +42,6 @@ export function Navbar() {
           One <em style={{ fontStyle: 'italic', fontWeight: 300 }}>Silk</em> Ribbon
         </Link>
 
-        {/* Desktop links */}
         <ul style={{ display: 'flex', gap: 44, listStyle: 'none', margin: 0 }}
           className="nav-desktop">
           {[
@@ -63,7 +62,6 @@ export function Navbar() {
           ))}
         </ul>
 
-        {/* Right icons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
           <Link href="/track-order" style={{
             fontSize: 11, letterSpacing: '0.18em',
@@ -72,10 +70,9 @@ export function Navbar() {
             Track Order
           </Link>
 
-          {/* Cart */}
           <button onClick={toggleCart} style={{
             background: 'none', border: 'none', position: 'relative',
-            display: 'flex', alignItems: 'center',
+            display: 'flex', alignItems: 'center', cursor: 'pointer',
           }}>
             <CartIcon />
             {itemCount > 0 && (
@@ -91,16 +88,14 @@ export function Navbar() {
             )}
           </button>
 
-          {/* Mobile hamburger */}
           <button onClick={() => setMenuOpen(!menuOpen)}
             className="nav-mobile"
-            style={{ background: 'none', border: 'none' }}>
+            style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
             <HamburgerIcon open={menuOpen} />
           </button>
         </div>
       </nav>
 
-      {/* Mobile menu */}
       {menuOpen && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 99,
@@ -133,12 +128,8 @@ export function Navbar() {
           transition: width 0.4s ease;
         }
         .nav-link:hover::after { width: 100%; }
-        @media (max-width: 900px) {
-          .nav-desktop { display: none !important; }
-        }
-        @media (min-width: 901px) {
-          .nav-mobile { display: none !important; }
-        }
+        @media (max-width: 900px) { .nav-desktop { display: none !important; } }
+        @media (min-width: 901px) { .nav-mobile { display: none !important; } }
         nav { padding-left: clamp(24px, 4vw, 60px) !important; padding-right: clamp(24px, 4vw, 60px) !important; }
       `}</style>
     </>

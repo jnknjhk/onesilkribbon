@@ -1,7 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { formatGBP } from '@/lib/pricing'
 import { useCart } from '@/lib/cart'
@@ -28,7 +27,6 @@ export default function CollectionPage({ params }) {
   useEffect(() => {
     async function load() {
       setLoading(true)
-      // Fetch products in this collection
       const { data: prods, error } = await supabase
         .from('products')
         .select('id, name, slug, images, is_featured, collection')
@@ -37,7 +35,6 @@ export default function CollectionPage({ params }) {
 
       if (error) { console.error(error); setLoading(false); return }
 
-      // For each product, get lowest price SKU
       const enriched = await Promise.all((prods || []).map(async (p) => {
         const { data: skus } = await supabase
           .from('product_skus')
@@ -62,14 +59,11 @@ export default function CollectionPage({ params }) {
     if (sort === 'price-asc')  return a.lowestPrice - b.lowestPrice
     if (sort === 'price-desc') return b.lowestPrice - a.lowestPrice
     if (sort === 'name')       return a.name.localeCompare(b.name)
-    if (sort === 'default')    return (b.is_featured ? 1 : 0) - (a.is_featured ? 1 : 0)
-    return 0
+    return (b.is_featured ? 1 : 0) - (a.is_featured ? 1 : 0)
   })
 
   return (
     <div style={{ paddingTop: 100, background: 'var(--cream)', minHeight: '100vh' }}>
-
-      {/* Hero banner */}
       <div style={{
         height: 360, background: meta.bg,
         display: 'flex', flexDirection: 'column',
@@ -90,7 +84,6 @@ export default function CollectionPage({ params }) {
         </div>
       </div>
 
-      {/* Toolbar */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '24px 60px', borderBottom: '1px solid var(--sand)',
@@ -111,7 +104,6 @@ export default function CollectionPage({ params }) {
         </div>
       </div>
 
-      {/* Products grid */}
       <div style={{ padding: '48px 60px 120px' }} className="prod-list-pad">
         {loading ? (
           <div style={{ textAlign: 'center', padding: '80px 0' }}>
@@ -130,10 +122,10 @@ export default function CollectionPage({ params }) {
                     skuId: p.firstSku.id,
                     productId: p.id,
                     name: p.name,
-                    skuDesc: p.firstSku.colour,
-                    colour: p.firstSku.colour,
-                    colourHex: p.firstSku.colour_hex,
-                    price: p.firstSku.price_gbp,
+                    skuDesc: String(p.firstSku.colour || ''),
+                    colour: String(p.firstSku.colour || ''),
+                    colourHex: String(p.firstSku.colour_hex || '#D4C5B0'),
+                    price: Number(p.firstSku.price_gbp) || 0,
                     qty: 1,
                     image: p.images?.[0] || null,
                   })
@@ -157,16 +149,13 @@ export default function CollectionPage({ params }) {
 
 function ProductCard({ product: p, onAdd }) {
   const img = p.images?.[0]
+  const price = Number(p.lowestPrice) || 0
   return (
     <div className="prod-card-inner">
       <div style={{ aspectRatio: '3/4', overflow: 'hidden', background: 'var(--sand)', marginBottom: 20, position: 'relative' }}>
         {img ? (
-          <img
-            src={img}
-            alt={p.name}
-            className="prod-card-img"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.7s cubic-bezier(0.25,0.46,0.45,0.94)' }}
-          />
+          <img src={img} alt={p.name} className="prod-card-img"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.7s cubic-bezier(0.25,0.46,0.45,0.94)' }} />
         ) : (
           <div className="prod-card-img" style={{ width: '100%', height: '100%', background: 'linear-gradient(170deg,#E8DDD0,#C4A882)', transition: 'transform 0.7s cubic-bezier(0.25,0.46,0.45,0.94)' }} />
         )}
@@ -187,13 +176,13 @@ function ProductCard({ product: p, onAdd }) {
       <Link href={`/products/${p.slug}`} style={{ textDecoration: 'none' }}>
         <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 400, color: 'var(--ink)', marginBottom: 6, lineHeight: 1.3 }}>{p.name}</h3>
         <p style={{ fontFamily: 'var(--font-display)', fontSize: 20, color: 'var(--deep)', marginTop: 8 }}>
-          {p.lowestPrice > 0 ? `From ${formatGBP(p.lowestPrice)}` : ''}
+          {price > 0 ? `From ${formatGBP(price)}` : ''}
         </p>
       </Link>
-      {p.swatches.length > 0 && (
+      {p.swatches && p.swatches.length > 0 && (
         <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
           {p.swatches.map((hex, i) => (
-            <div key={i} style={{ width: 12, height: 12, borderRadius: '50%', background: hex, border: '1px solid var(--warm)' }} />
+            <div key={i} style={{ width: 12, height: 12, borderRadius: '50%', background: String(hex), border: '1px solid var(--warm)' }} />
           ))}
         </div>
       )}

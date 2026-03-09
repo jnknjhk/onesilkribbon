@@ -48,7 +48,7 @@ export function Navbar() {
           className="nav-desktop">
           {[
             { href: '/collections', label: 'Collections' },
-            { href: '/collections/fine-silk-ribbons', label: 'The Palette' },
+            { href: '/palette', label: 'The Palette' },
             { href: '/about', label: 'Our Story' },
             { href: '/bespoke', label: 'Bespoke' },
             { href: '/journal', label: 'Journal' },

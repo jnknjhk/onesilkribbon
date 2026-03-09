@@ -158,13 +158,21 @@ function Collections() {
 
 function PaletteBand() {
   return (
-    <section style={{ height: 400, display: 'flex', background: 'var(--deep)', overflow: 'hidden' }} className="reveal">
-      {PALETTE.map(p => (
-        <div key={p.name} className="palette-swatch" style={{ flex: 1, background: p.hex, transition: 'flex 0.6s cubic-bezier(0.25,0.46,0.45,0.94)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-          <span className="swatch-name" style={{ opacity: 0, color: p.dark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.6)', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', transform: 'rotate(-90deg)', whiteSpace: 'nowrap', transition: 'opacity 0.4s' }}>{p.name}</span>
+    <Link href="/palette" style={{ textDecoration: 'none', display: 'block', position: 'relative' }}>
+      <section style={{ height: 400, display: 'flex', background: 'var(--deep)', overflow: 'hidden', cursor: 'pointer' }} className="reveal palette-band">
+        {PALETTE.map(p => (
+          <div key={p.name} className="palette-swatch" style={{ flex: 1, background: p.hex, transition: 'flex 0.6s cubic-bezier(0.25,0.46,0.45,0.94)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+            <span className="swatch-name" style={{ opacity: 0, color: p.dark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.6)', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', transform: 'rotate(-90deg)', whiteSpace: 'nowrap', transition: 'opacity 0.4s' }}>{p.name}</span>
+          </div>
+        ))}
+        <div style={{ position: 'absolute', bottom: 32, left: '50%', transform: 'translateX(-50%)', pointerEvents: 'none' }} className="palette-cta">
+          <span style={{ fontSize: 9, letterSpacing: '.32em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)', background: 'rgba(0,0,0,0.3)', padding: '8px 20px', backdropFilter: 'blur(4px)', whiteSpace: 'nowrap' }}>
+            Explore The Palette →
+          </span>
         </div>
-      ))}
-    </section>
+      </section>
+      <style>{`.palette-band:hover .palette-cta span { color: #fff !important; background: rgba(0,0,0,0.5) !important; }`}</style>
+    </Link>
   )
 }
 

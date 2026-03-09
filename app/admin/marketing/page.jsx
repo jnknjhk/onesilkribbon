@@ -76,11 +76,11 @@ export default function MarketingPage() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
         <div>
-          <h1 style={{ color: 'rgba(255,255,255,0.88)', fontSize: 24, fontWeight: 300, marginBottom: 8 }}>营销管理</h1>
-          <p style={{ color: 'rgba(255,255,255,0.22)', fontSize: 13 }}>创建和管理优惠码</p>
+          <h1 style={{ color: '#1C1714', fontSize: 24, fontWeight: 300, marginBottom: 8 }}>营销管理</h1>
+          <p style={{ color: '#A8A4A0', fontSize: 13 }}>创建和管理优惠码</p>
         </div>
         <button onClick={() => { setForm(EMPTY); setEditing(null); setShowForm(true) }}
-          style={{ background: '#B89B6A', border: 'none', borderRadius: 8, color: 'rgba(255,255,255,0.88)', fontSize: 12, padding: '10px 20px', cursor: 'pointer', letterSpacing: '.1em' }}>
+          style={{ background: '#B89B6A', border: 'none', borderRadius: 8, color: '#1C1714', fontSize: 12, padding: '10px 20px', cursor: 'pointer', letterSpacing: '.1em' }}>
           + 新建优惠码
         </button>
       </div>
@@ -92,8 +92,8 @@ export default function MarketingPage() {
           { label: '当前有效', value: coupons.filter(c => c.active && !isExpired(c)).length, color: '#4ade80' },
           { label: '累计使用次数', value: coupons.reduce((s, c) => s + (c.uses_count || 0), 0), color: '#B89B6A' },
         ].map(({ label, value, color }) => (
-          <div key={label} style={{ background: '#242220', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '20px 24px' }}>
-            <p style={{ color: 'rgba(255,255,255,0.22)', fontSize: 11, letterSpacing: '.15em', textTransform: 'uppercase', marginBottom: 10 }}>{label}</p>
+          <div key={label} style={{ background: '#FFFFFF', border: '1px solid #E8E4DF', borderRadius: 12, padding: '20px 24px' }}>
+            <p style={{ color: '#A8A4A0', fontSize: 11, letterSpacing: '.15em', textTransform: 'uppercase', marginBottom: 10 }}>{label}</p>
             <p style={{ color: color || '#fff', fontSize: 28, fontWeight: 300 }}>{value}</p>
           </div>
         ))}
@@ -101,15 +101,15 @@ export default function MarketingPage() {
 
       <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
         {/* Table */}
-        <div style={{ flex: 1, background: '#242220', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, overflow: 'hidden' }}>
-          {loading ? <p style={{ color: 'rgba(255,255,255,0.22)', padding: 24 }}>加载中…</p> : coupons.length === 0 ? (
-            <p style={{ color: 'rgba(255,255,255,0.22)', padding: 24, fontSize: 13 }}>暂无优惠码，点击右上角新建</p>
+        <div style={{ flex: 1, background: '#FFFFFF', border: '1px solid #E8E4DF', borderRadius: 12, overflow: 'hidden' }}>
+          {loading ? <p style={{ color: '#A8A4A0', padding: 24 }}>加载中…</p> : coupons.length === 0 ? (
+            <p style={{ color: '#A8A4A0', padding: 24, fontSize: 13 }}>暂无优惠码，点击右上角新建</p>
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                <tr style={{ borderBottom: '1px solid #E8E4DF' }}>
                   {['优惠码', '折扣', '最低订单', '使用情况', '有效期', '状态', '操作'].map(h => (
-                    <th key={h} style={{ padding: '12px 16px', textAlign: 'left', color: 'rgba(255,255,255,0.3)', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase' }}>{h}</th>
+                    <th key={h} style={{ padding: '12px 16px', textAlign: 'left', color: '#8A8480', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -117,14 +117,14 @@ export default function MarketingPage() {
                 {coupons.map(c => {
                   const expired = isExpired(c)
                   return (
-                    <tr key={c.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', opacity: expired ? 0.5 : 1 }}>
+                    <tr key={c.id} style={{ borderBottom: '1px solid #F0EDE8', opacity: expired ? 0.5 : 1 }}>
                       <td style={{ padding: '13px 16px' }}>
-                        <p style={{ color: 'rgba(255,255,255,0.88)', fontSize: 13, fontFamily: 'monospace', letterSpacing: '.08em' }}>{c.code}</p>
-                        {c.description && <p style={{ color: 'rgba(255,255,255,0.22)', fontSize: 11, marginTop: 3 }}>{c.description}</p>}
+                        <p style={{ color: '#1C1714', fontSize: 13, fontFamily: 'monospace', letterSpacing: '.08em' }}>{c.code}</p>
+                        {c.description && <p style={{ color: '#A8A4A0', fontSize: 11, marginTop: 3 }}>{c.description}</p>}
                       </td>
                       <td style={{ padding: '13px 16px', color: '#B89B6A', fontSize: 13 }}>{fmtDiscount(c)}</td>
-                      <td style={{ padding: '13px 16px', color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>{c.min_order_gbp > 0 ? `£${c.min_order_gbp}` : '无要求'}</td>
-                      <td style={{ padding: '13px 16px', color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>
+                      <td style={{ padding: '13px 16px', color: '#8A8480', fontSize: 12 }}>{c.min_order_gbp > 0 ? `£${c.min_order_gbp}` : '无要求'}</td>
+                      <td style={{ padding: '13px 16px', color: '#8A8480', fontSize: 12 }}>
                         {c.uses_count || 0}{c.max_uses ? ` / ${c.max_uses}` : ' / ∞'}
                       </td>
                       <td style={{ padding: '13px 16px', color: expired ? '#f87171' : '#888', fontSize: 12 }}>{fmtDate(c.expires_at)}</td>
@@ -136,8 +136,8 @@ export default function MarketingPage() {
                       </td>
                       <td style={{ padding: '13px 16px' }}>
                         <div style={{ display: 'flex', gap: 8 }}>
-                          <button onClick={() => startEdit(c)} style={{ background: '#333130', border: 'none', borderRadius: 4, color: '#B89B6A', fontSize: 11, padding: '5px 10px', cursor: 'pointer' }}>编辑</button>
-                          <button onClick={() => deleteCoupon(c.id)} style={{ background: '#333130', border: 'none', borderRadius: 4, color: '#f87171', fontSize: 11, padding: '5px 10px', cursor: 'pointer' }}>删除</button>
+                          <button onClick={() => startEdit(c)} style={{ background: '#EDE9E4', border: 'none', borderRadius: 4, color: '#B89B6A', fontSize: 11, padding: '5px 10px', cursor: 'pointer' }}>编辑</button>
+                          <button onClick={() => deleteCoupon(c.id)} style={{ background: '#EDE9E4', border: 'none', borderRadius: 4, color: '#f87171', fontSize: 11, padding: '5px 10px', cursor: 'pointer' }}>删除</button>
                         </div>
                       </td>
                     </tr>
@@ -150,10 +150,10 @@ export default function MarketingPage() {
 
         {/* Form panel */}
         {showForm && (
-          <div style={{ width: 340, background: '#242220', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 24, flexShrink: 0 }}>
+          <div style={{ width: 340, background: '#FFFFFF', border: '1px solid #E8E4DF', borderRadius: 12, padding: 24, flexShrink: 0 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
-              <h2 style={{ color: 'rgba(255,255,255,0.88)', fontSize: 15, fontWeight: 400 }}>{editing ? '编辑优惠码' : '新建优惠码'}</h2>
-              <button onClick={() => { setShowForm(false); setEditing(null) }} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.22)', cursor: 'pointer', fontSize: 18 }}>×</button>
+              <h2 style={{ color: '#1C1714', fontSize: 15, fontWeight: 400 }}>{editing ? '编辑优惠码' : '新建优惠码'}</h2>
+              <button onClick={() => { setShowForm(false); setEditing(null) }} style={{ background: 'none', border: 'none', color: '#A8A4A0', cursor: 'pointer', fontSize: 18 }}>×</button>
             </div>
 
             {[
@@ -165,14 +165,14 @@ export default function MarketingPage() {
               { label: '有效期至（空=永久）', key: 'expires_at', type: 'date', placeholder: '' },
             ].map(({ label, key, type, placeholder }) => (
               <div key={key} style={{ marginBottom: 14 }}>
-                <label style={{ display: 'block', color: 'rgba(255,255,255,0.3)', fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 6 }}>{label}</label>
+                <label style={{ display: 'block', color: '#8A8480', fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 6 }}>{label}</label>
                 <input type={type} value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} placeholder={placeholder}
-                  style={{ width: '100%', padding: '9px 12px', background: '#1A1816', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, color: 'rgba(255,255,255,0.88)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+                  style={{ width: '100%', padding: '9px 12px', background: '#F5F3F0', border: '1px solid #E8E4DF', borderRadius: 6, color: '#1C1714', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
               </div>
             ))}
 
             <div style={{ marginBottom: 14 }}>
-              <label style={{ display: 'block', color: 'rgba(255,255,255,0.3)', fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 6 }}>折扣类型</label>
+              <label style={{ display: 'block', color: '#8A8480', fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 6 }}>折扣类型</label>
               <div style={{ display: 'flex', gap: 8 }}>
                 {[['percentage', '百分比折扣'], ['fixed', '固定金额减免']].map(([val, label]) => (
                   <button key={val} onClick={() => setForm(p => ({ ...p, discount_type: val }))}
@@ -181,7 +181,7 @@ export default function MarketingPage() {
                   </button>
                 ))}
               </div>
-              <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, marginTop: 6 }}>
+              <p style={{ color: '#8A8480', fontSize: 11, marginTop: 6 }}>
                 {form.discount_type === 'percentage' ? '例：10 = 打九折（减少10%）' : '例：5 = 减£5'}
               </p>
             </div>
@@ -189,13 +189,13 @@ export default function MarketingPage() {
             <div style={{ marginBottom: 20 }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
                 <input type="checkbox" checked={form.active} onChange={e => setForm(p => ({ ...p, active: e.target.checked }))} />
-                <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>立即生效</span>
+                <span style={{ color: '#504C48', fontSize: 13 }}>立即生效</span>
               </label>
             </div>
 
             {msg && <p style={{ color: msg.includes('✓') ? '#4ade80' : '#f87171', fontSize: 12, marginBottom: 12 }}>{msg}</p>}
             <button onClick={saveCoupon} disabled={saving}
-              style={{ width: '100%', padding: '11px', background: '#B89B6A', border: 'none', borderRadius: 6, color: 'rgba(255,255,255,0.88)', fontSize: 12, letterSpacing: '.15em', cursor: 'pointer' }}>
+              style={{ width: '100%', padding: '11px', background: '#B89B6A', border: 'none', borderRadius: 6, color: '#1C1714', fontSize: 12, letterSpacing: '.15em', cursor: 'pointer' }}>
               {saving ? '保存中…' : editing ? '保存修改' : '创建优惠码'}
             </button>
           </div>

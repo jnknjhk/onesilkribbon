@@ -1,7 +1,8 @@
 'use client'
 import { usePathname } from 'next/navigation'
+import CookieBanner from '@/components/CookieBanner'
 
-export default function ShellWrapper({ children, navbar, cartDrawer, footer, cookieBanner }) {
+export default function ShellWrapper({ children, navbar, cartDrawer, footer }) {
   const pathname = usePathname()
   const isAdmin = pathname?.startsWith('/admin')
 
@@ -13,7 +14,7 @@ export default function ShellWrapper({ children, navbar, cartDrawer, footer, coo
       {cartDrawer}
       <main>{children}</main>
       {footer}
-      {cookieBanner}
+      <CookieBanner />
     </>
   )
 }

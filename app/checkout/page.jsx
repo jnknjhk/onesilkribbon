@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCart } from '@/lib/cart'
@@ -9,7 +9,22 @@ export default function CheckoutPage() {
   const router = useRouter()
   const { items, getSubtotal, clearCart } = useCart()
   const subtotalValue = getSubtotal ? getSubtotal() : 0
-  const totals = calculateTotals(subtotalValue)
+
+  const [shippingSettings, setShippingSettings] = useState(null)
+  const totals = calculateTotals(subtotalValue, shippingSettings)
+
+  useEffect(() => {
+    fetch('/api/settings')
+      .then(r => r.json())
+      .then(data => {
+        setShippingSettings({
+          shippingRate: parseFloat(data.shipping_rate) || 3.95,
+          freeShippingThreshold: parseFloat(data.free_shipping_threshold) || 45.00,
+          freeShippingEnabled: data.free_shipping_enabled !== 'false',
+        })
+      })
+      .catch(() => {})
+  }, [])
 
 
   const [step, setStep] = useState('details') // details | payment
@@ -21,10 +36,6 @@ export default function CheckoutPage() {
     phone: '',
   })
   const [errors, setErrors] = useState({})
-  const [couponCode, setCouponCode] = useState('')
-  const [coupon, setCoupon] = useState(null)
-  const [couponError, setCouponError] = useState('')
-  const [couponLoading, setCouponLoading] = useState(false)
 
   if (items.length === 0) {
     return (
@@ -49,26 +60,6 @@ export default function CheckoutPage() {
     return Object.keys(e).length === 0
   }
 
-  const applyCoupon = async () => {
-    if (!couponCode.trim()) return
-    setCouponLoading(true)
-    setCouponError('')
-    try {
-      const res = await fetch('/api/coupon', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: couponCode, subtotal: subtotalValue }),
-      })
-      const data = await res.json()
-      if (data.valid) { setCoupon(data); setCouponError('') }
-      else setCouponError(data.error || '优惠码无效')
-    } catch { setCouponError('验证失败，请重试') }
-    setCouponLoading(false)
-  }
-
-  const discountAmount = coupon ? coupon.discountAmount : 0
-  const totalsWithDiscount = calculateTotals(subtotalValue - discountAmount)
-
   const handleContinue = () => {
     if (validate()) setStep('payment')
   }
@@ -80,7 +71,7 @@ export default function CheckoutPage() {
       const res = await fetch('/api/stripe/create-payment-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items, form, totals: totalsWithDiscount, coupon }),
+        body: JSON.stringify({ items, form, totals }),
       })
       const { clientSecret, orderId } = await res.json()
 
@@ -88,7 +79,7 @@ export default function CheckoutPage() {
       const stripeRes = await fetch('/api/stripe/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items, form, totals: totalsWithDiscount, coupon }),
+        body: JSON.stringify({ items, form, totals }),
       })
       const { url } = await stripeRes.json()
       if (url) window.location.href = url
@@ -104,7 +95,7 @@ export default function CheckoutPage() {
       const res = await fetch('/api/paypal/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items, form, totals: totalsWithDiscount, coupon }),
+        body: JSON.stringify({ items, form, totals }),
       })
       const { approvalUrl } = await res.json()
       if (approvalUrl) window.location.href = approvalUrl
@@ -230,7 +221,7 @@ export default function CheckoutPage() {
               </div>
 
               <button className="btn-primary" onClick={handleSubmit} disabled={loading}>
-                {loading ? 'Processing…' : `Place Order · ${formatGBP(totalsWithDiscount.total)}`}
+                {loading ? 'Processing…' : `Place Order · ${formatGBP(totals.total)}`}
               </button>
 
               <p style={{ fontSize: 11, color: 'var(--taupe)', textAlign: 'center', marginTop: 16, lineHeight: 1.8 }}>
@@ -268,39 +259,19 @@ export default function CheckoutPage() {
               ))}
             </div>
 
-            {/* Coupon code */}
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input
-                  value={couponCode}
-                  onChange={e => { setCouponCode(e.target.value); setCouponError(''); setCoupon(null) }}
-                  onKeyDown={e => e.key === 'Enter' && applyCoupon()}
-                  placeholder="优惠码 / Promo code"
-                  style={{ flex: 1, padding: '10px 12px', background: 'var(--cream)', border: '1px solid var(--warm)', fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--ink)', outline: 'none' }}
-                />
-                <button onClick={applyCoupon} disabled={couponLoading}
-                  style={{ padding: '10px 16px', background: 'var(--ink)', border: 'none', color: '#fff', fontSize: 11, letterSpacing: '.1em', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                  {couponLoading ? '…' : '使用'}
-                </button>
-              </div>
-              {couponError && <p style={{ fontSize: 11, color: '#C0392B', marginTop: 6 }}>{couponError}</p>}
-              {coupon && <p style={{ fontSize: 11, color: '#2E7D32', marginTop: 6 }}>✓ {coupon.description || coupon.code} 已应用</p>}
-            </div>
-
             {/* Totals */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <SummaryRow label="Subtotal (exc. VAT)" value={formatGBP(totalsWithDiscount.subtotalExVat)} />
-              <SummaryRow label="VAT (20%)" value={formatGBP(totalsWithDiscount.vatAmount)} />
-              {coupon && <SummaryRow label={`Promo: ${coupon.code}`} value={`-${formatGBP(discountAmount)}`} highlight />}
-              <SummaryRow label="Shipping" value={totalsWithDiscount.freeShipping ? 'Free' : formatGBP(totalsWithDiscount.shipping)} />
+              <SummaryRow label="Subtotal (exc. VAT)" value={formatGBP(totals.subtotalExVat)} />
+              <SummaryRow label="VAT (20%)" value={formatGBP(totals.vatAmount)} />
+              <SummaryRow label="Shipping" value={totals.freeShipping ? 'Free' : formatGBP(totals.shipping)} />
               <div style={{ height: 1, background: 'var(--warm)', margin: '8px 0' }} />
-              <SummaryRow label="Total" value={formatGBP(totalsWithDiscount.total)} bold />
+              <SummaryRow label="Total" value={formatGBP(totals.total)} bold />
             </div>
 
             {/* Free shipping indicator */}
-            {!totalsWithDiscount.freeShipping && (
+            {!totals.freeShipping && (
               <div style={{ marginTop: 20, padding: '12px 16px', background: 'var(--cream)', fontSize: 11, color: 'var(--taupe)' }}>
-                Add {formatGBP(totalsWithDiscount.amountToFreeShipping)} more for free shipping
+                Add {formatGBP(totals.amountToFreeShipping)} more for free shipping
               </div>
             )}
           </div>
@@ -322,9 +293,9 @@ export default function CheckoutPage() {
   )
 }
 
-function SummaryRow({ label, value, bold, highlight }) {
+function SummaryRow({ label, value, bold }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: bold ? 14 : 12, color: highlight ? '#2E7D32' : bold ? 'var(--ink)' : 'var(--taupe)' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: bold ? 14 : 12, color: bold ? 'var(--ink)' : 'var(--taupe)' }}>
       <span style={{ letterSpacing: '0.04em' }}>{label}</span>
       <span style={{ fontFamily: bold ? 'var(--font-display)' : 'inherit', fontSize: bold ? 20 : 12 }}>{value}</span>
     </div>

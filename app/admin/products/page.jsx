@@ -42,26 +42,26 @@ export default function ProductsPage() {
   return (
     <div style={{ display: 'flex', gap: 24, height: 'calc(100vh - 80px)' }}>
       <div style={{ flex: 1, overflow: 'auto' }}>
-        <h1 style={{ color: '#fff', fontSize: 24, fontWeight: 300, marginBottom: 24 }}>产品管理</h1>
-        {loading ? <p style={{ color: '#555' }}>加载中…</p> : (
-          <div style={{ background: '#1a1a1a', border: '1px solid #222', borderRadius: 12, overflow: 'hidden' }}>
+        <h1 style={{ color: 'rgba(255,255,255,0.88)', fontSize: 24, fontWeight: 300, marginBottom: 24 }}>产品管理</h1>
+        {loading ? <p style={{ color: 'rgba(255,255,255,0.22)' }}>加载中…</p> : (
+          <div style={{ background: '#242220', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid #222' }}>
+                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
                   {['产品名称','系列','SKU数','状态','操作'].map(h => (
-                    <th key={h} style={{ padding: '12px 20px', textAlign: 'left', color: '#444', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase' }}>{h}</th>
+                    <th key={h} style={{ padding: '12px 20px', textAlign: 'left', color: 'rgba(255,255,255,0.3)', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {products.map(p => (
-                  <tr key={p.id} style={{ borderBottom: '1px solid #1f1f1f' }}>
+                  <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                     <td style={{ padding: '14px 20px' }}>
-                      <p style={{ color: '#ddd', fontSize: 13 }}>{p.name}</p>
-                      <p style={{ color: '#555', fontSize: 11, marginTop: 3 }}>{p.slug}</p>
+                      <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13 }}>{p.name}</p>
+                      <p style={{ color: 'rgba(255,255,255,0.22)', fontSize: 11, marginTop: 3 }}>{p.slug}</p>
                     </td>
-                    <td style={{ padding: '14px 20px', color: '#888', fontSize: 12 }}>{collectionLabel[p.collection] || p.collection}</td>
-                    <td style={{ padding: '14px 20px', color: '#888', fontSize: 12 }}>{p.sku_count || '-'}</td>
+                    <td style={{ padding: '14px 20px', color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>{collectionLabel[p.collection] || p.collection}</td>
+                    <td style={{ padding: '14px 20px', color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>{p.sku_count || '-'}</td>
                     <td style={{ padding: '14px 20px' }}>
                       <span style={{ background: p.active !== false ? '#4ade8022' : '#f8717122', color: p.active !== false ? '#4ade80' : '#f87171', fontSize: 11, padding: '3px 10px', borderRadius: 20 }}>
                         {p.active !== false ? '上架' : '下架'}
@@ -69,7 +69,7 @@ export default function ProductsPage() {
                     </td>
                     <td style={{ padding: '14px 20px' }}>
                       <button onClick={() => setEditing({ ...p })}
-                        style={{ background: '#2a2a2a', border: 'none', borderRadius: 6, color: '#B89B6A', fontSize: 11, padding: '6px 14px', cursor: 'pointer' }}>
+                        style={{ background: '#333130', border: 'none', borderRadius: 6, color: '#B89B6A', fontSize: 11, padding: '6px 14px', cursor: 'pointer' }}>
                         编辑
                       </button>
                     </td>
@@ -82,35 +82,35 @@ export default function ProductsPage() {
       </div>
 
       {editing && (
-        <div style={{ width: 380, background: '#1a1a1a', border: '1px solid #222', borderRadius: 12, padding: 24, overflow: 'auto', flexShrink: 0 }}>
+        <div style={{ width: 380, background: '#242220', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 24, overflow: 'auto', flexShrink: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
-            <h2 style={{ color: '#fff', fontSize: 15, fontWeight: 400 }}>编辑产品</h2>
-            <button onClick={() => setEditing(null)} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: 18 }}>×</button>
+            <h2 style={{ color: 'rgba(255,255,255,0.88)', fontSize: 15, fontWeight: 400 }}>编辑产品</h2>
+            <button onClick={() => setEditing(null)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.22)', cursor: 'pointer', fontSize: 18 }}>×</button>
           </div>
           {[
             { label: '产品名称', key: 'name', type: 'text' },
             { label: '系列 slug', key: 'collection', type: 'text' },
           ].map(({ label, key, type }) => (
             <div key={key} style={{ marginBottom: 16 }}>
-              <label style={{ display: 'block', color: '#444', fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8 }}>{label}</label>
+              <label style={{ display: 'block', color: 'rgba(255,255,255,0.3)', fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8 }}>{label}</label>
               <input type={type} value={editing[key] || ''} onChange={e => setEditing(prev => ({ ...prev, [key]: e.target.value }))}
-                style={{ width: '100%', padding: '10px 12px', background: '#111', border: '1px solid #2a2a2a', borderRadius: 6, color: '#fff', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+                style={{ width: '100%', padding: '10px 12px', background: '#1A1816', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, color: 'rgba(255,255,255,0.88)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
             </div>
           ))}
           <div style={{ marginBottom: 16 }}>
-            <label style={{ display: 'block', color: '#444', fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8 }}>产品描述</label>
+            <label style={{ display: 'block', color: 'rgba(255,255,255,0.3)', fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8 }}>产品描述</label>
             <textarea value={editing.description || ''} onChange={e => setEditing(prev => ({ ...prev, description: e.target.value }))}
-              style={{ width: '100%', minHeight: 120, padding: '10px 12px', background: '#111', border: '1px solid #2a2a2a', borderRadius: 6, color: '#fff', fontSize: 13, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
+              style={{ width: '100%', minHeight: 120, padding: '10px 12px', background: '#1A1816', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, color: 'rgba(255,255,255,0.88)', fontSize: 13, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
           </div>
           <div style={{ marginBottom: 20 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
               <input type="checkbox" checked={editing.active !== false} onChange={e => setEditing(prev => ({ ...prev, active: e.target.checked }))} />
-              <span style={{ color: '#ccc', fontSize: 13 }}>产品上架</span>
+              <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>产品上架</span>
             </label>
           </div>
           {msg && <p style={{ color: msg.includes('成功') ? '#4ade80' : '#f87171', fontSize: 12, marginBottom: 12 }}>{msg}</p>}
           <button onClick={saveProduct} disabled={saving}
-            style={{ width: '100%', padding: '11px', background: '#B89B6A', border: 'none', borderRadius: 6, color: '#fff', fontSize: 12, letterSpacing: '.15em', cursor: 'pointer' }}>
+            style={{ width: '100%', padding: '11px', background: '#B89B6A', border: 'none', borderRadius: 6, color: 'rgba(255,255,255,0.88)', fontSize: 12, letterSpacing: '.15em', cursor: 'pointer' }}>
             {saving ? '保存中…' : '保存修改'}
           </button>
         </div>

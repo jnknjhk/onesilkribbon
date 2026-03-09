@@ -27,7 +27,7 @@ export default function Contact() {
         {/* Hero */}
         <div style={{ maxWidth: 780, margin: '0 auto', padding: '80px 60px 0' }}>
           <p style={{ fontSize: 9, letterSpacing: '.38em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 14 }}>Get In Touch</p>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 42px, fontWeight: 300, color: 'var(--ink)', lineHeight: 1.12, marginBottom: 20 }}>Contact Us</h1>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 42, fontWeight: 300, color: 'var(--ink)', lineHeight: 1.12, marginBottom: 20 }}>Contact Us</h1>
           <p style={{ fontSize: 13, lineHeight: 2.1, color: 'var(--taupe)', marginBottom: 56, paddingBottom: 48, borderBottom: '1px solid var(--sand)' }}>
             We would love to hear from you — whether you have a question about an order, need help choosing a ribbon, or are interested in a bespoke commission. We aim to respond within 2 working days.
           </p>

@@ -3,6 +3,7 @@ import { Navbar } from '@/components/Navbar'
 import { Footer } from '@/components/Footer'
 import { CartProvider } from '@/components/CartProvider'
 import { CartDrawer } from '@/components/CartDrawer'
+import CookieBanner from '@/components/CookieBanner'
 
 export const metadata = {
   title: {
@@ -36,6 +37,7 @@ export default function RootLayout({ children }) {
           <CartDrawer />
           <main>{children}</main>
           <Footer />
+          <CookieBanner />
         </CartProvider>
       </body>
     </html>

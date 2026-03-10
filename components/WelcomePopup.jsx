@@ -160,9 +160,9 @@ export default function WelcomePopup() {
               </button>
 
               <button onClick={handleClose} style={{
-                background: 'none', border: 'none', width: '100%',
+                background: 'none', border: 'none',
                 fontSize: 10, color: 'var(--taupe)', letterSpacing: '0.1em',
-                cursor: 'pointer', textDecoration: 'underline',
+                cursor: 'pointer', textDecoration: 'underline',display: 'block', margin: '0 auto',
               }}>
                 No thanks
               </button>

@@ -1,4 +1,5 @@
 import './globals.css'
+import { Suspense } from 'react'
 import { Navbar } from '@/components/Navbar'
 import { Footer } from '@/components/Footer'
 import { CartProvider } from '@/components/CartProvider'
@@ -37,7 +38,9 @@ export default function RootLayout({ children }) {
           <ShellWrapper navbar={<Navbar />} cartDrawer={<CartDrawer />} footer={<Footer />}>
             {children}
           </ShellWrapper>
-          <WelcomePopup />
+          <Suspense fallback={null}>
+            <WelcomePopup />
+          </Suspense>
         </CartProvider>
       </body>
     </html>

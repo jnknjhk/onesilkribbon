@@ -1,12 +1,30 @@
 'use client'
+import React, { useState, useEffect } from 'react'
 import { useCart } from '@/lib/cart'
 import { formatGBP, calculateTotals } from '@/lib/pricing'
 import Link from 'next/link'
 
+export function CartProvider({ children }) {
+  return <>{children}</>
+}
+
 export function CartDrawer() {
-  const { items, isOpen, closeCart, removeItem, updateQty, getSubtotal } = useCart()
-  const subtotal = getSubtotal ? getSubtotal() : 0
-  const totals = calculateTotals(subtotal)
+    const { items, isOpen, closeCart, removeItem, updateQty, getSubtotal } = useCart()
+    const [shippingSettings, setShippingSettings] = React.useState(null)
+
+    React.useEffect(() => {
+      fetch('/api/settings')
+        .then(r => r.json())
+        .then(data => setShippingSettings({
+          shippingRate:          parseFloat(data.shipping_rate)           || 0,
+          freeShippingThreshold: parseFloat(data.free_shipping_threshold) || 45.00,
+          freeShippingEnabled:   data.free_shipping_enabled !== 'false',
+        }))
+        .catch(() => {})
+    }, [])
+
+    const totals = calculateTotals(getSubtotal ? getSubtotal() : 0, shippingSettings)
+
 
   return (
     <>
@@ -42,7 +60,7 @@ export function CartDrawer() {
           </div>
           <button onClick={closeCart} style={{
             background: 'none', border: 'none', color: 'var(--taupe)',
-            fontSize: 22, lineHeight: 1, padding: 4, cursor: 'pointer',
+            fontSize: 22, lineHeight: 1, padding: 4,
           }}>✕</button>
         </div>
 
@@ -79,6 +97,7 @@ export function CartDrawer() {
             padding: '24px 36px 36px',
             borderTop: '1px solid var(--sand)',
           }}>
+            {/* Free shipping progress */}
             {!totals.freeShipping && (
               <div style={{ marginBottom: 20 }}>
                 <p style={{ fontSize: 11, color: 'var(--taupe)', marginBottom: 8, letterSpacing: '0.05em' }}>
@@ -87,13 +106,14 @@ export function CartDrawer() {
                 <div style={{ height: 2, background: 'var(--sand)', borderRadius: 1 }}>
                   <div style={{
                     height: '100%', background: 'var(--gold)', borderRadius: 1,
-                    width: `${Math.min(100, (subtotal / 45) * 100)}%`,
+                    width: `${Math.min(100, (parseFloat(totals.subtotalIncVat) / (shippingSettings?.freeShippingThreshold || 45)) * 100)}%`,
                     transition: 'width 0.5s ease',
                   }} />
                 </div>
               </div>
             )}
 
+            {/* Totals */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
               <Row label="Subtotal (exc. VAT)" value={formatGBP(totals.subtotalExVat)} />
               <Row label="VAT (20%)" value={formatGBP(totals.vatAmount)} />
@@ -120,6 +140,7 @@ export function CartDrawer() {
 function CartItem({ item, onRemove, onQtyChange }) {
   return (
     <div style={{ display: 'flex', gap: 16 }}>
+      {/* Image / colour swatch */}
       <div style={{
         width: 72, height: 90, flexShrink: 0,
         background: item.colourHex || 'var(--sand)',
@@ -131,6 +152,7 @@ function CartItem({ item, onRemove, onQtyChange }) {
         )}
       </div>
 
+      {/* Info */}
       <div style={{ flex: 1 }}>
         <p style={{
           fontFamily: 'var(--font-display)', fontSize: 16,
@@ -143,6 +165,7 @@ function CartItem({ item, onRemove, onQtyChange }) {
         </p>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {/* Qty control */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: 0,
             border: '1px solid var(--warm)',
@@ -150,23 +173,25 @@ function CartItem({ item, onRemove, onQtyChange }) {
             <button onClick={() => onQtyChange(item.qty - 1)} style={{
               width: 32, height: 32, background: 'none', border: 'none',
               color: 'var(--deep)', fontSize: 16, display: 'flex',
-              alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+              alignItems: 'center', justifyContent: 'center',
             }}>−</button>
             <span style={{ width: 32, textAlign: 'center', fontSize: 13 }}>{item.qty}</span>
             <button onClick={() => onQtyChange(item.qty + 1)} style={{
               width: 32, height: 32, background: 'none', border: 'none',
               color: 'var(--deep)', fontSize: 16, display: 'flex',
-              alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+              alignItems: 'center', justifyContent: 'center',
             }}>+</button>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <p style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)' }}>
+            <p style={{
+              fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)',
+            }}>
               {formatGBP(item.price * item.qty)}
             </p>
             <button onClick={onRemove} style={{
               background: 'none', border: 'none',
-              color: 'var(--taupe)', fontSize: 14, cursor: 'pointer',
+              color: 'var(--taupe)', fontSize: 14,
             }}>✕</button>
           </div>
         </div>

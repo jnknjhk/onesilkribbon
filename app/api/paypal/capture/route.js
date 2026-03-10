@@ -36,6 +36,7 @@ export async function GET(req) {
     })
 
     const data = await capture.json()
+    console.log('Capture status:', data.status)
 
     if (data.status === 'COMPLETED') {
       // Update order status
@@ -43,48 +44,52 @@ export async function GET(req) {
         .update({ status: 'paid', paid_at: new Date().toISOString() })
         .eq('order_number', orderNumber)
 
-      // Fetch full order details for email
-      const { data: order } = await supabaseAdmin
+      // Fetch order
+      const { data: order, error: orderError } = await supabaseAdmin
         .from('orders')
         .select('*')
         .eq('order_number', orderNumber)
         .single()
 
-      // Fetch order items
-      const { data: orderItems } = await supabaseAdmin
-        .from('order_items')
-        .select('*')
-        .eq('order_number', orderNumber)
+      console.log('Order fetch:', order?.order_number, orderError?.message)
 
       if (order) {
+        const nameParts = (order.shipping_name || '').split(' ')
         const form = {
-          firstName: order.shipping_name?.split(' ')[0] || '',
-          lastName:  order.shipping_name?.split(' ').slice(1).join(' ') || '',
+          firstName: nameParts[0] || '',
+          lastName:  nameParts.slice(1).join(' ') || '',
           email:     order.customer_email,
-          line1:     order.shipping_line1,
-          line2:     order.shipping_line2,
-          city:      order.shipping_city,
-          postcode:  order.shipping_postcode,
-          country:   order.shipping_country,
-          phone:     order.customer_phone || '',
+          line1:     order.shipping_line1 || '',
+          line2:     order.shipping_line2 || '',
+          city:      order.shipping_city || '',
+          postcode:  order.shipping_postcode || '',
+          country:   order.shipping_country || '',
+          phone:     '',
           dialCode:  '',
         }
 
         const totals = {
-          subtotalExVat: order.subtotal_gbp,
-          vatAmount:     order.vat_amount_gbp,
-          shipping:      order.shipping_gbp,
-          total:         order.total_gbp,
-          freeShipping:  parseFloat(order.shipping_gbp) === 0,
+          subtotalExVat: parseFloat(order.subtotal_gbp || 0).toFixed(2),
+          vatAmount:     parseFloat(order.vat_amount_gbp || 0).toFixed(2),
+          shipping:      parseFloat(order.shipping_gbp || 0).toFixed(2),
+          total:         parseFloat(order.total_gbp || 0).toFixed(2),
+          freeShipping:  parseFloat(order.shipping_gbp || 0) === 0,
         }
 
-        const items = orderItems || []
+        // Send both emails, log any errors
+        try {
+          await sendOrderConfirmation({ order, items: [], form, totals })
+          console.log('Order confirmation sent to:', form.email)
+        } catch (e) {
+          console.error('Order confirmation email error:', e.message)
+        }
 
-        // Send emails (don't block redirect if email fails)
-        Promise.all([
-          sendOrderConfirmation({ order, items, form, totals }),
-          sendOwnerNotification({ order, items, form, totals }),
-        ]).catch(err => console.error('Email error:', err))
+        try {
+          await sendOwnerNotification({ order, items: [], form, totals })
+          console.log('Owner notification sent')
+        } catch (e) {
+          console.error('Owner notification email error:', e.message)
+        }
       }
     }
   } catch (err) {

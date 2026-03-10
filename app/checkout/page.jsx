@@ -212,25 +212,6 @@ export default function CheckoutPage() {
 
   const country = getCountry(form.country)
 
-  // ── Reusable field renderer ──
-  const Field = ({ id, label, type='text', half=false, autoComplete }) => (
-    <div style={{ gridColumn: half ? 'span 1' : 'span 2' }}>
-      <label className="input-label">{label}</label>
-      <input
-        type={type}
-        value={form[id]}
-        autoComplete={autoComplete}
-        placeholder=""
-        className="input"
-        onChange={e => handleChange(id, e.target.value)}
-        onBlur={() => handleBlur(id)}
-        style={{ borderColor: errors[id] ? '#C0392B' : touched[id] && !errors[id] ? '#5a8a5a' : undefined }}
-      />
-      {errors[id]  && <p style={{ fontSize:11, color:'#C0392B', marginTop:4 }}>{errors[id]}</p>}
-      {!errors[id] && touched[id] && <p style={{ fontSize:11, color:'#5a8a5a', marginTop:4 }}>✓</p>}
-    </div>
-  )
-
   return (
     <div style={{ paddingTop:100, background:'var(--cream)', minHeight:'100vh' }}>
       <div style={{ maxWidth:1200, margin:'0 auto', padding:'40px 60px 100px', display:'grid', gridTemplateColumns:'1fr 400px', gap:80, alignItems:'start' }} className="checkout-grid">
@@ -254,15 +235,15 @@ export default function CheckoutPage() {
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:40 }}>
 
                 {/* Email */}
-                <Field id="email" label="Email Address" type="email" autoComplete="email" />
+                <Field id="email" label="Email Address" type="email" autoComplete="email" form={form} errors={errors} touched={touched} onChange={handleChange} onBlur={handleBlur} />
 
                 {/* Name */}
-                <Field id="firstName" label="First Name" half autoComplete="given-name" />
-                <Field id="lastName"  label="Last Name"  half autoComplete="family-name" />
+                <Field id="firstName" label="First Name" half autoComplete="given-name" form={form} errors={errors} touched={touched} onChange={handleChange} onBlur={handleBlur} />
+                <Field id="lastName"  label="Last Name"  half autoComplete="family-name" form={form} errors={errors} touched={touched} onChange={handleChange} onBlur={handleBlur} />
 
                 {/* Address */}
-                <Field id="line1" label="Address Line 1" autoComplete="address-line1" />
-                <Field id="line2" label="Address Line 2 (optional)" autoComplete="address-line2" />
+                <Field id="line1" label="Address Line 1" autoComplete="address-line1" form={form} errors={errors} touched={touched} onChange={handleChange} onBlur={handleBlur} />
+                <Field id="line2" label="Address Line 2 (optional)" autoComplete="address-line2" form={form} errors={errors} touched={touched} onChange={handleChange} onBlur={handleBlur} />
                 <Field id="city"  label="City / Town" half autoComplete="address-level2" />
 
                 {/* Postcode */}
@@ -456,6 +437,26 @@ export default function CheckoutPage() {
         @media(max-width:960px){ .checkout-grid{grid-template-columns:1fr !important;gap:40px !important} }
         @media(max-width:600px){ .checkout-grid{padding:24px 24px 80px !important} }
       `}</style>
+    </div>
+  )
+}
+
+function Field({ id, label, type='text', half=false, autoComplete, form, errors, touched, onChange, onBlur }) {
+  return (
+    <div style={{ gridColumn: half ? 'span 1' : 'span 2' }}>
+      <label className="input-label">{label}</label>
+      <input
+        type={type}
+        value={form[id]}
+        autoComplete={autoComplete}
+        placeholder=""
+        className="input"
+        onChange={e => onChange(id, e.target.value)}
+        onBlur={() => onBlur(id)}
+        style={{ borderColor: errors[id] ? '#C0392B' : touched[id] && !errors[id] ? '#5a8a5a' : undefined }}
+      />
+      {errors[id]  && <p style={{ fontSize:11, color:'#C0392B', marginTop:4 }}>{errors[id]}</p>}
+      {!errors[id] && touched[id] && <p style={{ fontSize:11, color:'#5a8a5a', marginTop:4 }}>✓</p>}
     </div>
   )
 }

@@ -23,6 +23,13 @@ export async function POST(req) {
     const token = await getPayPalToken()
     const orderNumber = `OSR-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`
 
+    // 计算 items 实际总额（含VAT），确保与 total 一致
+    const itemsTotal = items.reduce((sum, i) => sum + (parseFloat(i.price) * i.qty), 0)
+    const vatRate = 0.20
+    const itemsTotalIncVat = parseFloat((itemsTotal * (1 + vatRate)).toFixed(2))
+    const shippingAmount = parseFloat(totals.shipping) || 0
+    const grandTotal = parseFloat((itemsTotalIncVat + shippingAmount).toFixed(2))
+
     const paypalOrder = await fetch(`${PAYPAL_BASE}/v2/checkout/orders`, {
       method: 'POST',
       headers: {
@@ -36,17 +43,20 @@ export async function POST(req) {
           description: 'One Silk Ribbon order',
           amount: {
             currency_code: 'GBP',
-            value: totals.total,
+            value: grandTotal.toFixed(2),
             breakdown: {
-              item_total:   { currency_code: 'GBP', value: totals.subtotalIncVat },
-              shipping:     { currency_code: 'GBP', value: totals.shipping },
+              item_total: { currency_code: 'GBP', value: itemsTotalIncVat.toFixed(2) },
+              shipping:   { currency_code: 'GBP', value: shippingAmount.toFixed(2) },
             },
           },
           items: items.map(i => ({
             name: i.name,
-            description: i.skuDesc,
+            description: i.skuDesc || '',
             quantity: String(i.qty),
-            unit_amount: { currency_code: 'GBP', value: i.price.toFixed(2) },
+            unit_amount: {
+              currency_code: 'GBP',
+              value: parseFloat((parseFloat(i.price) * (1 + vatRate)).toFixed(2)).toFixed(2),
+            },
             category: 'PHYSICAL_GOODS',
           })),
           shipping: {
@@ -54,9 +64,9 @@ export async function POST(req) {
             address: {
               address_line_1: form.line1,
               address_line_2: form.line2 || '',
-              admin_area_2: form.city,
-              postal_code: form.postcode,
-              country_code: form.country,
+              admin_area_2:   form.city,
+              postal_code:    form.postcode || '',
+              country_code:   form.country,
             },
           },
         }],
@@ -69,24 +79,28 @@ export async function POST(req) {
     })
 
     const ppData = await paypalOrder.json()
+    console.log('PayPal response:', JSON.stringify(ppData))
     const approvalUrl = ppData.links?.find(l => l.rel === 'approve')?.href
 
-    // Pre-create order
+    if (!approvalUrl) {
+      return Response.json({ error: 'PayPal did not return approval URL', details: ppData }, { status: 500 })
+    }
+
     await supabaseAdmin.from('orders').insert({
-      order_number: orderNumber,
-      customer_email: form.email,
-      status: 'pending',
-      subtotal_gbp: totals.subtotalIncVat,
-      vat_amount_gbp: totals.vatAmount,
-      shipping_gbp: totals.shipping,
-      total_gbp: totals.total,
-      shipping_name: `${form.firstName} ${form.lastName}`,
-      shipping_line1: form.line1,
-      shipping_line2: form.line2 || null,
-      shipping_city: form.city,
-      shipping_postcode: form.postcode,
-      shipping_country: form.country,
-      payment_method: 'paypal',
+      order_number:      orderNumber,
+      customer_email:    form.email,
+      status:            'pending',
+      subtotal_gbp:      itemsTotalIncVat.toFixed(2),
+      vat_amount_gbp:    totals.vatAmount,
+      shipping_gbp:      shippingAmount.toFixed(2),
+      total_gbp:         grandTotal.toFixed(2),
+      shipping_name:     `${form.firstName} ${form.lastName}`,
+      shipping_line1:    form.line1,
+      shipping_line2:    form.line2 || null,
+      shipping_city:     form.city,
+      shipping_postcode: form.postcode || '',
+      shipping_country:  form.country,
+      payment_method:    'paypal',
       payment_intent_id: ppData.id,
     })
 

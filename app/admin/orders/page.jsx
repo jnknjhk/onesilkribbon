@@ -33,7 +33,7 @@ export default function OrdersPage() {
 
   const filtered = orders.filter(o => {
     const matchStatus = filter === 'all' || o.status === filter
-    const matchSearch = !search || (o.customer_email || '').toLowerCase().includes(search.toLowerCase()) || (o.id || '').includes(search)
+    const matchSearch = !search || (o.customer_email || '').toLowerCase().includes(search.toLowerCase()) || (o.order_number || '').toLowerCase().includes(search.toLowerCase())
     return matchStatus && matchSearch
   })
 
@@ -69,7 +69,7 @@ export default function OrdersPage() {
               <tbody>
                 {filtered.map(o => (
                   <tr key={o.id} onClick={() => setSelected(o)} style={{ borderBottom: '1px solid #F0EDE8', cursor: 'pointer', background: selected?.id === o.id ? '#FBF8F4' : 'transparent' }}>
-                    <td style={{ padding: '12px 16px', color: '#8A8480', fontSize: 11, fontFamily: 'monospace' }}>{(o.id || '').slice(0,8)}…</td>
+                    <td style={{ padding: '12px 16px', color: '#1C1714', fontSize: 12, fontFamily: 'monospace', fontWeight: 500 }}>{o.order_number || '-'}</td>
                     <td style={{ padding: '12px 16px', color: '#504C48', fontSize: 12 }}>{o.customer_email || '-'}</td>
                     <td style={{ padding: '12px 16px', color: '#B89B6A', fontSize: 13 }}>{fmt(o.total_gbp)}</td>
                     <td style={{ padding: '12px 16px' }}>
@@ -96,7 +96,25 @@ export default function OrdersPage() {
             <h2 style={{ color: '#1C1714', fontSize: 15, fontWeight: 400 }}>订单详情</h2>
             <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', color: '#A8A4A0', cursor: 'pointer', fontSize: 18 }}>×</button>
           </div>
-          {[['订单号', selected.id],['客户邮箱', selected.customer_email],['收件人', selected.shipping_name],['地址', selected.shipping_address],['城市', selected.shipping_city],['邮编', selected.shipping_postcode],['国家', selected.shipping_country],['金额', fmt(selected.total_gbp)],['状态', STATUS_LABEL[selected.status] || selected.status],['支付方式', selected.payment_method],['创建时间', fmtDate(selected.created_at)]].map(([label, val]) => val ? (
+          {[
+            ['订单号', selected.order_number],
+            ['客户邮箱', selected.customer_email],
+            ['收件人', selected.shipping_name],
+            ['地址', selected.shipping_line1],
+            ['城市', selected.shipping_city],
+            ['邮编', selected.shipping_postcode],
+            ['国家', selected.shipping_country],
+            ['金额', fmt(selected.total_gbp)],
+            ['运费', fmt(selected.shipping_gbp)],
+            ['VAT', fmt(selected.vat_amount_gbp)],
+            ['状态', STATUS_LABEL[selected.status] || selected.status],
+            ['支付方式', selected.payment_method],
+            ['物流公司', selected.carrier],
+            ['追踪号', selected.tracking_number],
+            ['创建时间', fmtDate(selected.created_at)],
+            ['付款时间', fmtDate(selected.paid_at)],
+            ['发货时间', fmtDate(selected.shipped_at)],
+          ].map(([label, val]) => val ? (
             <div key={label} style={{ marginBottom: 14 }}>
               <p style={{ color: '#8A8480', fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 4 }}>{label}</p>
               <p style={{ color: '#504C48', fontSize: 13, wordBreak: 'break-all' }}>{val}</p>

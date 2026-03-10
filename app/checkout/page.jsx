@@ -10,7 +10,6 @@ export default function CheckoutPage() {
   const { items, getSubtotal, clearCart } = useCart()
   const subtotalValue = getSubtotal ? getSubtotal() : 0
 
-  // 运费设置（从数据库读取）
   const [shippingSettings, setShippingSettings] = useState(null)
 
   useEffect(() => {
@@ -18,7 +17,7 @@ export default function CheckoutPage() {
       .then(r => r.json())
       .then(data => {
         setShippingSettings({
-          shippingRate:          parseFloat(data.shipping_rate)           || 3.95,
+          shippingRate:          parseFloat(data.shipping_rate)           || 0,
           freeShippingThreshold: parseFloat(data.free_shipping_threshold) || 45.00,
           freeShippingEnabled:   data.free_shipping_enabled !== 'false',
         })
@@ -36,7 +35,6 @@ export default function CheckoutPage() {
   })
   const [errors, setErrors] = useState({})
 
-  // 优惠码
   const [couponCode, setCouponCode] = useState('')
   const [coupon, setCoupon] = useState(null)
   const [couponError, setCouponError] = useState('')
@@ -83,27 +81,10 @@ export default function CheckoutPage() {
   }
 
   const discountAmount = coupon ? coupon.discountAmount : 0
-  // 用数据库运费设置计算总额
   const totals = calculateTotals(subtotalValue - discountAmount, shippingSettings)
 
   const handleContinue = () => {
     if (validate()) setStep('payment')
-  }
-
-  const handleStripePayment = async () => {
-    setLoading(true)
-    try {
-      const stripeRes = await fetch('/api/stripe/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items, form, totals, coupon }),
-      })
-      const { url } = await stripeRes.json()
-      if (url) window.location.href = url
-    } catch (err) {
-      console.error(err)
-      setLoading(false)
-    }
   }
 
   const handlePayPalPayment = async () => {
@@ -116,6 +97,22 @@ export default function CheckoutPage() {
       })
       const { approvalUrl } = await res.json()
       if (approvalUrl) window.location.href = approvalUrl
+    } catch (err) {
+      console.error(err)
+      setLoading(false)
+    }
+  }
+
+  const handleStripePayment = async () => {
+    setLoading(true)
+    try {
+      const stripeRes = await fetch('/api/stripe/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items, form, totals, coupon }),
+      })
+      const { url } = await stripeRes.json()
+      if (url) window.location.href = url
     } catch (err) {
       console.error(err)
       setLoading(false)
@@ -143,7 +140,6 @@ export default function CheckoutPage() {
     <div style={{ paddingTop: 100, background: 'var(--cream)', minHeight: '100vh' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 60px 100px', display: 'grid', gridTemplateColumns: '1fr 400px', gap: 80, alignItems: 'start' }} className="checkout-grid">
 
-        {/* Left: Form */}
         <div>
           <div style={{ display: 'flex', gap: 32, marginBottom: 48, borderBottom: '1px solid var(--sand)', paddingBottom: 24 }}>
             {[['details','1. Your Details'],['payment','2. Payment']].map(([id, label]) => (
@@ -244,14 +240,12 @@ export default function CheckoutPage() {
           )}
         </div>
 
-        {/* Right: Order Summary */}
         <div style={{ position: 'sticky', top: 120 }}>
           <div style={{ background: 'var(--sand)', padding: 36 }}>
             <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 300, marginBottom: 28, color: 'var(--ink)' }}>
               Order Summary
             </h3>
 
-            {/* Items */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 28, paddingBottom: 28, borderBottom: '1px solid var(--warm)' }}>
               {items.map(item => (
                 <div key={item.skuId} style={{ display: 'flex', gap: 14 }}>
@@ -269,7 +263,6 @@ export default function CheckoutPage() {
               ))}
             </div>
 
-            {/* 优惠码输入 */}
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', gap: 8 }}>
                 <input
@@ -288,7 +281,6 @@ export default function CheckoutPage() {
               {coupon && <p style={{ fontSize: 11, color: '#2E7D32', marginTop: 6 }}>✓ {coupon.description || coupon.code} 已应用</p>}
             </div>
 
-            {/* Totals */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <SummaryRow label="Subtotal (exc. VAT)" value={formatGBP(totals.subtotalExVat)} />
               <SummaryRow label="VAT (20%)" value={formatGBP(totals.vatAmount)} />

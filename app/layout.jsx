@@ -4,6 +4,7 @@ import { Footer } from '@/components/Footer'
 import { CartProvider } from '@/components/CartProvider'
 import { CartDrawer } from '@/components/CartDrawer'
 import ShellWrapper from '@/components/ShellWrapper'
+import WelcomePopup from '@/components/WelcomePopup'
 
 export const metadata = {
   title: {
@@ -36,6 +37,7 @@ export default function RootLayout({ children }) {
           <ShellWrapper navbar={<Navbar />} cartDrawer={<CartDrawer />} footer={<Footer />}>
             {children}
           </ShellWrapper>
+          <WelcomePopup />
         </CartProvider>
       </body>
     </html>

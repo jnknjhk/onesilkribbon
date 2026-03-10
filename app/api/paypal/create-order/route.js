@@ -21,7 +21,10 @@ export async function POST(req) {
   try {
     const { items, form, totals } = await req.json()
     const token = await getPayPalToken()
-    const orderNumber = `OSR-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`
+    const now = new Date()
+    const datePart = String(now.getFullYear()).slice(2) + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0')
+    const randPart = String(Math.floor(1000 + Math.random() * 9000))
+    const orderNumber = `OSR-${datePart}-${randPart}`
 
     // 计算 items 实际总额（含VAT），确保与 total 一致
     const itemsTotal = items.reduce((sum, i) => sum + (parseFloat(i.price) * i.qty), 0)

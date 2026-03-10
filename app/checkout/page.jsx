@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useCart } from '@/lib/cart'
 import { formatGBP, calculateTotals } from '@/lib/pricing'
 
-// ─── Country Data ───────────────────────────────────────────────────────────
+// ─── Country Data ────────────────────────────────────────────────────────────
 const COUNTRIES = [
   { code:'GB', name:'United Kingdom',  dialCode:'+44',  continent:'Popular',      postcodeReg:/^[A-Z]{1,2}[0-9][0-9A-Z]?\s*[0-9][A-Z]{2}$/i, postcodeTip:'SW1A 2AA',   phoneReg:/^[0-9]{10,11}$/, noPostcode:false },
   { code:'US', name:'United States',   dialCode:'+1',   continent:'Popular',      postcodeReg:/^[0-9]{5}(-[0-9]{4})?$/,                       postcodeTip:'10001',      phoneReg:/^[0-9]{10}$/,    noPostcode:false },
@@ -61,9 +61,28 @@ const COUNTRIES = [
 const CONTINENTS = ['Popular','Europe','Asia Pacific','Middle East','Africa','Americas']
 const getCountry = code => COUNTRIES.find(c => c.code === code) || COUNTRIES[0]
 const DIAL_CODES = [...new Map(COUNTRIES.map(c => [c.dialCode, c])).values()]
-
-// ─── Email Validation ────────────────────────────────────────────────────────
 const validEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim())
+
+// ─── Field Component (outside main to prevent remount) ────────────────────────
+function Field({ id, label, type='text', half=false, autoComplete, value, error, touch, onChange, onBlur }) {
+  return (
+    <div style={{ gridColumn: half ? 'span 1' : 'span 2' }}>
+      <label className="input-label">{label}</label>
+      <input
+        type={type}
+        value={value}
+        autoComplete={autoComplete}
+        placeholder=""
+        className="input"
+        onChange={e => onChange(id, e.target.value)}
+        onBlur={() => onBlur(id)}
+        style={{ borderColor: error ? '#C0392B' : touch && !error ? '#5a8a5a' : undefined }}
+      />
+      {error        && <p style={{ fontSize:11, color:'#C0392B', marginTop:4 }}>{error}</p>}
+      {!error && touch && <p style={{ fontSize:11, color:'#5a8a5a', marginTop:4 }}>✓</p>}
+    </div>
+  )
+}
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function CheckoutPage() {
@@ -82,14 +101,14 @@ export default function CheckoutPage() {
     }).catch(() => {})
   }, [])
 
-  const [step, setStep]               = useState('details')
-  const [loading, setLoading]         = useState(false)
+  const [step, setStep]                   = useState('details')
+  const [loading, setLoading]             = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('paypal')
 
   const [form, setForm] = useState({
-    email: '', firstName: '', lastName: '',
-    line1: '', line2: '', city: '', postcode: '', country: 'GB',
-    dialCode: '+44', phone: '',
+    email:'', firstName:'', lastName:'',
+    line1:'', line2:'', city:'', postcode:'', country:'GB',
+    dialCode:'+44', phone:'',
   })
   const [touched, setTouched] = useState({})
   const [errors,  setErrors]  = useState({})
@@ -112,20 +131,17 @@ export default function CheckoutPage() {
     )
   }
 
-  // ── Country change ──
   const handleCountryChange = code => {
     const c = getCountry(code)
-    setForm(p => ({ ...p, country: code, dialCode: c.dialCode, postcode: '' }))
-    setErrors(p => ({ ...p, postcode: '', phone: '' }))
+    setForm(p => ({ ...p, country:code, dialCode:c.dialCode, postcode:'' }))
+    setErrors(p => ({ ...p, postcode:'', phone:'' }))
   }
 
-  // ── Field change ──
   const handleChange = (field, value) => {
     let v = value
     if (field === 'postcode') {
       const c = getCountry(form.country)
-      v = c.code === 'GB' || c.code === 'IE' || c.code === 'MT' || c.code === 'AR'
-        ? value.toUpperCase() : value
+      if (['GB','IE','MT','AR'].includes(c.code)) v = value.toUpperCase()
     }
     setForm(p => ({ ...p, [field]: v }))
   }
@@ -135,7 +151,6 @@ export default function CheckoutPage() {
     validateField(field, form[field])
   }
 
-  // ── Field-level validation ──
   const validateField = (field, value) => {
     const c = getCountry(form.country)
     let err = ''
@@ -143,10 +158,10 @@ export default function CheckoutPage() {
       if (!value.trim()) err = 'Email is required'
       else if (!validEmail(value)) err = 'Please enter a valid email address'
     }
-    if (field === 'firstName'  && !value.trim()) err = 'Required'
-    if (field === 'lastName'   && !value.trim()) err = 'Required'
-    if (field === 'line1'      && !value.trim()) err = 'Required'
-    if (field === 'city'       && !value.trim()) err = 'Required'
+    if (field === 'firstName' && !value.trim()) err = 'Required'
+    if (field === 'lastName'  && !value.trim()) err = 'Required'
+    if (field === 'line1'     && !value.trim()) err = 'Required'
+    if (field === 'city'      && !value.trim()) err = 'Required'
     if (field === 'postcode') {
       if (c.noPostcode) { err = '' }
       else if (!value.trim()) err = 'Required'
@@ -160,21 +175,17 @@ export default function CheckoutPage() {
     return !err
   }
 
-  // ── Full form validation ──
   const validate = () => {
     const fields = ['email','firstName','lastName','line1','city','postcode','phone']
-    const allTouched = Object.fromEntries(fields.map(f => [f, true]))
-    setTouched(allTouched)
-    const results = fields.map(f => validateField(f, form[f]))
-    return results.every(Boolean)
+    setTouched(Object.fromEntries(fields.map(f => [f, true])))
+    return fields.map(f => validateField(f, form[f])).every(Boolean)
   }
 
-  // ── Coupon ──
   const applyCoupon = async () => {
     if (!couponCode.trim()) return
     setCouponLoading(true); setCouponError('')
     try {
-      const res  = await fetch('/api/coupon', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code: couponCode, subtotal: subtotalValue }) })
+      const res  = await fetch('/api/coupon', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code:couponCode, subtotal:subtotalValue }) })
       const data = await res.json()
       if (data.valid) { setCoupon(data); setCouponError('') }
       else setCouponError(data.error || 'Invalid promo code')
@@ -216,54 +227,50 @@ export default function CheckoutPage() {
     <div style={{ paddingTop:100, background:'var(--cream)', minHeight:'100vh' }}>
       <div style={{ maxWidth:1200, margin:'0 auto', padding:'40px 60px 100px', display:'grid', gridTemplateColumns:'1fr 400px', gap:80, alignItems:'start' }} className="checkout-grid">
 
-        {/* ── Left column ── */}
+        {/* Left */}
         <div>
-          {/* Steps */}
           <div style={{ display:'flex', gap:32, marginBottom:48, borderBottom:'1px solid var(--sand)', paddingBottom:24 }}>
             {[['details','1. Your Details'],['payment','2. Payment']].map(([id, label]) => (
               <span key={id} onClick={() => { if (step==='payment' && id==='details') setStep('details') }}
-                style={{ fontSize:11, letterSpacing:'0.2em', textTransform:'uppercase', color: step===id ? 'var(--ink)' : 'var(--taupe)', fontWeight: step===id ? 400 : 300, cursor: step==='payment' && id==='details' ? 'pointer' : 'default' }}>
+                style={{ fontSize:11, letterSpacing:'0.2em', textTransform:'uppercase', color: step===id ? 'var(--ink)' : 'var(--taupe)', cursor: step==='payment' && id==='details' ? 'pointer' : 'default' }}>
                 {label}
               </span>
             ))}
           </div>
 
-          {/* ── Step 1: Details ── */}
           {step === 'details' && (
             <>
               <h2 style={{ fontFamily:'var(--font-display)', fontSize:28, fontWeight:300, marginBottom:32, color:'var(--ink)' }}>Contact & Delivery</h2>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:40 }}>
 
-                {/* Email */}
-                <Field id="email" label="Email Address" type="email" autoComplete="email" form={form} errors={errors} touched={touched} onChange={handleChange} onBlur={handleBlur} />
+                <Field id="email"     label="Email Address"           type="email" autoComplete="email"
+                  value={form.email}     error={errors.email}     touch={touched.email}     onChange={handleChange} onBlur={handleBlur} />
 
-                {/* Name */}
-                <Field id="firstName" label="First Name" half autoComplete="given-name" form={form} errors={errors} touched={touched} onChange={handleChange} onBlur={handleBlur} />
-                <Field id="lastName"  label="Last Name"  half autoComplete="family-name" form={form} errors={errors} touched={touched} onChange={handleChange} onBlur={handleBlur} />
+                <Field id="firstName" label="First Name" half autoComplete="given-name"
+                  value={form.firstName} error={errors.firstName} touch={touched.firstName} onChange={handleChange} onBlur={handleBlur} />
+                <Field id="lastName"  label="Last Name"  half autoComplete="family-name"
+                  value={form.lastName}  error={errors.lastName}  touch={touched.lastName}  onChange={handleChange} onBlur={handleBlur} />
 
-                {/* Address */}
-                <Field id="line1" label="Address Line 1" autoComplete="address-line1" form={form} errors={errors} touched={touched} onChange={handleChange} onBlur={handleBlur} />
-                <Field id="line2" label="Address Line 2 (optional)" autoComplete="address-line2" form={form} errors={errors} touched={touched} onChange={handleChange} onBlur={handleBlur} />
-                <Field id="city"  label="City / Town" half autoComplete="address-level2" />
+                <Field id="line1" label="Address Line 1" autoComplete="address-line1"
+                  value={form.line1}     error={errors.line1}     touch={touched.line1}     onChange={handleChange} onBlur={handleBlur} />
+                <Field id="line2" label="Address Line 2 (optional)" autoComplete="address-line2"
+                  value={form.line2}     error={errors.line2}     touch={touched.line2}     onChange={handleChange} onBlur={handleBlur} />
+
+                <Field id="city" label="City / Town" half autoComplete="address-level2"
+                  value={form.city}      error={errors.city}      touch={touched.city}      onChange={handleChange} onBlur={handleBlur} />
 
                 {/* Postcode */}
                 <div style={{ gridColumn:'span 1' }}>
-                  <label className="input-label">
-                    {country.noPostcode ? 'Postcode (not required)' : `Postcode — e.g. ${country.postcodeTip}`}
-                  </label>
-                  <input
-                    type="text" value={form.postcode} className="input"
+                  <label className="input-label">{country.noPostcode ? 'Postcode (not required)' : `Postcode — e.g. ${country.postcodeTip}`}</label>
+                  <input type="text" value={form.postcode} className="input"
                     disabled={country.noPostcode}
                     placeholder={country.noPostcode ? 'N/A' : country.postcodeTip}
                     onChange={e => handleChange('postcode', e.target.value)}
                     onBlur={() => handleBlur('postcode')}
-                    style={{
-                      borderColor: errors.postcode ? '#C0392B' : touched.postcode && !errors.postcode ? '#5a8a5a' : undefined,
-                      opacity: country.noPostcode ? 0.5 : 1,
-                    }}
+                    style={{ borderColor: errors.postcode ? '#C0392B' : touched.postcode && !errors.postcode ? '#5a8a5a' : undefined, opacity: country.noPostcode ? 0.5 : 1 }}
                   />
-                  {errors.postcode   && <p style={{ fontSize:11, color:'#C0392B', marginTop:4 }}>{errors.postcode}</p>}
-                  {!errors.postcode  && touched.postcode && !country.noPostcode && <p style={{ fontSize:11, color:'#5a8a5a', marginTop:4 }}>✓</p>}
+                  {errors.postcode && <p style={{ fontSize:11, color:'#C0392B', marginTop:4 }}>{errors.postcode}</p>}
+                  {!errors.postcode && touched.postcode && !country.noPostcode && <p style={{ fontSize:11, color:'#5a8a5a', marginTop:4 }}>✓</p>}
                 </div>
 
                 {/* Country */}
@@ -284,20 +291,14 @@ export default function CheckoutPage() {
                 <div style={{ gridColumn:'span 2' }}>
                   <label className="input-label">Phone Number</label>
                   <div style={{ display:'flex', gap:8 }}>
-                    {/* Dial code selector */}
-                    <select
-                      value={form.dialCode}
-                      onChange={e => setForm(p => ({ ...p, dialCode: e.target.value }))}
-                      style={{ width:110, padding:'12px 10px', background:'var(--cream)', border:'1px solid var(--warm)', fontFamily:'var(--font-body)', fontSize:13, color:'var(--ink)', outline:'none', flexShrink:0 }}
-                    >
+                    <select value={form.dialCode} onChange={e => setForm(p => ({ ...p, dialCode:e.target.value }))}
+                      style={{ width:120, padding:'12px 10px', background:'var(--cream)', border:'1px solid var(--warm)', fontFamily:'var(--font-body)', fontSize:13, color:'var(--ink)', outline:'none', flexShrink:0 }}>
                       {DIAL_CODES.map(c => (
                         <option key={c.dialCode} value={c.dialCode}>{c.dialCode} {c.name}</option>
                       ))}
                     </select>
-                    {/* Number input */}
                     <div style={{ flex:1 }}>
-                      <input
-                        type="tel" value={form.phone} className="input"
+                      <input type="tel" value={form.phone} className="input"
                         placeholder="e.g. 07700900123"
                         autoComplete="tel-national"
                         onChange={e => handleChange('phone', e.target.value)}
@@ -315,28 +316,22 @@ export default function CheckoutPage() {
             </>
           )}
 
-          {/* ── Step 2: Payment ── */}
           {step === 'payment' && (
             <>
               <h2 style={{ fontFamily:'var(--font-display)', fontSize:28, fontWeight:300, marginBottom:32, color:'var(--ink)' }}>Payment Method</h2>
-
-              {/* Delivery summary */}
               <div style={{ background:'var(--mist)', padding:24, marginBottom:36, fontSize:13, color:'var(--deep)', lineHeight:1.7 }}>
                 <p style={{ fontSize:10, letterSpacing:'0.2em', textTransform:'uppercase', color:'var(--taupe)', marginBottom:8 }}>Delivering to</p>
                 <p><strong style={{ fontWeight:400 }}>{form.firstName} {form.lastName}</strong></p>
                 <p>{form.line1}{form.line2 ? `, ${form.line2}` : ''}, {form.city}{form.postcode ? `, ${form.postcode}` : ''}</p>
                 <p>{country.name}</p>
                 <p>{form.email} · {form.dialCode} {form.phone}</p>
-                <button onClick={() => setStep('details')} style={{ background:'none', border:'none', fontSize:11, color:'var(--gold)', letterSpacing:'0.12em', marginTop:8, cursor:'pointer' }}>
-                  Edit details
-                </button>
+                <button onClick={() => setStep('details')} style={{ background:'none', border:'none', fontSize:11, color:'var(--gold)', letterSpacing:'0.12em', marginTop:8, cursor:'pointer' }}>Edit details</button>
               </div>
 
-              {/* Payment options */}
               <div style={{ display:'flex', flexDirection:'column', gap:12, marginBottom:36 }}>
                 {[
-                  { id:'paypal', label:'PayPal',       sub:'Pay with your PayPal account or card', icon:'🅿' },
-                  { id:'stripe', label:'Pay by Card',  sub:'Visa, Mastercard, Amex, Apple Pay, Google Pay', icon:'💳' },
+                  { id:'paypal', label:'PayPal',      sub:'Pay with your PayPal account or card',              icon:'🅿' },
+                  { id:'stripe', label:'Pay by Card', sub:'Visa, Mastercard, Amex, Apple Pay, Google Pay',     icon:'💳' },
                 ].map(opt => (
                   <label key={opt.id} style={{ display:'flex', alignItems:'center', gap:16, padding:20, border:`1px solid ${paymentMethod===opt.id ? 'var(--gold)' : 'var(--warm)'}`, background: paymentMethod===opt.id ? 'var(--mist)' : 'transparent', cursor:'pointer' }}>
                     <input type="radio" name="payment" value={opt.id} checked={paymentMethod===opt.id} onChange={() => setPaymentMethod(opt.id)} style={{ accentColor:'var(--gold)' }} />
@@ -356,7 +351,6 @@ export default function CheckoutPage() {
               <button className="btn-primary" onClick={handleSubmit} disabled={loading}>
                 {loading ? 'Processing…' : `Place Order · ${formatGBP(totals.total)}`}
               </button>
-
               <p style={{ fontSize:11, color:'var(--taupe)', textAlign:'center', marginTop:16, lineHeight:1.8 }}>
                 By placing your order you agree to our{' '}
                 <Link href="/terms" style={{ color:'var(--gold)' }}>Terms of Service</Link>{' '}and{' '}
@@ -366,19 +360,15 @@ export default function CheckoutPage() {
           )}
         </div>
 
-        {/* ── Right column: Order summary ── */}
+        {/* Right: Order Summary */}
         <div style={{ position:'sticky', top:120 }}>
           <div style={{ background:'var(--sand)', padding:36 }}>
             <h3 style={{ fontFamily:'var(--font-display)', fontSize:22, fontWeight:300, marginBottom:28, color:'var(--ink)' }}>Order Summary</h3>
-
-            {/* Items */}
             <div style={{ display:'flex', flexDirection:'column', gap:16, marginBottom:28, paddingBottom:28, borderBottom:'1px solid var(--warm)' }}>
               {items.map(item => (
                 <div key={item.skuId} style={{ display:'flex', gap:14 }}>
                   <div style={{ width:52, height:64, background: item.colourHex || 'var(--warm)', flexShrink:0, position:'relative' }}>
-                    <span style={{ position:'absolute', top:-8, right:-8, background:'var(--deep)', color:'#fff', width:18, height:18, borderRadius:'50%', fontSize:10, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                      {item.qty}
-                    </span>
+                    <span style={{ position:'absolute', top:-8, right:-8, background:'var(--deep)', color:'#fff', width:18, height:18, borderRadius:'50%', fontSize:10, display:'flex', alignItems:'center', justifyContent:'center' }}>{item.qty}</span>
                   </div>
                   <div style={{ flex:1 }}>
                     <p style={{ fontSize:13, color:'var(--ink)', marginBottom:4, fontFamily:'var(--font-display)', fontWeight:400 }}>{item.name}</p>
@@ -389,11 +379,9 @@ export default function CheckoutPage() {
               ))}
             </div>
 
-            {/* Coupon */}
             <div style={{ marginBottom:20 }}>
               <div style={{ display:'flex', gap:8 }}>
-                <input
-                  value={couponCode}
+                <input value={couponCode}
                   onChange={e => { setCouponCode(e.target.value); setCouponError(''); setCoupon(null) }}
                   onKeyDown={e => e.key === 'Enter' && applyCoupon()}
                   placeholder="Promo code"
@@ -408,7 +396,6 @@ export default function CheckoutPage() {
               {coupon      && <p style={{ fontSize:11, color:'#2E7D32', marginTop:6 }}>✓ {coupon.description || coupon.code} applied</p>}
             </div>
 
-            {/* Totals */}
             <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
               <SummaryRow label="Subtotal (exc. VAT)" value={formatGBP(totals.subtotalExVat)} />
               <SummaryRow label="VAT (20%)"           value={formatGBP(totals.vatAmount)} />
@@ -424,7 +411,6 @@ export default function CheckoutPage() {
               </div>
             )}
           </div>
-
           <div style={{ display:'flex', justifyContent:'center', gap:32, marginTop:20 }}>
             {['🔒 Secure','↩ 30-day returns','✦ VAT Receipt'].map(t => (
               <span key={t} style={{ fontSize:10, color:'var(--taupe)', letterSpacing:'0.08em' }}>{t}</span>
@@ -432,31 +418,10 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
-
       <style>{`
         @media(max-width:960px){ .checkout-grid{grid-template-columns:1fr !important;gap:40px !important} }
         @media(max-width:600px){ .checkout-grid{padding:24px 24px 80px !important} }
       `}</style>
-    </div>
-  )
-}
-
-function Field({ id, label, type='text', half=false, autoComplete, form, errors, touched, onChange, onBlur }) {
-  return (
-    <div style={{ gridColumn: half ? 'span 1' : 'span 2' }}>
-      <label className="input-label">{label}</label>
-      <input
-        type={type}
-        value={form[id]}
-        autoComplete={autoComplete}
-        placeholder=""
-        className="input"
-        onChange={e => onChange(id, e.target.value)}
-        onBlur={() => onBlur(id)}
-        style={{ borderColor: errors[id] ? '#C0392B' : touched[id] && !errors[id] ? '#5a8a5a' : undefined }}
-      />
-      {errors[id]  && <p style={{ fontSize:11, color:'#C0392B', marginTop:4 }}>{errors[id]}</p>}
-      {!errors[id] && touched[id] && <p style={{ fontSize:11, color:'#5a8a5a', marginTop:4 }}>✓</p>}
     </div>
   )
 }

@@ -128,7 +128,6 @@ export default function CheckoutPage() {
         ? value.toUpperCase() : value
     }
     setForm(p => ({ ...p, [field]: v }))
-    if (touched[field]) validateField(field, v)
   }
 
   const handleBlur = (field) => {

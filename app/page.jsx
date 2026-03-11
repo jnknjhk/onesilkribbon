@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { formatGBP } from '@/lib/pricing'
@@ -7,13 +7,22 @@ import { useCart } from '@/lib/cart'
 
 // ── Collection data ──────────────────────
 const COLLECTIONS = [
-  { name: 'Fine Silk Ribbons',       slug: 'fine-silk-ribbons',       count: '30 colourways', bg: 'linear-gradient(160deg,#D4C5B0,#9A8878,#C4A882)', featured: true },
-  { name: 'Hand-Frayed',             slug: 'hand-frayed-silk-ribbons', count: '18 styles',     bg: 'linear-gradient(160deg,#E8C9B8,#C9A48A,#9A7A66)' },
-  { name: 'Adornments',              slug: 'handcrafted-adornments',   count: '12 designs',    bg: 'linear-gradient(160deg,#B8A898,#7A6A5A,#4A3A30)' },
-  { name: 'Patterned',               slug: 'patterned-ribbons',        count: '14 patterns',   bg: 'linear-gradient(160deg,#C8D4C0,#8A9A80,#5A7050)' },
-  { name: 'Studio Tools',            slug: 'studio-tools',             count: '8 essentials',  bg: 'linear-gradient(160deg,#D0D0C8,#9A9A90,#5A5A54)' },
-  { name: 'Vintage-Inspired',        slug: 'vintage-inspired-ribbons', count: '16 styles',     bg: 'linear-gradient(160deg,#D4B8C0,#9A7A84,#5A3A44)' },
+  { name: 'Fine Silk Ribbons',       slug: 'fine-silk-ribbons',        count: '30 colourways' },
+  { name: 'Hand-Frayed',             slug: 'hand-frayed-silk-ribbons', count: '18 styles' },
+  { name: 'Adornments',              slug: 'handcrafted-adornments',   count: '12 designs' },
+  { name: 'Patterned',               slug: 'patterned-ribbons',        count: '14 patterns' },
+  { name: 'Studio Tools',            slug: 'studio-tools',             count: '8 essentials' },
+  { name: 'Vintage-Inspired',        slug: 'vintage-inspired-ribbons', count: '16 styles' },
 ]
+
+const COLLECTION_FALLBACK_BG = {
+  'fine-silk-ribbons':        'linear-gradient(160deg,#D4C5B0,#9A8878,#C4A882)',
+  'hand-frayed-silk-ribbons': 'linear-gradient(160deg,#E8C9B8,#C9A48A,#9A7A66)',
+  'handcrafted-adornments':   'linear-gradient(160deg,#B8A898,#7A6A5A,#4A3A30)',
+  'patterned-ribbons':        'linear-gradient(160deg,#C8D4C0,#8A9A80,#5A7050)',
+  'studio-tools':             'linear-gradient(160deg,#D0D0C8,#9A9A90,#5A5A54)',
+  'vintage-inspired-ribbons': 'linear-gradient(160deg,#D4B8C0,#9A7A84,#5A3A44)',
+}
 
 const PALETTE = [
   { hex: '#F0EAE0', name: 'Antique Lace',  dark: false },
@@ -33,34 +42,60 @@ const PALETTE = [
 
 export default function HomePage() {
   const [featuredProducts, setFeaturedProducts] = useState([])
+  const [heroImage, setHeroImage] = useState(null)
+  const [collectionImages, setCollectionImages] = useState({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function loadFeatured() {
-      const { data: prods } = await supabase
+    async function loadData() {
+      // 1. Hero 背景图 — 取 featured 或第一张有图的产品
+      const { data: featuredForHero } = await supabase
         .from('products')
-        .select('id, name, slug, images, collection')
-        .limit(4)
+        .select('images')
+        .eq('is_active', true)
+        .order('is_featured', { ascending: false })
+        .limit(10)
 
+      if (featuredForHero) {
+        for (const p of featuredForHero) {
+          const imgs = Array.isArray(p.images) ? p.images : []
+          if (imgs.length > 0) { setHeroImage(imgs[0]); break }
+        }
+      }
+
+      // 2. 每个 collection 的封面图
+      const imgMap = {}
+      for (const col of COLLECTIONS) {
+        const { data: colProds } = await supabase
+          .from('products')
+          .select('images')
+          .eq('collection', col.slug)
+          .eq('is_active', true)
+          .limit(3)
+        if (colProds) {
+          for (const p of colProds) {
+            const imgs = Array.isArray(p.images) ? p.images : []
+            if (imgs.length > 0) { imgMap[col.slug] = imgs[0]; break }
+          }
+        }
+      }
+      setCollectionImages(imgMap)
+
+      // 3. 精选产品
+      const { data: prods } = await supabase
+        .from('products').select('id, name, slug, images, collection').limit(4)
       if (prods) {
         const enriched = await Promise.all(prods.map(async (p) => {
           const { data: skus } = await supabase
-            .from('product_skus')
-            .select('price_gbp, colour_hex')
-            .eq('product_id', p.id)
-            .order('price_gbp', { ascending: true })
-          
-          return {
-            ...p,
-            price: skus?.[0]?.price_gbp || 0,
-            swatches: skus?.slice(0, 5).map(s => s.colour_hex) || []
-          }
+            .from('product_skus').select('price_gbp, colour_hex')
+            .eq('product_id', p.id).order('price_gbp', { ascending: true })
+          return { ...p, price: skus?.[0]?.price_gbp || 0, swatches: skus?.slice(0, 5).map(s => s.colour_hex) || [] }
         }))
         setFeaturedProducts(enriched)
       }
       setLoading(false)
     }
-    loadFeatured()
+    loadData()
 
     const els = document.querySelectorAll('.reveal')
     const obs = new IntersectionObserver(entries => {
@@ -72,19 +107,20 @@ export default function HomePage() {
 
   return (
     <>
-      <Hero />
+      <Hero heroImage={heroImage} />
       <Marquee />
-      <Collections />
+      <Collections collectionImages={collectionImages} />
       <PaletteBand />
       <StorySection />
       <FeaturedProducts products={featuredProducts} loading={loading} />
-      <JournalSection />
       <NewsletterSection />
 
       <style>{`
         .reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.9s ease, transform 0.9s ease; }
         .reveal.visible { opacity: 1; transform: translateY(0); }
-        .col-card:hover .col-img-inner { transform: scale(1.05); }
+        .col-card:hover .col-img-inner { transform: scale(1.06); }
+        .col-card:hover .col-overlay { opacity: 0.25 !important; }
+        .col-card:hover .col-cta-line { width: 40px !important; }
         .prod-card:hover .prod-img-inner { transform: scale(1.04); }
         .prod-card:hover .quick-add { transform: translateY(0) !important; }
         .palette-swatch:hover { flex: 2.5 !important; }
@@ -94,89 +130,173 @@ export default function HomePage() {
   )
 }
 
-/* ═══════════════════════════════════
-   HERO — 移动端改为单栏垂直布局
-   ═══════════════════════════════════ */
-function Hero() {
+
+/* ═══════════════════════════════════════════════════════
+   HERO — 全屏背景图/视频 + 居中文字 + 淡入动画
+   ═══════════════════════════════════════════════════════ */
+function Hero({ heroImage }) {
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoaded(true), 200)
+    return () => clearTimeout(timer)
+  }, [])
+
   return (
-    <section className="hero-section">
-      <div className="hero-text">
-        <svg className="hero-svg" viewBox="0 0 400 200" fill="none">
-          <path d="M 0 100 Q 50 20 100 100 Q 150 180 200 100 Q 250 20 300 100 Q 350 180 400 100" stroke="#9A8878" strokeWidth="1.5" fill="none"/>
-        </svg>
-        <p className="eyebrow" style={{ marginBottom: 24 }}>100% Pure Mulberry Silk · Handcrafted</p>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(40px,6vw,86px)', fontWeight: 300, lineHeight: 1.05, color: 'var(--ink)', marginBottom: 32 }}>
-          Woven from  
-<em style={{ fontStyle: 'italic', color: 'var(--taupe)' }}>nature's</em>  
-finest thread
+    <section className="hero">
+      {/* ── 背景层 ── */}
+      <div className="hero-bg">
+        {/*
+          ═══ 视频切换说明 ═══
+          当你有视频素材后：
+          1. 把视频文件放到 public/videos/hero-silk.mp4
+          2. 取消下面 <video> 的注释
+          3. 删掉下面的 <img> 和 fallback <div>
+
+          <video autoPlay muted loop playsInline
+            poster={heroImage || ''}
+            style={{ width:'100%', height:'100%', objectFit:'cover' }}>
+            <source src="/videos/hero-silk.mp4" type="video/mp4" />
+          </video>
+        */}
+
+        {heroImage ? (
+          <img src={heroImage} alt="Silk ribbon"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        ) : (
+          <div style={{ width: '100%', height: '100%',
+            background: 'linear-gradient(135deg, #1C1714 0%, #3D3530 20%, #6B5A4E 40%, #9A8878 60%, #C4A882 80%, #E8DDD0 100%)' }} />
+        )}
+      </div>
+
+      {/* ── 遮罩层 ── */}
+      <div className="hero-overlay" />
+      <div className="hero-gradient" />
+
+      {/* ── 文字（居中 + 依次淡入） ── */}
+      <div className="hero-content">
+        <p className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.1s',
+          fontSize: 10, letterSpacing: '0.4em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 32 }}>
+          100% Pure Mulberry Silk · Handcrafted
+        </p>
+
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(42px, 7vw, 88px)',
+          fontWeight: 300, lineHeight: 1.05, color: '#fff', marginBottom: 36,
+          display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.3s', display: 'block' }}>
+            Woven from
+          </span>
+          <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.55s', display: 'block', fontStyle: 'italic', color: 'var(--gold)' }}>
+            nature's finest
+          </span>
+          <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.8s', display: 'block' }}>
+            thread
+          </span>
         </h1>
-        <p style={{ fontSize: 13, lineHeight: 1.9, color: 'var(--taupe)', maxWidth: 340, marginBottom: 52 }}>
+
+        <p className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '1.1s',
+          fontSize: 14, lineHeight: 2, color: 'rgba(255,255,255,0.65)', maxWidth: 420, marginBottom: 48, textAlign: 'center' }}>
           Each ribbon carries the quiet beauty of silk in its most natural form — hand-treated, botanically inspired, made to last.
         </p>
-        <Link href="/collections"><button className="btn-text"><span className="line" />Explore Collections</button></Link>
+
+        <div className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '1.4s' }}>
+          <Link href="/collections">
+            <button className="hero-btn">
+              <span className="hero-btn-line" />
+              Explore Collections
+              <span className="hero-btn-line" />
+            </button>
+          </Link>
+        </div>
+
+        {/* 向下滚动提示 */}
+        <div className={`hero-scroll-wrap hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '1.8s' }}>
+          <div className="hero-scroll-line" />
+        </div>
       </div>
-      <div className="hero-image">
-        <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#1C1714,#3D3530,#6B5A4E,#9A8878,#C4A882,#E8DDD0)', animation: 'heroZoom 12s ease-out forwards' }} />
-      </div>
+
       <style>{`
-        .hero-section {
-          height: 100vh;
-          min-height: 600px;
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          overflow: hidden;
+        .hero {
+          position: relative; height: 100vh; height: 100dvh;
+          min-height: 600px; overflow: hidden;
+          display: flex; align-items: center; justify-content: center;
         }
-        .hero-text {
-          background: var(--sand);
-          display: flex;
-          flex-direction: column;
-          justify-content: flex-end;
-          padding: 0 80px 100px 80px;
-          position: relative;
-          overflow: hidden;
+        .hero-bg {
+          position: absolute; inset: 0; z-index: 0;
+          animation: heroZoom 18s ease-out forwards;
         }
-        .hero-svg {
-          position: absolute;
-          top: 50%; left: 50%;
-          transform: translate(-50%,-50%);
-          opacity: 0.12; width: 600px;
-          animation: float 8s ease-in-out infinite;
+        @keyframes heroZoom { from { transform: scale(1.08); } to { transform: scale(1); } }
+
+        .hero-overlay {
+          position: absolute; inset: 0; z-index: 1;
+          background: rgba(28, 23, 20, 0.45);
         }
-        .hero-image {
-          background: #2A2420;
-          position: relative;
-          overflow: hidden;
+        .hero-gradient {
+          position: absolute; bottom: 0; left: 0; right: 0; z-index: 1;
+          height: 40%;
+          background: linear-gradient(to top, rgba(28,23,20,0.6) 0%, transparent 100%);
         }
 
-        /* ── 移动端 ── */
+        .hero-content {
+          position: relative; z-index: 2;
+          text-align: center; padding: 0 24px; max-width: 800px;
+          display: flex; flex-direction: column; align-items: center;
+        }
+
+        /* ── 淡入动画 ── */
+        .hero-anim {
+          opacity: 0; transform: translateY(28px);
+          transition: opacity 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                      transform 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        .hero-in { opacity: 1 !important; transform: translateY(0) !important; }
+
+        /* ── CTA 按钮 ── */
+        .hero-btn {
+          background: none; border: 1px solid rgba(255,255,255,0.3);
+          color: #fff; font-family: var(--font-body);
+          font-size: 10px; letter-spacing: 0.32em; text-transform: uppercase;
+          padding: 18px 48px; display: inline-flex; align-items: center; gap: 20px;
+          cursor: pointer; transition: all 0.4s ease;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .hero-btn:hover {
+          background: rgba(255,255,255,0.08);
+          border-color: var(--gold); color: var(--gold);
+        }
+        .hero-btn-line {
+          display: block; width: 28px; height: 1px;
+          background: var(--gold); transition: width 0.4s ease;
+        }
+        .hero-btn:hover .hero-btn-line { width: 40px; }
+
+        /* ── 滚动提示 ── */
+        .hero-scroll-wrap {
+          position: absolute; bottom: 40px; left: 50%;
+          margin-left: -0.5px;
+        }
+        .hero-scroll-line {
+          width: 1px; height: 48px;
+          background: linear-gradient(to bottom, var(--gold), transparent);
+          animation: scrollPulse 2s ease-in-out infinite;
+        }
+        @keyframes scrollPulse {
+          0%, 100% { opacity: 0.4; transform: scaleY(1); }
+          50%      { opacity: 1;   transform: scaleY(1.15); }
+        }
+
         @media (max-width: 768px) {
-          .hero-section {
-            grid-template-columns: 1fr;
-            grid-template-rows: 45vh 1fr;
-            height: auto;
-            min-height: 100vh;
-            min-height: 100dvh;
-          }
-          .hero-image {
-            order: -1; /* 图片在上方 */
-          }
-          .hero-text {
-            padding: 40px 24px 60px;
-            justify-content: flex-start;
-          }
-          .hero-svg { width: 300px; }
+          .hero { min-height: 100vh; min-height: 100dvh; }
+          .hero-btn { padding: 16px 32px; font-size: 9px; }
+          .hero-btn-line { width: 20px; }
+          .hero-scroll-wrap { bottom: 24px; }
+          .hero-scroll-line { height: 32px; }
         }
-        @media (max-width: 480px) {
-          .hero-section {
-            grid-template-rows: 35vh 1fr;
-          }
-        }
-        @keyframes float { 0%,100%{transform:translate(-50%,-50%) rotate(0deg)} 50%{transform:translate(-50%,-48%) rotate(-1deg)} }
-        @keyframes heroZoom { from{transform:scale(1.06)} to{transform:scale(1)} }
       `}</style>
     </section>
   )
 }
+
 
 function Marquee() {
   const items = ['Fine Silk Ribbons','Hand-Frayed Collection','Handcrafted Adornments','Patterned Ribbons','Studio Tools','Vintage-Inspired','200+ Colourways','Free UK Shipping over £45']
@@ -192,52 +312,70 @@ function Marquee() {
   )
 }
 
-/* ═══════════════════════════════════
-   COLLECTIONS — 移动端改为滚动卡片
-   ═══════════════════════════════════ */
-function Collections() {
+
+/* ═══════════════════════════════════════════════════════
+   COLLECTIONS — Supabase 真实产品图
+   ═══════════════════════════════════════════════════════ */
+function Collections({ collectionImages }) {
   return (
     <section className="collections-section">
-      <div style={{ textAlign: 'center', marginBottom: 80 }} className="reveal collections-header">
+      <div style={{ textAlign: 'center', marginBottom: 'clamp(40px, 5vw, 80px)', padding: '0 var(--page-padding, 60px)' }} className="reveal">
         <span className="eyebrow">Our Collections</span>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 300, marginTop: 20 }}>Six expressions of <em style={{ fontStyle: 'italic', color: 'var(--taupe)' }}>pure silk</em></h2>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 300, marginTop: 20 }}>
+          Six expressions of <em style={{ fontStyle: 'italic', color: 'var(--taupe)' }}>pure silk</em>
+        </h2>
       </div>
       <div className="collections-grid">
-        {COLLECTIONS.map(c => (
-          <Link key={c.slug} href={`/collections/${c.slug}`} className="col-card" style={{ textDecoration: 'none' }}>
-            <div style={{ width: '100%', height: '100%', background: c.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
-              <span style={{ color: '#fff', fontFamily: 'var(--font-display)', fontSize: 'clamp(18px, 2vw, 24px)', zIndex: 1, textAlign: 'center', padding: '0 12px' }}>{c.name}</span>
-              <div className="col-img-inner" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.1)', transition: 'transform 0.8s ease' }} />
-            </div>
-          </Link>
-        ))}
+        {COLLECTIONS.map(c => {
+          const img = collectionImages[c.slug]
+          const fallbackBg = COLLECTION_FALLBACK_BG[c.slug] || 'var(--sand)'
+          return (
+            <Link key={c.slug} href={`/collections/${c.slug}`} className="col-card" style={{ textDecoration: 'none' }}>
+              <div className="col-card-inner" style={{ background: fallbackBg }}>
+                {img && (
+                  <img src={img} alt={c.name} className="col-img-inner"
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%',
+                      objectFit: 'cover', display: 'block',
+                      transition: 'transform 1s cubic-bezier(0.25,0.46,0.45,0.94)' }} />
+                )}
+                <div className="col-overlay" style={{
+                  position: 'absolute', inset: 0, background: 'rgba(28,23,20,0.40)',
+                  transition: 'opacity 0.5s ease' }} />
+                <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', justifyContent: 'center', height: '100%', padding: 20, textAlign: 'center' }}>
+                  <span style={{ color: '#fff', fontFamily: 'var(--font-display)',
+                    fontSize: 'clamp(20px, 2.2vw, 28px)', fontWeight: 300, marginBottom: 8, lineHeight: 1.2 }}>
+                    {c.name}
+                  </span>
+                  <span style={{ fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase',
+                    color: 'rgba(255,255,255,0.55)', marginBottom: 16 }}>
+                    {c.count}
+                  </span>
+                  <span className="col-cta-line" style={{ display: 'block', width: 24, height: 1,
+                    background: 'var(--gold)', transition: 'width 0.5s ease' }} />
+                </div>
+              </div>
+            </Link>
+          )
+        })}
       </div>
       <style>{`
-        .collections-section { padding: var(--section-padding-y) 0; }
-        .collections-header { padding: 0 var(--page-padding); margin-bottom: 60px; }
+        .collections-section { padding: var(--section-padding-y, 100px) 0; }
         .collections-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 2px;
-          padding: 0 var(--page-padding);
+          display: grid; grid-template-columns: repeat(3, 1fr);
+          gap: 3px; padding: 0 var(--page-padding, 60px);
         }
-        .col-card { height: 400px; }
-        @media (max-width: 768px) {
-          .collections-header { margin-bottom: 32px !important; }
-          .collections-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 2px;
-            padding: 0;
-          }
-          .col-card { height: 220px; }
+        .col-card-inner { position: relative; overflow: hidden; height: 420px; }
+        @media (max-width: 900px) {
+          .collections-grid { grid-template-columns: repeat(2, 1fr); gap: 2px; padding: 0 2px; }
+          .col-card-inner { height: 260px; }
         }
-        @media (max-width: 480px) {
-          .col-card { height: 180px; }
-        }
+        @media (max-width: 480px) { .col-card-inner { height: 200px; } }
       `}</style>
     </section>
   )
 }
+
 
 function PaletteBand() {
   return (
@@ -268,6 +406,7 @@ function PaletteBand() {
   )
 }
 
+
 function StorySection() {
   return (
     <section className="story-section reveal">
@@ -281,22 +420,22 @@ function StorySection() {
         <Link href="/about" className="btn-text"><span className="line" />Our Story</Link>
       </div>
       <style>{`
-        .story-section { padding: var(--section-padding-y) 0; background: var(--cream); text-align: center; }
-        .story-inner { max-width: 800px; margin: 0 auto; padding: 0 var(--page-padding); }
+        .story-section { padding: var(--section-padding-y, 120px) 0; background: var(--cream); text-align: center; }
+        .story-inner { max-width: 800px; margin: 0 auto; padding: 0 var(--page-padding, 40px); }
       `}</style>
     </section>
   )
 }
 
-/* ═══════════════════════════════════
-   FEATURED PRODUCTS — 移动端两栏
-   ═══════════════════════════════════ */
+
 function FeaturedProducts({ products, loading }) {
   return (
     <section className="featured-section">
       <div className="featured-header">
-        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(28px, 3.5vw, 42px)', fontWeight: 300 }}>Artisan <em style={{ fontStyle: 'italic', color: 'var(--taupe)' }}>Favourites</em></h2>
-        <Link href="/collections" className="btn-text featured-viewall"><span className="line" />View All</Link>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(28px, 3.5vw, 42px)', fontWeight: 300 }}>
+          Artisan <em style={{ fontStyle: 'italic', color: 'var(--taupe)' }}>Favourites</em>
+        </h2>
+        <Link href="/collections" className="btn-text"><span className="line" />View All</Link>
       </div>
       <div className="featured-grid">
         {products.map(p => (
@@ -315,16 +454,9 @@ function FeaturedProducts({ products, loading }) {
         ))}
       </div>
       <style>{`
-        .featured-section { padding: var(--section-padding-y) var(--page-padding); background: var(--mist); }
-        .featured-header {
-          display: flex; justify-content: space-between; align-items: flex-end;
-          margin-bottom: 48px; flex-wrap: wrap; gap: 16px;
-        }
-        .featured-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 32px;
-        }
+        .featured-section { padding: var(--section-padding-y, 100px) var(--page-padding, 60px); background: var(--mist); }
+        .featured-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 48px; flex-wrap: wrap; gap: 16px; }
+        .featured-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; }
         @media (max-width: 1024px) { .featured-grid { grid-template-columns: repeat(3, 1fr); } }
         @media (max-width: 768px) {
           .featured-grid { grid-template-columns: repeat(2, 1fr); gap: 20px; }
@@ -335,27 +467,6 @@ function FeaturedProducts({ products, loading }) {
   )
 }
 
-function JournalSection() {
-  return (
-    <section className="journal-section reveal">
-      <div style={{ textAlign: 'center', marginBottom: 60 }}>
-        <span className="eyebrow">The Journal</span>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(28px, 3.5vw, 42px)', fontWeight: 300, marginTop: 20 }}>Notes from the <em style={{ fontStyle: 'italic', color: 'var(--taupe)' }}>Atelier</em></h2>
-      </div>
-      <div className="journal-grid">
-        <div style={{ background: 'var(--sand)', height: 'clamp(280px, 40vw, 500px)' }}></div>
-        <div style={{ background: 'var(--sand)', height: 'clamp(280px, 40vw, 500px)' }}></div>
-      </div>
-      <style>{`
-        .journal-section { padding: var(--section-padding-y) var(--page-padding); }
-        .journal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-        @media (max-width: 768px) {
-          .journal-grid { grid-template-columns: 1fr; gap: 16px; }
-        }
-      `}</style>
-    </section>
-  )
-}
 
 function NewsletterSection() {
   return (
@@ -369,31 +480,13 @@ function NewsletterSection() {
         </div>
       </div>
       <style>{`
-        .newsletter-section {
-          padding: var(--section-padding-y) var(--page-padding);
-          background: var(--deep); color: #fff; text-align: center;
-        }
+        .newsletter-section { padding: var(--section-padding-y, 100px) var(--page-padding, 60px); background: var(--deep); color: #fff; text-align: center; }
         .newsletter-inner { max-width: 500px; margin: 0 auto; }
-        .newsletter-form {
-          display: flex;
-          border-bottom: 1px solid rgba(255,255,255,0.2);
-          padding-bottom: 12px;
-          gap: 12px;
-        }
+        .newsletter-form { display: flex; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 12px; gap: 12px; }
         @media (max-width: 480px) {
-          .newsletter-form {
-            flex-direction: column;
-            border-bottom: none;
-            gap: 16px;
-          }
-          .newsletter-form input {
-            border-bottom: 1px solid rgba(255,255,255,0.2);
-            padding-bottom: 12px;
-          }
-          .newsletter-form button {
-            border: 1px solid rgba(255,255,255,0.2);
-            padding: 14px !important;
-          }
+          .newsletter-form { flex-direction: column; border-bottom: none; gap: 16px; }
+          .newsletter-form input { border-bottom: 1px solid rgba(255,255,255,0.2) !important; padding-bottom: 12px; }
+          .newsletter-form button { border: 1px solid rgba(255,255,255,0.2) !important; padding: 14px !important; }
         }
       `}</style>
     </section>

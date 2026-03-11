@@ -16,14 +16,13 @@ export async function GET() {
   return NextResponse.json(data)
 }
 
-// 新建或更新产品
+// 新建/更新/删除产品
 export async function POST(req) {
   try {
     const body = await req.json()
     const { action, product, skus, deletedSkuIds } = body
 
     if (action === 'create') {
-      // 新建产品
       const { data, error } = await supabase
         .from('products')
         .insert({
@@ -34,6 +33,7 @@ export async function POST(req) {
           is_active: product.is_active,
           is_featured: false,
           images: product.images || [],
+          attribute_config: product.attribute_config || [],
         })
         .select('id')
         .single()
@@ -42,19 +42,19 @@ export async function POST(req) {
 
       const productId = data.id
 
-      // 保存 SKU
       if (skus && skus.length > 0) {
         for (const sku of skus) {
           const skuData = {
             product_id: productId,
-            sku_code: `${product.slug}-${(sku.colour || 'default').toLowerCase().replace(/\s+/g, '-')}-${Date.now().toString(36)}`,
-            colour: sku.colour || '默认',
+            sku_code: `${product.slug}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+            colour: sku.colour || sku.attributes?.['颜色'] || sku.attributes?.['Colour'] || sku.attributes?.['Color'] || '默认',
             colour_hex: sku.colour_hex || '#D4C5B0',
             width_mm: sku.width_mm ? parseInt(sku.width_mm) : null,
-            length_m: sku.length_m ? parseInt(sku.length_m) : 10,
+            length_m: sku.length_m ? parseInt(sku.length_m) : null,
             price_gbp: parseFloat(sku.price_gbp) || 0,
             stock_qty: parseInt(sku.stock_qty) || 0,
             is_active: sku.is_active !== false,
+            attributes: sku.attributes || {},
           }
           await supabase.from('product_skus').insert(skuData)
         }
@@ -63,7 +63,6 @@ export async function POST(req) {
       return NextResponse.json({ id: productId })
 
     } else if (action === 'update') {
-      // 更新产品
       const { error } = await supabase
         .from('products')
         .update({
@@ -73,38 +72,36 @@ export async function POST(req) {
           collection: product.collection,
           is_active: product.is_active,
           images: product.images || [],
+          attribute_config: product.attribute_config || [],
         })
         .eq('id', product.id)
 
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-      // 删除被移除的 SKU
       if (deletedSkuIds && deletedSkuIds.length > 0) {
         for (const skuId of deletedSkuIds) {
           await supabase.from('product_skus').delete().eq('id', skuId)
         }
       }
 
-      // 保存 SKU
       if (skus && skus.length > 0) {
         for (const sku of skus) {
           const skuData = {
             product_id: product.id,
-            colour: sku.colour || '默认',
+            colour: sku.colour || sku.attributes?.['颜色'] || sku.attributes?.['Colour'] || sku.attributes?.['Color'] || '默认',
             colour_hex: sku.colour_hex || '#D4C5B0',
             width_mm: sku.width_mm ? parseInt(sku.width_mm) : null,
-            length_m: sku.length_m ? parseInt(sku.length_m) : 10,
+            length_m: sku.length_m ? parseInt(sku.length_m) : null,
             price_gbp: parseFloat(sku.price_gbp) || 0,
             stock_qty: parseInt(sku.stock_qty) || 0,
             is_active: sku.is_active !== false,
+            attributes: sku.attributes || {},
           }
 
           if (sku.id) {
-            // 更新已有 SKU
             await supabase.from('product_skus').update(skuData).eq('id', sku.id)
           } else {
-            // 新建 SKU
-            skuData.sku_code = `${product.slug}-${(sku.colour || 'default').toLowerCase().replace(/\s+/g, '-')}-${Date.now().toString(36)}`
+            skuData.sku_code = `${product.slug}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`
             await supabase.from('product_skus').insert(skuData)
           }
         }
@@ -113,7 +110,6 @@ export async function POST(req) {
       return NextResponse.json({ ok: true })
 
     } else if (action === 'delete') {
-      // 删除产品及其 SKU
       await supabase.from('product_skus').delete().eq('product_id', product.id)
       await supabase.from('products').delete().eq('id', product.id)
       return NextResponse.json({ ok: true })

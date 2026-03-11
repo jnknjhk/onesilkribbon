@@ -12,9 +12,9 @@ const COLLECTIONS = [
 
 const C = {
   bg: '#F5F3F0', white: '#FFFFFF', border: '#E8E4DF',
-  gold: '#B89B6A', goldDark: '#9A7E50', ink: '#1C1714',
-  sub: '#6B6460', muted: '#A8A4A0', light: '#EDE9E4',
-  red: '#f87171', green: '#4ade80', row: '#FAFAF8',
+  gold: '#B89B6A', ink: '#1C1714', sub: '#6B6460',
+  muted: '#A8A4A0', light: '#EDE9E4',
+  red: '#f87171', green: '#4ade80',
 }
 
 const inp = {
@@ -24,9 +24,7 @@ const inp = {
   fontFamily: "'Jost', sans-serif",
 }
 
-function slugify(text) {
-  return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-}
+function slugify(t) { return t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') }
 
 export default function ProductsPage() {
   const [products, setProducts] = useState([])
@@ -37,9 +35,13 @@ export default function ProductsPage() {
   const [search, setSearch] = useState('')
   const [filterCol, setFilterCol] = useState('all')
 
+  // 产品表单
   const [form, setForm] = useState({ name: '', slug: '', description: '', collection: 'fine-silk-ribbons', active: true })
   const [images, setImages] = useState([])
   const [uploading, setUploading] = useState(false)
+  // 属性配置: [{name: '颜色', options: ['Warm Sand', 'Blush']}, {name: '宽度', options: ['7mm','10mm']}]
+  const [attrConfig, setAttrConfig] = useState([])
+  // SKU 列表: [{id?, attributes: {颜色:'Warm Sand', 宽度:'7mm'}, colour_hex, price_gbp, stock_qty, is_active}]
   const [skus, setSkus] = useState([])
   const [deletedSkuIds, setDeletedSkuIds] = useState([])
   const [deletedImageUrls, setDeletedImageUrls] = useState([])
@@ -47,7 +49,6 @@ export default function ProductsPage() {
 
   useEffect(() => { loadProducts() }, [])
 
-  // ── 通过 API 加载产品列表 ──
   async function loadProducts() {
     setLoading(true)
     try {
@@ -58,256 +59,249 @@ export default function ProductsPage() {
     setLoading(false)
   }
 
-  // ── 开始编辑/新建 ──
   async function startEdit(product) {
     if (product === 'new') {
       setForm({ name: '', slug: '', description: '', collection: 'fine-silk-ribbons', active: true })
-      setImages([])
-      setSkus([])
-      setDeletedSkuIds([])
-      setDeletedImageUrls([])
+      setImages([]); setAttrConfig([]); setSkus([])
+      setDeletedSkuIds([]); setDeletedImageUrls([])
       setEditing('new')
     } else {
       setForm({
-        name: product.name || '',
-        slug: product.slug || '',
+        name: product.name || '', slug: product.slug || '',
         description: product.description || '',
         collection: product.collection || 'fine-silk-ribbons',
         active: product.is_active !== false,
       })
       setImages((product.images || []).map(url => ({ url, isNew: false })))
-      // 加载 SKU — 读取用 anon key 没问题（有 SELECT 策略）
+      setAttrConfig(product.attribute_config || [])
+
       const { createClient } = await import('@supabase/supabase-js')
-      const sb = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-      )
-      const { data: skuData } = await sb
-        .from('product_skus')
-        .select('*')
-        .eq('product_id', product.id)
-        .order('colour')
-      setSkus((skuData || []).map(s => ({ ...s, _existing: true })))
-      setDeletedSkuIds([])
-      setDeletedImageUrls([])
+      const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+      const { data: skuData } = await sb.from('product_skus').select('*').eq('product_id', product.id).order('created_at')
+      setSkus((skuData || []).map(s => ({
+        ...s,
+        attributes: s.attributes || {},
+      })))
+      setDeletedSkuIds([]); setDeletedImageUrls([])
       setEditing(product)
     }
     setMsg('')
   }
 
-  // ── 图片上传 ──
+  // ── 图片 ──
   async function handleImageUpload(e) {
     const files = Array.from(e.target.files)
-    if (files.length === 0) return
+    if (!files.length) return
     setUploading(true)
-
-    const productId = editing === 'new' ? 'temp-' + Date.now() : editing.id
-
+    const pid = editing === 'new' ? 'temp-' + Date.now() : editing.id
     for (const file of files) {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('productId', productId)
-
+      const fd = new FormData(); fd.append('file', file); fd.append('productId', pid)
       try {
-        const res = await fetch('/api/admin/upload', { method: 'POST', body: formData })
+        const res = await fetch('/api/admin/upload', { method: 'POST', body: fd })
         const data = await res.json()
-        if (data.url) {
-          setImages(prev => [...prev, { url: data.url, isNew: true }])
-        } else {
-          setMsg('图片上传失败：' + (data.error || '未知错误'))
-        }
-      } catch (err) {
-        setMsg('图片上传失败：' + err.message)
-      }
+        if (data.url) setImages(p => [...p, { url: data.url, isNew: true }])
+        else setMsg('上传失败：' + (data.error || ''))
+      } catch (err) { setMsg('上传失败：' + err.message) }
     }
     setUploading(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
-
-  function removeImage(index) {
-    const img = images[index]
-    if (img && !img.isNew) {
-      setDeletedImageUrls(prev => [...prev, img.url])
-    } else if (img && img.isNew) {
-      fetch('/api/admin/upload', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: img.url }),
-      }).catch(() => {})
-    }
-    setImages(prev => prev.filter((_, i) => i !== index))
+  function removeImage(i) {
+    const img = images[i]
+    if (img && !img.isNew) setDeletedImageUrls(p => [...p, img.url])
+    else if (img?.isNew) fetch('/api/admin/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: img.url }) }).catch(() => {})
+    setImages(p => p.filter((_, j) => j !== i))
+  }
+  function moveImage(i, d) {
+    setImages(p => { const a = [...p]; const t = i + d; if (t < 0 || t >= a.length) return a; [a[i], a[t]] = [a[t], a[i]]; return a })
   }
 
-  function moveImage(index, direction) {
-    setImages(prev => {
-      const arr = [...prev]
-      const target = index + direction
-      if (target < 0 || target >= arr.length) return arr
-      ;[arr[index], arr[target]] = [arr[target], arr[index]]
-      return arr
+  // ── 属性配置 ──
+  function addAttribute() {
+    setAttrConfig(p => [...p, { name: '', options: [''] }])
+  }
+  function updateAttrName(i, name) {
+    setAttrConfig(p => p.map((a, j) => j === i ? { ...a, name } : a))
+  }
+  function addAttrOption(i) {
+    setAttrConfig(p => p.map((a, j) => j === i ? { ...a, options: [...a.options, ''] } : a))
+  }
+  function updateAttrOption(ai, oi, value) {
+    setAttrConfig(p => p.map((a, j) => j === ai ? { ...a, options: a.options.map((o, k) => k === oi ? value : o) } : a))
+  }
+  function removeAttrOption(ai, oi) {
+    setAttrConfig(p => p.map((a, j) => j === ai ? { ...a, options: a.options.filter((_, k) => k !== oi) } : a))
+  }
+  function removeAttribute(i) {
+    setAttrConfig(p => p.filter((_, j) => j !== i))
+  }
+
+  // ── 批量生成 SKU ──
+  function generateSkus() {
+    const validAttrs = attrConfig.filter(a => a.name.trim() && a.options.some(o => o.trim()))
+    if (validAttrs.length === 0) { setMsg('请先添加至少一个属性和选项'); return }
+
+    // 生成所有组合
+    const combos = validAttrs.reduce((acc, attr) => {
+      const opts = attr.options.filter(o => o.trim())
+      if (acc.length === 0) return opts.map(o => ({ [attr.name]: o }))
+      const result = []
+      for (const combo of acc) {
+        for (const opt of opts) {
+          result.push({ ...combo, [attr.name]: opt })
+        }
+      }
+      return result
+    }, [])
+
+    // 保留已有 SKU 的价格和库存，合并新组合
+    const existingMap = {}
+    skus.forEach(s => {
+      const key = JSON.stringify(s.attributes || {})
+      existingMap[key] = s
     })
+
+    const newSkus = combos.map(attrs => {
+      const key = JSON.stringify(attrs)
+      const existing = existingMap[key]
+      if (existing) return existing
+      return {
+        _temp_id: Date.now() + Math.random(),
+        attributes: attrs,
+        colour_hex: '#D4C5B0',
+        price_gbp: '',
+        stock_qty: 0,
+        is_active: true,
+      }
+    })
+
+    setSkus(newSkus)
+    setMsg(`已生成 ${newSkus.length} 个 SKU 组合`)
+    setTimeout(() => setMsg(''), 3000)
   }
 
-  // ── SKU 管理 ──
-  function addSku() {
-    setSkus(prev => [...prev, {
-      _temp_id: Date.now(),
-      colour: '', colour_hex: '#D4C5B0', width_mm: '',
-      length_m: 10, price_gbp: '', stock_qty: 0, is_active: true,
-    }])
+  // ── SKU 操作 ──
+  function addSkuManual() {
+    const attrs = {}
+    attrConfig.forEach(a => { if (a.name.trim()) attrs[a.name] = '' })
+    setSkus(p => [...p, { _temp_id: Date.now(), attributes: attrs, colour_hex: '#D4C5B0', price_gbp: '', stock_qty: 0, is_active: true }])
+  }
+  function updateSku(i, field, value) {
+    setSkus(p => p.map((s, j) => j === i ? { ...s, [field]: value } : s))
+  }
+  function updateSkuAttr(i, attrName, value) {
+    setSkus(p => p.map((s, j) => j === i ? { ...s, attributes: { ...s.attributes, [attrName]: value } } : s))
+  }
+  function removeSku(i) {
+    const sku = skus[i]
+    if (sku.id) setDeletedSkuIds(p => [...p, sku.id])
+    setSkus(p => p.filter((_, j) => j !== i))
   }
 
-  function updateSku(index, field, value) {
-    setSkus(prev => prev.map((s, i) => i === index ? { ...s, [field]: value } : s))
-  }
-
-  function removeSku(index) {
-    const sku = skus[index]
-    if (sku.id) setDeletedSkuIds(prev => [...prev, sku.id])
-    setSkus(prev => prev.filter((_, i) => i !== index))
-  }
-
-  // ── 保存产品（通过 API） ──
+  // ── 保存 ──
   async function saveProduct() {
     if (!form.name.trim()) { setMsg('请填写产品名称'); return }
     if (!form.slug.trim()) { setMsg('请填写 URL Slug'); return }
-
-    setSaving(true)
-    setMsg('')
+    setSaving(true); setMsg('')
 
     try {
-      const imageUrls = images.map(img => img.url)
+      const cleanConfig = attrConfig
+        .filter(a => a.name.trim())
+        .map(a => ({ name: a.name.trim(), options: a.options.filter(o => o.trim()) }))
 
       const payload = {
         action: editing === 'new' ? 'create' : 'update',
         product: {
           ...(editing !== 'new' ? { id: editing.id } : {}),
-          name: form.name.trim(),
-          slug: form.slug.trim(),
-          description: form.description.trim(),
-          collection: form.collection,
-          is_active: form.active,
-          images: imageUrls,
+          name: form.name.trim(), slug: form.slug.trim(),
+          description: form.description.trim(), collection: form.collection,
+          is_active: form.active, images: images.map(img => img.url),
+          attribute_config: cleanConfig,
         },
         skus: skus.map(s => ({
           ...(s.id ? { id: s.id } : {}),
-          colour: s.colour,
-          colour_hex: s.colour_hex,
-          width_mm: s.width_mm,
-          length_m: s.length_m,
-          price_gbp: s.price_gbp,
-          stock_qty: s.stock_qty,
-          is_active: s.is_active,
+          attributes: s.attributes || {},
+          colour: s.attributes?.['颜色'] || s.attributes?.['Colour'] || s.attributes?.['Color'] || s.colour || '默认',
+          colour_hex: s.colour_hex || '#D4C5B0',
+          width_mm: s.attributes?.['宽度'] ? parseInt(s.attributes['宽度']) : (s.attributes?.['Width'] ? parseInt(s.attributes['Width']) : s.width_mm || null),
+          length_m: s.attributes?.['长度'] ? parseInt(s.attributes['长度']) : (s.attributes?.['Length'] ? parseInt(s.attributes['Length']) : s.length_m || null),
+          price_gbp: s.price_gbp, stock_qty: s.stock_qty, is_active: s.is_active,
         })),
         deletedSkuIds,
       }
 
       const res = await fetch('/api/admin/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
       const result = await res.json()
+      if (result.error) { setMsg('保存失败：' + result.error); setSaving(false); return }
 
-      if (result.error) {
-        setMsg('保存失败：' + result.error)
-        setSaving(false)
-        return
-      }
-
-      // 删除被移除的图片文件
       for (const url of deletedImageUrls) {
-        await fetch('/api/admin/upload', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url }),
-        }).catch(() => {})
+        await fetch('/api/admin/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }).catch(() => {})
       }
 
       setMsg('保存成功 ✓')
-      setTimeout(() => {
-        setEditing(null)
-        loadProducts()
-      }, 800)
-    } catch (err) {
-      setMsg('保存失败：' + err.message)
-    }
-
+      setTimeout(() => { setEditing(null); loadProducts() }, 800)
+    } catch (err) { setMsg('保存失败：' + err.message) }
     setSaving(false)
   }
 
-  // ── 删除产品（通过 API） ──
   async function deleteProduct(product) {
-    if (!confirm(`确定删除「${product.name}」？此操作不可恢复。`)) return
-
+    if (!confirm(`确定删除「${product.name}」？`)) return
     await fetch('/api/admin/products', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'delete', product: { id: product.id } }),
     })
-
-    // 删除 storage 图片
     if (product.images) {
       for (const url of product.images) {
-        await fetch('/api/admin/upload', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url }),
-        }).catch(() => {})
+        await fetch('/api/admin/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }).catch(() => {})
       }
     }
+    if (editing) setEditing(null)
     loadProducts()
   }
 
-  // ── 过滤 ──
   const filtered = products.filter(p => {
-    const matchSearch = !search || p.name?.toLowerCase().includes(search.toLowerCase()) || p.slug?.toLowerCase().includes(search.toLowerCase())
-    const matchCol = filterCol === 'all' || p.collection === filterCol
-    return matchSearch && matchCol
+    const ms = !search || p.name?.toLowerCase().includes(search.toLowerCase()) || p.slug?.toLowerCase().includes(search.toLowerCase())
+    const mc = filterCol === 'all' || p.collection === filterCol
+    return ms && mc
   })
 
   const collectionLabel = v => COLLECTIONS.find(c => c.value === v)?.label || v
 
-  // ═══════════════════════════════════════════════════════
-  // 编辑/新建界面
-  // ═══════════════════════════════════════════════════════
+  // ═══════════════════════════════
+  // 编辑界面
+  // ═══════════════════════════════
   if (editing !== null) {
+    const attrNames = attrConfig.filter(a => a.name.trim()).map(a => a.name)
+
     return (
-      <div style={{ maxWidth: 900, margin: '0 auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
+      <div style={{ maxWidth: 960, margin: '0 auto' }}>
+        {/* 顶部 */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32, flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <button onClick={() => setEditing(null)} style={{
-              background: 'none', border: 'none', color: C.gold, fontSize: 12,
-              cursor: 'pointer', marginBottom: 8, padding: 0, display: 'block',
-            }}>← 返回产品列表</button>
-            <h1 style={{ color: C.ink, fontSize: 24, fontWeight: 300 }}>
-              {editing === 'new' ? '新建产品' : `编辑：${form.name}`}
-            </h1>
+            <button onClick={() => setEditing(null)} style={{ background: 'none', border: 'none', color: C.gold, fontSize: 12, cursor: 'pointer', marginBottom: 8, padding: 0, display: 'block' }}>← 返回产品列表</button>
+            <h1 style={{ color: C.ink, fontSize: 24, fontWeight: 300 }}>{editing === 'new' ? '新建产品' : `编辑：${form.name}`}</h1>
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             {msg && <span style={{ color: msg.includes('✓') ? C.green : C.red, fontSize: 12 }}>{msg}</span>}
-            <button onClick={saveProduct} disabled={saving} style={{
-              padding: '10px 28px', background: C.gold, border: 'none',
-              borderRadius: 6, color: '#fff', fontSize: 12, cursor: 'pointer',
-              letterSpacing: '.08em', opacity: saving ? 0.7 : 1,
-            }}>{saving ? '保存中…' : '保存产品'}</button>
+            <button onClick={saveProduct} disabled={saving} style={{ padding: '10px 28px', background: C.gold, border: 'none', borderRadius: 6, color: '#fff', fontSize: 12, cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+              {saving ? '保存中…' : '保存产品'}
+            </button>
           </div>
         </div>
 
-        {/* ── 基本信息 ── */}
+        {/* 基本信息 */}
         <Section title="基本信息">
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div>
               <Label>产品名称 *</Label>
-              <input value={form.name} onChange={e => {
-                const name = e.target.value
-                setForm(p => ({ ...p, name, slug: editing === 'new' ? slugify(name) : p.slug }))
-              }} style={inp} placeholder="Mulberry Silk Ribbon" />
+              <input value={form.name} onChange={e => { const n = e.target.value; setForm(p => ({ ...p, name: n, slug: editing === 'new' ? slugify(n) : p.slug })) }} style={inp} placeholder="Mulberry Silk Ribbon" />
             </div>
             <div>
               <Label>URL Slug *</Label>
-              <input value={form.slug} onChange={e => setForm(p => ({ ...p, slug: e.target.value }))}
-                style={inp} placeholder="mulberry-silk-ribbon" />
+              <input value={form.slug} onChange={e => setForm(p => ({ ...p, slug: e.target.value }))} style={inp} placeholder="mulberry-silk-ribbon" />
             </div>
             <div>
               <Label>所属系列</Label>
@@ -333,89 +327,112 @@ export default function ProductsPage() {
             <Label>产品描述</Label>
             <textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
               style={{ ...inp, minHeight: 120, resize: 'vertical' }}
-              placeholder="描述产品的材质、特点、用途…&#10;支持多行，每行将显示为一个段落。" />
+              placeholder="描述产品的材质、特点、用途…" />
           </div>
         </Section>
 
-        {/* ── 产品图片 ── */}
-        <Section title="产品图片" sub="第一张为主图。建议尺寸 1200×1600，JPG 格式">
+        {/* 图片 */}
+        <Section title="产品图片" sub="第一张为主图。建议 1200×1200，JPG 格式">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
             {images.map((img, i) => (
-              <div key={img.url} style={{
-                width: 120, height: 150, position: 'relative', overflow: 'hidden',
-                border: i === 0 ? `2px solid ${C.gold}` : `1px solid ${C.border}`,
-                borderRadius: 6, background: C.bg,
-              }}>
+              <div key={img.url} style={{ width: 120, height: 120, position: 'relative', overflow: 'hidden', border: i === 0 ? `2px solid ${C.gold}` : `1px solid ${C.border}`, borderRadius: 6, background: C.bg }}>
                 <img src={img.url} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                {i === 0 && (
-                  <span style={{
-                    position: 'absolute', top: 4, left: 4, background: C.gold,
-                    color: '#fff', fontSize: 9, padding: '2px 6px', borderRadius: 3,
-                  }}>主图</span>
-                )}
-                <div style={{
-                  position: 'absolute', bottom: 0, left: 0, right: 0,
-                  background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', gap: 4, padding: 4,
-                }}>
+                {i === 0 && <span style={{ position: 'absolute', top: 4, left: 4, background: C.gold, color: '#fff', fontSize: 9, padding: '2px 6px', borderRadius: 3 }}>主图</span>}
+                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', gap: 4, padding: 4 }}>
                   <SmallBtn onClick={() => moveImage(i, -1)} disabled={i === 0}>←</SmallBtn>
                   <SmallBtn onClick={() => moveImage(i, 1)} disabled={i === images.length - 1}>→</SmallBtn>
                   <SmallBtn onClick={() => removeImage(i)} danger>✕</SmallBtn>
                 </div>
               </div>
             ))}
-
             <button onClick={() => fileInputRef.current?.click()} disabled={uploading} style={{
-              width: 120, height: 150, border: `2px dashed ${C.border}`,
-              borderRadius: 6, background: 'transparent', cursor: 'pointer',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              gap: 8, color: C.muted, fontSize: 11,
+              width: 120, height: 120, border: `2px dashed ${C.border}`, borderRadius: 6, background: 'transparent',
+              cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: C.muted, fontSize: 11,
             }}>
               <span style={{ fontSize: 28, lineHeight: 1 }}>+</span>
               {uploading ? '上传中…' : '添加图片'}
             </button>
-            <input ref={fileInputRef} type="file" accept="image/*" multiple
-              onChange={handleImageUpload} style={{ display: 'none' }} />
+            <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleImageUpload} style={{ display: 'none' }} />
           </div>
         </Section>
 
-        {/* ── SKU 管理 ── */}
-        <Section title="SKU / 规格" sub="每个颜色+尺寸组合为一个 SKU">
+        {/* ════════ 属性配置 ════════ */}
+        <Section title="产品属性" sub="定义这个产品有哪些可选属性（如颜色、宽度、长度），客户在详情页通过下拉框选择">
+          {attrConfig.map((attr, ai) => (
+            <div key={ai} style={{ background: C.bg, borderRadius: 8, padding: 20, marginBottom: 12 }}>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 14 }}>
+                <div style={{ flex: 1 }}>
+                  <Label>属性名称</Label>
+                  <input value={attr.name} onChange={e => updateAttrName(ai, e.target.value)}
+                    style={{ ...inp, background: C.white }} placeholder="例：颜色、宽度、长度" />
+                </div>
+                <button onClick={() => removeAttribute(ai)} style={{ background: 'none', border: `1px solid ${C.red}`, borderRadius: 4, color: C.red, fontSize: 11, padding: '6px 12px', cursor: 'pointer', marginTop: 20 }}>
+                  删除属性
+                </button>
+              </div>
+              <Label>选项值（每个一行）</Label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {attr.options.map((opt, oi) => (
+                  <div key={oi} style={{ display: 'flex', gap: 8 }}>
+                    <input value={opt} onChange={e => updateAttrOption(ai, oi, e.target.value)}
+                      style={{ ...inp, background: C.white, flex: 1 }} placeholder={`选项 ${oi + 1}`} />
+                    <button onClick={() => removeAttrOption(ai, oi)} disabled={attr.options.length <= 1}
+                      style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 4, color: C.red, fontSize: 12, padding: '0 10px', cursor: attr.options.length <= 1 ? 'default' : 'pointer', opacity: attr.options.length <= 1 ? 0.3 : 1 }}>✕</button>
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => addAttrOption(ai)} style={{ marginTop: 8, background: 'none', border: `1px dashed ${C.border}`, borderRadius: 4, color: C.gold, fontSize: 11, padding: '6px 14px', cursor: 'pointer' }}>
+                + 添加选项
+              </button>
+            </div>
+          ))}
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button onClick={addAttribute} style={{ padding: '10px 20px', background: C.white, border: `1px dashed ${C.border}`, borderRadius: 6, color: C.gold, fontSize: 12, cursor: 'pointer' }}>
+              + 添加属性
+            </button>
+            {attrConfig.length > 0 && (
+              <button onClick={generateSkus} style={{ padding: '10px 20px', background: C.gold, border: 'none', borderRadius: 6, color: '#fff', fontSize: 12, cursor: 'pointer' }}>
+                自动生成 SKU 组合
+              </button>
+            )}
+          </div>
+        </Section>
+
+        {/* ════════ SKU 列表 ════════ */}
+        <Section title="SKU / 库存" sub={`共 ${skus.length} 个 SKU。可自动生成，也可手动添加`}>
           {skus.length === 0 ? (
-            <p style={{ color: C.muted, fontSize: 13, marginBottom: 16 }}>暂无 SKU，点击下方按钮添加</p>
+            <p style={{ color: C.muted, fontSize: 13, marginBottom: 16 }}>暂无 SKU。请先添加属性后点击"自动生成 SKU 组合"，或手动添加</p>
           ) : (
             <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'auto', marginBottom: 16 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: attrNames.length * 120 + 400 }}>
                 <thead>
                   <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                    {['颜色', '色号', '宽度(mm)', '长度(m)', '价格(£)', '库存', '状态', ''].map(h => (
-                      <th key={h} style={{ padding: '10px 12px', textAlign: 'left', color: C.muted,
-                        fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase' }}>{h}</th>
+                    {attrNames.map(n => (
+                      <th key={n} style={{ padding: '10px 12px', textAlign: 'left', color: C.muted, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase' }}>{n}</th>
                     ))}
+                    <th style={{ padding: '10px 12px', textAlign: 'left', color: C.muted, fontSize: 10, letterSpacing: '.08em' }}>色号</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'left', color: C.muted, fontSize: 10, letterSpacing: '.08em' }}>价格(£)</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'left', color: C.muted, fontSize: 10, letterSpacing: '.08em' }}>库存</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'left', color: C.muted, fontSize: 10, letterSpacing: '.08em' }}>状态</th>
+                    <th style={{ padding: '10px 12px' }}></th>
                   </tr>
                 </thead>
                 <tbody>
                   {skus.map((sku, i) => (
-                    <tr key={sku.id || sku._temp_id} style={{ borderBottom: `1px solid #F0EDE8` }}>
-                      <td style={{ padding: '8px 12px' }}>
-                        <input value={sku.colour} onChange={e => updateSku(i, 'colour', e.target.value)}
-                          style={{ ...inp, padding: '6px 10px', fontSize: 12 }} placeholder="Warm Sand" />
-                      </td>
+                    <tr key={sku.id || sku._temp_id || i} style={{ borderBottom: '1px solid #F0EDE8' }}>
+                      {attrNames.map(n => (
+                        <td key={n} style={{ padding: '8px 12px' }}>
+                          <input value={sku.attributes?.[n] || ''} onChange={e => updateSkuAttr(i, n, e.target.value)}
+                            style={{ ...inp, padding: '6px 10px', fontSize: 12 }} />
+                        </td>
+                      ))}
                       <td style={{ padding: '8px 12px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <input type="color" value={sku.colour_hex || '#D4C5B0'}
-                            onChange={e => updateSku(i, 'colour_hex', e.target.value)}
+                          <input type="color" value={sku.colour_hex || '#D4C5B0'} onChange={e => updateSku(i, 'colour_hex', e.target.value)}
                             style={{ width: 28, height: 28, border: 'none', padding: 0, cursor: 'pointer', background: 'none' }} />
                           <input value={sku.colour_hex || ''} onChange={e => updateSku(i, 'colour_hex', e.target.value)}
                             style={{ ...inp, padding: '6px 8px', fontSize: 11, width: 80, fontFamily: 'monospace' }} />
                         </div>
-                      </td>
-                      <td style={{ padding: '8px 12px' }}>
-                        <input type="number" value={sku.width_mm || ''} onChange={e => updateSku(i, 'width_mm', e.target.value)}
-                          style={{ ...inp, padding: '6px 10px', fontSize: 12, width: 70 }} placeholder="10" />
-                      </td>
-                      <td style={{ padding: '8px 12px' }}>
-                        <input type="number" value={sku.length_m || ''} onChange={e => updateSku(i, 'length_m', e.target.value)}
-                          style={{ ...inp, padding: '6px 10px', fontSize: 12, width: 60 }} placeholder="10" />
                       </td>
                       <td style={{ padding: '8px 12px' }}>
                         <input type="number" step="0.01" value={sku.price_gbp || ''} onChange={e => updateSku(i, 'price_gbp', e.target.value)}
@@ -433,10 +450,7 @@ export default function ProductsPage() {
                         }}>{sku.is_active !== false ? '启用' : '停用'}</button>
                       </td>
                       <td style={{ padding: '8px 12px' }}>
-                        <button onClick={() => removeSku(i)} style={{
-                          background: C.light, border: 'none', borderRadius: 4,
-                          color: C.red, fontSize: 11, padding: '4px 8px', cursor: 'pointer',
-                        }}>删除</button>
+                        <button onClick={() => removeSku(i)} style={{ background: C.light, border: 'none', borderRadius: 4, color: C.red, fontSize: 11, padding: '4px 8px', cursor: 'pointer' }}>删除</button>
                       </td>
                     </tr>
                   ))}
@@ -444,44 +458,32 @@ export default function ProductsPage() {
               </table>
             </div>
           )}
-          <button onClick={addSku} style={{
-            padding: '10px 20px', background: C.white, border: `1px dashed ${C.border}`,
-            borderRadius: 6, color: C.gold, fontSize: 12, cursor: 'pointer',
-          }}>+ 添加 SKU</button>
+          <button onClick={addSkuManual} style={{ padding: '10px 20px', background: C.white, border: `1px dashed ${C.border}`, borderRadius: 6, color: C.gold, fontSize: 12, cursor: 'pointer' }}>
+            + 手动添加 SKU
+          </button>
         </Section>
 
-        {/* 底部操作栏 */}
-        <div style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: '24px 0', borderTop: `1px solid ${C.border}`, marginTop: 32,
-        }}>
+        {/* 底部 */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px 0', borderTop: `1px solid ${C.border}`, marginTop: 32 }}>
           <div>
             {editing !== 'new' && (
-              <button onClick={() => deleteProduct(editing)} style={{
-                background: 'none', border: `1px solid ${C.red}`,
-                borderRadius: 6, color: C.red, fontSize: 12, padding: '10px 20px', cursor: 'pointer',
-              }}>删除此产品</button>
+              <button onClick={() => deleteProduct(editing)} style={{ background: 'none', border: `1px solid ${C.red}`, borderRadius: 6, color: C.red, fontSize: 12, padding: '10px 20px', cursor: 'pointer' }}>删除此产品</button>
             )}
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={() => setEditing(null)} style={{
-              padding: '10px 24px', background: C.bg, border: `1px solid ${C.border}`,
-              borderRadius: 6, color: C.sub, fontSize: 12, cursor: 'pointer',
-            }}>取消</button>
-            <button onClick={saveProduct} disabled={saving} style={{
-              padding: '10px 28px', background: C.gold, border: 'none',
-              borderRadius: 6, color: '#fff', fontSize: 12, cursor: 'pointer',
-              opacity: saving ? 0.7 : 1,
-            }}>{saving ? '保存中…' : '保存产品'}</button>
+            <button onClick={() => setEditing(null)} style={{ padding: '10px 24px', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 6, color: C.sub, fontSize: 12, cursor: 'pointer' }}>取消</button>
+            <button onClick={saveProduct} disabled={saving} style={{ padding: '10px 28px', background: C.gold, border: 'none', borderRadius: 6, color: '#fff', fontSize: 12, cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+              {saving ? '保存中…' : '保存产品'}
+            </button>
           </div>
         </div>
       </div>
     )
   }
 
-  // ═══════════════════════════════════════════════════════
-  // 产品列表界面
-  // ═══════════════════════════════════════════════════════
+  // ═══════════════════════════════
+  // 列表界面
+  // ═══════════════════════════════
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24 }}>
@@ -489,15 +491,11 @@ export default function ProductsPage() {
           <h1 style={{ color: C.ink, fontSize: 24, fontWeight: 300, marginBottom: 8 }}>产品管理</h1>
           <p style={{ color: C.muted, fontSize: 13 }}>共 {products.length} 个产品</p>
         </div>
-        <button onClick={() => startEdit('new')} style={{
-          background: C.gold, border: 'none', borderRadius: 8,
-          color: '#fff', fontSize: 12, padding: '10px 24px', cursor: 'pointer',
-        }}>+ 新建产品</button>
+        <button onClick={() => startEdit('new')} style={{ background: C.gold, border: 'none', borderRadius: 8, color: '#fff', fontSize: 12, padding: '10px 24px', cursor: 'pointer' }}>+ 新建产品</button>
       </div>
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索产品名称…"
-          style={{ flex: 1, ...inp }} />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索产品名称…" style={{ flex: 1, ...inp }} />
         <select value={filterCol} onChange={e => setFilterCol(e.target.value)} style={{ ...inp, width: 200 }}>
           <option value="all">全部系列</option>
           {COLLECTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
@@ -511,9 +509,8 @@ export default function ProductsPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                {['', '产品名称', '系列', '图片', '状态', '操作'].map(h => (
-                  <th key={h} style={{ padding: '12px 16px', textAlign: 'left', color: C.muted,
-                    fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase' }}>{h}</th>
+                {['', '产品名称', '系列', '图片', '属性', '状态', '操作'].map(h => (
+                  <th key={h} style={{ padding: '12px 16px', textAlign: 'left', color: C.muted, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -521,43 +518,26 @@ export default function ProductsPage() {
               {filtered.map(p => {
                 const imgs = Array.isArray(p.images) ? p.images : []
                 const isActive = p.is_active !== false
+                const attrs = p.attribute_config || []
                 return (
-                  <tr key={p.id} style={{ borderBottom: '1px solid #F0EDE8', cursor: 'pointer' }}
-                    onClick={() => startEdit(p)}>
+                  <tr key={p.id} style={{ borderBottom: '1px solid #F0EDE8', cursor: 'pointer' }} onClick={() => startEdit(p)}>
                     <td style={{ padding: '10px 16px', width: 56 }}>
-                      {imgs[0] ? (
-                        <img src={imgs[0]} style={{ width: 40, height: 50, objectFit: 'cover', borderRadius: 4, display: 'block' }} />
-                      ) : (
-                        <div style={{ width: 40, height: 50, background: C.light, borderRadius: 4 }} />
-                      )}
+                      {imgs[0] ? <img src={imgs[0]} style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4, display: 'block' }} /> : <div style={{ width: 40, height: 40, background: C.light, borderRadius: 4 }} />}
                     </td>
                     <td style={{ padding: '10px 16px' }}>
                       <p style={{ color: C.ink, fontSize: 13, fontWeight: 400 }}>{p.name}</p>
                       <p style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>{p.slug}</p>
                     </td>
-                    <td style={{ padding: '10px 16px', color: C.sub, fontSize: 12 }}>
-                      {collectionLabel(p.collection)}
-                    </td>
-                    <td style={{ padding: '10px 16px', color: C.sub, fontSize: 12 }}>
-                      {imgs.length} 张
-                    </td>
+                    <td style={{ padding: '10px 16px', color: C.sub, fontSize: 12 }}>{collectionLabel(p.collection)}</td>
+                    <td style={{ padding: '10px 16px', color: C.sub, fontSize: 12 }}>{imgs.length} 张</td>
+                    <td style={{ padding: '10px 16px', color: C.sub, fontSize: 12 }}>{attrs.length > 0 ? attrs.map(a => a.name).join('、') : '-'}</td>
                     <td style={{ padding: '10px 16px' }}>
-                      <span style={{
-                        background: isActive ? C.green + '22' : C.red + '22',
-                        color: isActive ? C.green : C.red,
-                        fontSize: 11, padding: '3px 10px', borderRadius: 20,
-                      }}>{isActive ? '上架' : '下架'}</span>
+                      <span style={{ background: isActive ? C.green + '22' : C.red + '22', color: isActive ? C.green : C.red, fontSize: 11, padding: '3px 10px', borderRadius: 20 }}>{isActive ? '上架' : '下架'}</span>
                     </td>
                     <td style={{ padding: '10px 16px' }} onClick={e => e.stopPropagation()}>
                       <div style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={() => startEdit(p)} style={{
-                          background: C.light, border: 'none', borderRadius: 4,
-                          color: C.gold, fontSize: 11, padding: '5px 12px', cursor: 'pointer',
-                        }}>编辑</button>
-                        <button onClick={() => deleteProduct(p)} style={{
-                          background: C.light, border: 'none', borderRadius: 4,
-                          color: C.red, fontSize: 11, padding: '5px 12px', cursor: 'pointer',
-                        }}>删除</button>
+                        <button onClick={() => startEdit(p)} style={{ background: C.light, border: 'none', borderRadius: 4, color: C.gold, fontSize: 11, padding: '5px 12px', cursor: 'pointer' }}>编辑</button>
+                        <button onClick={() => deleteProduct(p)} style={{ background: C.light, border: 'none', borderRadius: 4, color: C.red, fontSize: 11, padding: '5px 12px', cursor: 'pointer' }}>删除</button>
                       </div>
                     </td>
                   </tr>
@@ -574,10 +554,7 @@ export default function ProductsPage() {
 // ── 辅助组件 ──
 function Section({ title, sub, children }) {
   return (
-    <div style={{
-      background: C.white, border: `1px solid ${C.border}`,
-      borderRadius: 12, padding: 28, marginBottom: 20,
-    }}>
+    <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, padding: 28, marginBottom: 20 }}>
       <div style={{ marginBottom: 20 }}>
         <h2 style={{ color: C.ink, fontSize: 16, fontWeight: 400, marginBottom: sub ? 4 : 0 }}>{title}</h2>
         {sub && <p style={{ color: C.muted, fontSize: 11 }}>{sub}</p>}
@@ -586,24 +563,16 @@ function Section({ title, sub, children }) {
     </div>
   )
 }
-
 function Label({ children }) {
-  return (
-    <label style={{
-      display: 'block', color: C.muted, fontSize: 10,
-      letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 6,
-    }}>{children}</label>
-  )
+  return <label style={{ display: 'block', color: C.muted, fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 6 }}>{children}</label>
 }
-
 function SmallBtn({ onClick, disabled, danger, children }) {
   return (
     <button onClick={onClick} disabled={disabled} style={{
       width: 22, height: 22, border: 'none', borderRadius: 3,
       background: danger ? 'rgba(248,113,113,0.8)' : 'rgba(255,255,255,0.3)',
       color: '#fff', fontSize: 10, cursor: disabled ? 'default' : 'pointer',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      opacity: disabled ? 0.3 : 1,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.3 : 1,
     }}>{children}</button>
   )
 }

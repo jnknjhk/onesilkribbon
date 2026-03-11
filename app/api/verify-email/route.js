@@ -1,6 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { redirect } from 'next/navigation'
-import { randomBytes } from 'crypto'
 
 const RESEND_API = 'https://api.resend.com/emails'
 const FROM       = 'One Silk Ribbon <song@onesilkribbon.com>'
@@ -59,76 +58,71 @@ export async function GET(req) {
 
   if (!token) redirect('/?verified=error')
 
-  try {
-    // 查找 token
-    const { data: subscriber } = await supabaseAdmin
-      .from('subscribers')
-      .select('*')
-      .eq('verify_token', token)
-      .single()
+  // 查找 token
+  const { data: subscriber } = await supabaseAdmin
+    .from('subscribers')
+    .select('*')
+    .eq('verify_token', token)
+    .single()
 
-    if (!subscriber) redirect('/?verified=invalid')
+  if (!subscriber) redirect('/?verified=invalid')
 
-    // 检查是否过期
-    if (new Date(subscriber.token_expires_at) < new Date()) redirect('/?verified=expired')
+  // 检查是否过期
+  if (new Date(subscriber.token_expires_at) < new Date()) redirect('/?verified=expired')
 
-    // 已验证过
-    if (subscriber.verified) redirect('/?verified=already')
+  // 已验证过
+  if (subscriber.verified) redirect('/?verified=already')
 
-    // 生成唯一优惠码
-    let couponCode, attempts = 0
-    do {
-      couponCode = generateCouponCode()
-      const { data: existing } = await supabaseAdmin.from('coupons').select('id').eq('code', couponCode).single()
-      if (!existing) break
-      attempts++
-    } while (attempts < 10)
+  // 生成唯一优惠码
+  let couponCode, attempts = 0
+  do {
+    couponCode = generateCouponCode()
+    const { data: existing } = await supabaseAdmin.from('coupons').select('id').eq('code', couponCode).single()
+    if (!existing) break
+    attempts++
+  } while (attempts < 10)
 
-    // 写入 coupons 表
-    await supabaseAdmin.from('coupons').insert({
-      code:           couponCode,
-      description:    `Welcome discount for ${subscriber.email}`,
-      discount_type:  'percentage',
-      discount_value: 10,
-      min_order_gbp:  0,
-      max_uses:       1,
-      uses_count:     0,
-      active:         true,
-      expires_at:     null,
+  // 写入 coupons 表
+  await supabaseAdmin.from('coupons').insert({
+    code:           couponCode,
+    description:    `Welcome discount for ${subscriber.email}`,
+    discount_type:  'percentage',
+    discount_value: 10,
+    min_order_gbp:  0,
+    max_uses:       1,
+    uses_count:     0,
+    active:         true,
+    expires_at:     null,
+  })
+
+  // 更新 subscriber
+  await supabaseAdmin.from('subscribers').update({
+    verified:         true,
+    status:           'active',
+    verify_token:     null,
+    token_expires_at: null,
+    coupon_code:      couponCode,
+    subscribed_at:    new Date().toISOString(),
+  }).eq('id', subscriber.id)
+
+  // 同步写入 customers 表
+  const { data: existingCustomer } = await supabaseAdmin
+    .from('customers')
+    .select('id')
+    .eq('email', subscriber.email)
+    .single()
+
+  if (!existingCustomer) {
+    await supabaseAdmin.from('customers').insert({
+      email:      subscriber.email,
+      source:     subscriber.source || 'welcome_popup',
+      created_at: new Date().toISOString(),
     })
-
-    // 更新 subscriber
-    await supabaseAdmin.from('subscribers').update({
-      verified:         true,
-      status:           'active',
-      verify_token:     null,
-      token_expires_at: null,
-      coupon_code:      couponCode,
-      subscribed_at:    new Date().toISOString(),
-    }).eq('id', subscriber.id)
-
-    // 同步写入 customers 表
-    const { data: existingCustomer } = await supabaseAdmin
-      .from('customers')
-      .select('id')
-      .eq('email', subscriber.email)
-      .single()
-
-    if (!existingCustomer) {
-      await supabaseAdmin.from('customers').insert({
-        email:      subscriber.email,
-        source:     subscriber.source || 'welcome_popup',
-        created_at: new Date().toISOString(),
-      })
-    }
-
-    // 发送优惠码邮件
-    await sendCouponEmail(subscriber.email, couponCode)
-
-    redirect(`/?verified=success&code=${couponCode}`)
-
-  } catch (err) {
-    console.error('Verify email error:', err)
-    redirect('/?verified=error')
   }
+
+  // 发送优惠码邮件
+  await sendCouponEmail(subscriber.email, couponCode)
+
+  // redirect 必须在 try/catch 外部调用
+  redirect(`/?verified=success&code=${couponCode}`)
 }

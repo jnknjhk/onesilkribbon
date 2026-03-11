@@ -289,7 +289,7 @@ export function Navbar() {
         .nav-logo {
           height: 34px; width: 34px; border-radius: 50%;
           object-fit: cover; display: block;
-          position: relative; top: 0px;
+          position: relative; top: -1px;
         }
         .nav-brand-text {
           font-family: var(--font-display);

@@ -283,12 +283,13 @@ export function Navbar() {
 
         /* ── 品牌区域 ── */
         .nav-brand {
-          display: flex; align-items: center; gap: 10;
+          display: flex; align-items: center; gap: 10px;
           text-decoration: none; z-index: 101; flex-shrink: 0;
         }
         .nav-logo {
-          height: 36px; width: 36px; border-radius: 50%;
+          height: 34px; width: 34px; border-radius: 50%;
           object-fit: cover; display: block;
+          position: relative; top: 0px;
         }
         .nav-brand-text {
           font-family: var(--font-display);
@@ -301,8 +302,9 @@ export function Navbar() {
 
         /* ── 导航链接 ── */
         .nav-links {
-          display: flex; gap: 36; list-style: none; margin: 0;
+          display: flex; gap: 40px; list-style: none; margin: 0;
           position: absolute; left: 50%; transform: translateX(-50%);
+          align-items: center;
         }
         .nav-link {
           font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;

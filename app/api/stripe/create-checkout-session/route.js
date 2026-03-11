@@ -8,7 +8,7 @@ export async function POST(req) {
   try {
     const { items, form, totals } = await req.json()
 
-    // Build line items for Stripe
+    // 商品标价已含税，直接用
     const lineItems = items.map(item => ({
       price_data: {
         currency: 'gbp',
@@ -16,33 +16,30 @@ export async function POST(req) {
           name: item.name,
           description: item.skuDesc,
         },
-        unit_amount: gbpToPence(item.price), // price already inc VAT
+        unit_amount: gbpToPence(item.price),
       },
       quantity: item.qty,
     }))
 
-    // Add shipping if applicable
+    // 运费
     if (parseFloat(totals.shipping) > 0) {
       lineItems.push({
         price_data: {
           currency: 'gbp',
-          product_data: { name: 'Shipping (Royal Mail Standard)' },
+          product_data: { name: 'Shipping' },
           unit_amount: gbpToPence(totals.shipping),
         },
         quantity: 1,
       })
     }
 
-    // Generate order number
     const orderNumber = `OSR-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`
 
-    // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card', 'paypal'],
+      payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'payment',
       customer_email: form.email,
-      shipping_address_collection: { allowed_countries: ['GB', 'DE', 'FR', 'NL', 'SE', 'IT', 'ES', 'BE', 'AT', 'DK'] },
       success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/order-confirmed?order=${orderNumber}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/checkout`,
       metadata: {
@@ -50,17 +47,14 @@ export async function POST(req) {
         customerEmail: form.email,
         shippingName: `${form.firstName} ${form.lastName}`,
       },
-      // VAT is included in prices, show breakdown
-      invoice_creation: { enabled: true },
     })
 
-    // Pre-create order in DB with 'pending' status
     await supabaseAdmin.from('orders').insert({
       order_number: orderNumber,
       customer_email: form.email,
       status: 'pending',
-      subtotal_gbp: totals.subtotalIncVat,
-      vat_amount_gbp: totals.vatAmount,
+      subtotal_gbp: totals.subtotal,
+      vat_amount_gbp: '0.00',
       shipping_gbp: totals.shipping,
       total_gbp: totals.total,
       shipping_name: `${form.firstName} ${form.lastName}`,

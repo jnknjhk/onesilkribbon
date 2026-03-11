@@ -26,12 +26,10 @@ export async function POST(req) {
     const randPart = String(Math.floor(1000 + Math.random() * 9000))
     const orderNumber = `OSR-${datePart}-${randPart}`
 
-    // 计算 items 实际总额（含VAT），确保与 total 一致
+    // 商品标价已含税，直接用
     const itemsTotal = items.reduce((sum, i) => sum + (parseFloat(i.price) * i.qty), 0)
-    const vatRate = 0.20
-    const itemsTotalIncVat = parseFloat((itemsTotal * (1 + vatRate)).toFixed(2))
     const shippingAmount = parseFloat(totals.shipping) || 0
-    const grandTotal = parseFloat((itemsTotalIncVat + shippingAmount).toFixed(2))
+    const grandTotal = parseFloat((itemsTotal + shippingAmount).toFixed(2))
 
     const paypalOrder = await fetch(`${PAYPAL_BASE}/v2/checkout/orders`, {
       method: 'POST',
@@ -48,7 +46,7 @@ export async function POST(req) {
             currency_code: 'GBP',
             value: grandTotal.toFixed(2),
             breakdown: {
-              item_total: { currency_code: 'GBP', value: itemsTotalIncVat.toFixed(2) },
+              item_total: { currency_code: 'GBP', value: itemsTotal.toFixed(2) },
               shipping:   { currency_code: 'GBP', value: shippingAmount.toFixed(2) },
             },
           },
@@ -58,7 +56,7 @@ export async function POST(req) {
             quantity: String(i.qty),
             unit_amount: {
               currency_code: 'GBP',
-              value: parseFloat((parseFloat(i.price) * (1 + vatRate)).toFixed(2)).toFixed(2),
+              value: parseFloat(i.price).toFixed(2),
             },
             category: 'PHYSICAL_GOODS',
           })),
@@ -82,7 +80,6 @@ export async function POST(req) {
     })
 
     const ppData = await paypalOrder.json()
-    console.log('PayPal response:', JSON.stringify(ppData))
     const approvalUrl = ppData.links?.find(l => l.rel === 'approve')?.href
 
     if (!approvalUrl) {
@@ -93,8 +90,8 @@ export async function POST(req) {
       order_number:      orderNumber,
       customer_email:    form.email,
       status:            'pending',
-      subtotal_gbp:      itemsTotalIncVat.toFixed(2),
-      vat_amount_gbp:    totals.vatAmount,
+      subtotal_gbp:      itemsTotal.toFixed(2),
+      vat_amount_gbp:    '0.00',
       shipping_gbp:      shippingAmount.toFixed(2),
       total_gbp:         grandTotal.toFixed(2),
       shipping_name:     `${form.firstName} ${form.lastName}`,

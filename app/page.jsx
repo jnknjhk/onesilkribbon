@@ -443,7 +443,7 @@ function FeaturedProducts({ products, loading }) {
       <div className="featured-grid">
         {products.map(p => (
           <Link key={p.id} href={`/products/${p.slug}`} style={{ textDecoration: 'none' }} className="prod-card">
-            <div style={{ aspectRatio: '3/4', background: 'var(--sand)', marginBottom: 16, overflow: 'hidden', position: 'relative' }}>
+            <div style={{ aspectRatio: '1/1', background: 'var(--sand)', marginBottom: 16, overflow: 'hidden', position: 'relative' }}>
               {p.images?.[0] && <img src={p.images[0]} className="prod-img-inner" style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.8s ease' }} />}
             </div>
             <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(15px, 1.5vw, 18px)', color: 'var(--ink)' }}>{p.name}</h3>

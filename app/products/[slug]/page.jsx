@@ -71,7 +71,6 @@ export default function ProductPage({ params }) {
   const price = selectedSku ? safeNum(selectedSku.price_gbp) : 0
   const inStock = selectedSku ? safeNum(selectedSku.stock_qty) > 0 : false
 
-  // unique colours
   const seenC = new Set()
   const uniqueColours = []
   for (const s of skus) {
@@ -79,7 +78,6 @@ export default function ProductPage({ params }) {
     if (!seenC.has(c)) { seenC.add(c); uniqueColours.push(s) }
   }
 
-  // unique widths
   const seenW = new Set()
   const uniqueWidths = []
   for (const s of skus) {
@@ -127,8 +125,8 @@ export default function ProductPage({ params }) {
 
           {/* LEFT: gallery */}
           <div>
-            {/* Main image */}
-            <div style={{ position: 'relative', width: '100%', aspectRatio: '3/4', overflow: 'hidden', background: 'var(--sand)', cursor: 'zoom-in' }} className="main-wrap">
+            {/* Main image — 1:1 */}
+            <div style={{ position: 'relative', width: '100%', aspectRatio: '1/1', overflow: 'hidden', background: 'var(--sand)', cursor: 'zoom-in' }} className="main-wrap">
               {images.length > 0 ? (
                 <img src={images[imgIdx]} alt={safe(product.name)}
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transition: 'transform .8s cubic-bezier(.25,.46,.45,.94)' }}
@@ -136,7 +134,6 @@ export default function ProductPage({ params }) {
               ) : (
                 <div style={{ width: '100%', height: '100%', background: 'linear-gradient(160deg,#E8DDD0,#C4A882)' }} />
               )}
-              {/* Side arrows */}
               {images.length > 1 && <>
                 <button onClick={() => navImg(-1)} style={{
                   position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
@@ -151,7 +148,6 @@ export default function ProductPage({ params }) {
                   display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2,
                 }}>›</button>
               </>}
-              {/* Counter */}
               {images.length > 1 && (
                 <div style={{
                   position: 'absolute', bottom: 14, right: 14,
@@ -163,12 +159,12 @@ export default function ProductPage({ params }) {
               )}
             </div>
 
-            {/* Thumbnails below */}
+            {/* Thumbnails — 1:1 正方形 */}
             {images.length > 1 && (
               <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                 {images.slice(0, 8).map((img, i) => (
                   <button key={i} onClick={() => setImgIdx(i)} style={{
-                    width: 60, height: 76, flexShrink: 0, padding: 0, border: 'none',
+                    width: 60, height: 60, flexShrink: 0, padding: 0, border: 'none',
                     cursor: 'pointer', overflow: 'hidden', position: 'relative',
                     opacity: imgIdx === i ? 1 : 0.38, transition: 'opacity .3s',
                     outline: imgIdx === i ? '2px solid var(--gold)' : 'none',
@@ -276,11 +272,10 @@ export default function ProductPage({ params }) {
           </div>
         </div>
 
-        {/* ═══ ZONE 2: PRODUCT DETAIL (centered) ═══ */}
+        {/* ═══ ZONE 2: PRODUCT DETAIL ═══ */}
         <div style={{ borderTop: '1px solid var(--sand)', padding: '80px 60px 100px' }} className="zone2-pad">
           <div style={{ maxWidth: 860, margin: '0 auto' }}>
 
-            {/* Tab buttons */}
             <div style={{ display: 'flex', justifyContent: 'center', borderBottom: '1px solid var(--sand)', marginBottom: 56 }}>
               {[['description', 'Description'], ['care', 'Care'], ['shipping', 'Delivery']].map(([id, label]) => (
                 <button key={id} onClick={() => setTab(id)} style={{
@@ -293,7 +288,6 @@ export default function ProductPage({ params }) {
               ))}
             </div>
 
-            {/* Description tab */}
             {tab === 'description' && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, alignItems: 'start' }} className="desc-grid">
                 <div style={{ fontSize: 13, lineHeight: 2.2, color: 'var(--taupe)' }}>
@@ -325,7 +319,6 @@ export default function ProductPage({ params }) {
               </div>
             )}
 
-            {/* Care tab */}
             {tab === 'care' && (
               <div style={{ maxWidth: 560, margin: '0 auto' }}>
                 {[
@@ -344,7 +337,6 @@ export default function ProductPage({ params }) {
               </div>
             )}
 
-            {/* Delivery tab */}
             {tab === 'shipping' && (
               <div style={{ maxWidth: 560, margin: '0 auto' }}>
                 {[
@@ -361,7 +353,6 @@ export default function ProductPage({ params }) {
                 ))}
               </div>
             )}
-
           </div>
         </div>
 
@@ -379,7 +370,7 @@ export default function ProductPage({ params }) {
                 The result is something you feel before you see: a quiet luxury in the hands, a weight that speaks of care, and an edge that tells the story of how it was made.
               </p>
             </div>
-            <div style={{ aspectRatio: '4/5', overflow: 'hidden' }}>
+            <div style={{ aspectRatio: '1/1', overflow: 'hidden' }}>
               {images.length > 0 && (
                 <img src={images[images.length > 1 ? 1 : 0]} alt={safe(product.name)}
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />

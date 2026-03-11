@@ -194,7 +194,6 @@ export default function CollectionPage({ params }) {
           .prod-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
           .coll-content { padding: 24px 16px 80px; }
           .coll-toolbar { padding: 16px; }
-          /* 移动端显示添加按钮 */
           .quick-add { transform: translateY(0) !important; opacity: 0.95; }
         }
         @media(max-width:480px) {
@@ -213,7 +212,7 @@ function ProductCard({ product: p, onAdd }) {
 
   return (
     <div className="prod-card">
-      <div style={{ aspectRatio: '3/4', overflow: 'hidden', background: 'var(--sand)', marginBottom: 12, position: 'relative' }}>
+      <div style={{ aspectRatio: '1/1', overflow: 'hidden', background: 'var(--sand)', marginBottom: 12, position: 'relative' }}>
         {img ? (
           <img src={img} alt={name} className="prod-img"
             style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.7s ease' }} />

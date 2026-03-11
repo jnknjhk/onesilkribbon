@@ -146,27 +146,14 @@ function Hero({ heroImage }) {
     <section className="hero">
       {/* ── 背景层 ── */}
       <div className="hero-bg">
-        {/*
-          ═══ 视频切换说明 ═══
-          当你有视频素材后：
-          1. 把视频文件放到 public/videos/hero-silk.mp4
-          2. 取消下面 <video> 的注释
-          3. 删掉下面的 <img> 和 fallback <div>
-
-          <video autoPlay muted loop playsInline
-            poster={heroImage || ''}
-            style={{ width:'100%', height:'100%', objectFit:'cover' }}>
-            <source src="/videos/hero-silk.mp4" type="video/mp4" />
-          </video>
-        */}
-
-        {heroImage ? (
-          <img src={heroImage} alt="Silk ribbon"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-        ) : (
-          <div style={{ width: '100%', height: '100%',
-            background: 'linear-gradient(135deg, #1C1714 0%, #3D3530 20%, #6B5A4E 40%, #9A8878 60%, #C4A882 80%, #E8DDD0 100%)' }} />
-        )}
+        {/* 视频背景 — poster 用 Supabase 产品图作为加载前的占位帧 */}
+        <video
+          autoPlay muted loop playsInline
+          poster={heroImage || undefined}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        >
+          <source src="/videos/hero-silk.mp4" type="video/mp4" />
+        </video>
       </div>
 
       {/* ── 遮罩层 ── */}

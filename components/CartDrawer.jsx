@@ -23,6 +23,16 @@ export function CartDrawer() {
         .catch(() => {})
     }, [])
 
+    // 锁定 body 滚动
+    React.useEffect(() => {
+      if (isOpen) {
+        document.body.style.overflow = 'hidden'
+      } else {
+        document.body.style.overflow = ''
+      }
+      return () => { document.body.style.overflow = '' }
+    }, [isOpen])
+
     const totals = calculateTotals(getSubtotal ? getSubtotal() : 0, shippingSettings)
 
 
@@ -37,9 +47,8 @@ export function CartDrawer() {
       )}
 
       {/* Drawer */}
-      <div style={{
+      <div className="cart-drawer" style={{
         position: 'fixed', top: 0, right: 0, bottom: 0,
-        width: 'min(480px, 100vw)',
         background: 'var(--cream)',
         zIndex: 201,
         transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
@@ -49,8 +58,9 @@ export function CartDrawer() {
 
         {/* Header */}
         <div style={{
-          padding: '28px 36px', borderBottom: '1px solid var(--sand)',
+          padding: '24px', borderBottom: '1px solid var(--sand)',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          flexShrink: 0,
         }}>
           <div>
             <span className="eyebrow" style={{ marginBottom: 4 }}>Your Basket</span>
@@ -60,16 +70,18 @@ export function CartDrawer() {
           </div>
           <button onClick={closeCart} style={{
             background: 'none', border: 'none', color: 'var(--taupe)',
-            fontSize: 22, lineHeight: 1, padding: 4,
+            fontSize: 22, lineHeight: 1, padding: 8,
+            minWidth: 44, minHeight: 44,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>✕</button>
         </div>
 
         {/* Items */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 36px' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', WebkitOverflowScrolling: 'touch' }}>
           {items.length === 0 ? (
             <div style={{ textAlign: 'center', paddingTop: 80 }}>
               <p style={{
-                fontFamily: 'var(--font-display)', fontSize: 28,
+                fontFamily: 'var(--font-display)', fontSize: 24,
                 fontStyle: 'italic', color: 'var(--taupe)', marginBottom: 24,
               }}>
                 Your basket is empty
@@ -81,7 +93,7 @@ export function CartDrawer() {
               </button>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               {items.map(item => (
                 <CartItem key={item.skuId} item={item}
                   onRemove={() => removeItem(item.skuId)}
@@ -94,12 +106,13 @@ export function CartDrawer() {
         {/* Footer */}
         {items.length > 0 && (
           <div style={{
-            padding: '24px 36px 36px',
+            padding: '20px 24px 32px',
             borderTop: '1px solid var(--sand)',
+            flexShrink: 0,
           }}>
             {/* Free shipping progress */}
             {!totals.freeShipping && (
-              <div style={{ marginBottom: 20 }}>
+              <div style={{ marginBottom: 16 }}>
                 <p style={{ fontSize: 11, color: 'var(--taupe)', marginBottom: 8, letterSpacing: '0.05em' }}>
                   Add {formatGBP(totals.amountToFreeShipping)} more for free shipping
                 </p>
@@ -114,7 +127,7 @@ export function CartDrawer() {
             )}
 
             {/* Totals */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
               <Row label="Subtotal (exc. VAT)" value={formatGBP(totals.subtotalExVat)} />
               <Row label="VAT (20%)" value={formatGBP(totals.vatAmount)} />
               <Row label="Shipping" value={totals.freeShipping ? 'Free' : formatGBP(totals.shipping)} />
@@ -123,7 +136,7 @@ export function CartDrawer() {
             </div>
 
             <Link href="/checkout" onClick={closeCart}>
-              <button className="btn-primary" style={{ marginBottom: 12 }}>
+              <button className="btn-primary" style={{ marginBottom: 10 }}>
                 Proceed to Checkout
               </button>
             </Link>
@@ -133,16 +146,25 @@ export function CartDrawer() {
           </div>
         )}
       </div>
+
+      <style>{`
+        .cart-drawer {
+          width: min(480px, 100vw);
+        }
+        @media (max-width: 520px) {
+          .cart-drawer { width: 100vw; }
+        }
+      `}</style>
     </>
   )
 }
 
 function CartItem({ item, onRemove, onQtyChange }) {
   return (
-    <div style={{ display: 'flex', gap: 16 }}>
+    <div style={{ display: 'flex', gap: 14 }}>
       {/* Image / colour swatch */}
       <div style={{
-        width: 72, height: 90, flexShrink: 0,
+        width: 64, height: 80, flexShrink: 0,
         background: item.colourHex || 'var(--sand)',
         position: 'relative', overflow: 'hidden',
       }}>
@@ -153,14 +175,15 @@ function CartItem({ item, onRemove, onQtyChange }) {
       </div>
 
       {/* Info */}
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{
-          fontFamily: 'var(--font-display)', fontSize: 16,
+          fontFamily: 'var(--font-display)', fontSize: 15,
           fontWeight: 400, marginBottom: 4, color: 'var(--ink)',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
           {item.name}
         </p>
-        <p style={{ fontSize: 11, color: 'var(--taupe)', marginBottom: 12, letterSpacing: '0.04em' }}>
+        <p style={{ fontSize: 11, color: 'var(--taupe)', marginBottom: 10, letterSpacing: '0.04em' }}>
           {item.skuDesc}
         </p>
 
@@ -171,27 +194,29 @@ function CartItem({ item, onRemove, onQtyChange }) {
             border: '1px solid var(--warm)',
           }}>
             <button onClick={() => onQtyChange(item.qty - 1)} style={{
-              width: 32, height: 32, background: 'none', border: 'none',
+              width: 36, height: 36, background: 'none', border: 'none',
               color: 'var(--deep)', fontSize: 16, display: 'flex',
               alignItems: 'center', justifyContent: 'center',
             }}>−</button>
-            <span style={{ width: 32, textAlign: 'center', fontSize: 13 }}>{item.qty}</span>
+            <span style={{ width: 28, textAlign: 'center', fontSize: 13 }}>{item.qty}</span>
             <button onClick={() => onQtyChange(item.qty + 1)} style={{
-              width: 32, height: 32, background: 'none', border: 'none',
+              width: 36, height: 36, background: 'none', border: 'none',
               color: 'var(--deep)', fontSize: 16, display: 'flex',
               alignItems: 'center', justifyContent: 'center',
             }}>+</button>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <p style={{
-              fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)',
+              fontFamily: 'var(--font-display)', fontSize: 16, color: 'var(--ink)',
             }}>
               {formatGBP(item.price * item.qty)}
             </p>
             <button onClick={onRemove} style={{
               background: 'none', border: 'none',
               color: 'var(--taupe)', fontSize: 14,
+              padding: 4, minWidth: 32, minHeight: 32,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>✕</button>
           </div>
         </div>

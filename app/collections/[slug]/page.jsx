@@ -32,7 +32,6 @@ export default function CollectionPage({ params }) {
   const { addItem } = useCart()
 
   useEffect(() => {
-    // Extract slug from URL instead of using params to avoid hydration issues
     const parts = window.location.pathname.split('/')
     const s = parts[parts.length - 1] || ''
     setSlug(s)
@@ -99,39 +98,30 @@ export default function CollectionPage({ params }) {
     <div style={{ paddingTop: 100, background: 'var(--cream)', minHeight: '100vh' }}>
 
       {/* Hero */}
-      <div style={{
-        height: 360, background: meta.bg,
-        display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-        position: 'relative', overflow: 'hidden',
-      }}>
+      <div className="coll-hero" style={{ background: meta.bg, position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(28,23,20,0.3)' }} />
-        <div style={{ position: 'relative', textAlign: 'center', padding: '0 40px' }}>
+        <div style={{ position: 'relative', textAlign: 'center', padding: '0 24px', maxWidth: 600, margin: '0 auto' }}>
           <p style={{ fontSize: 10, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', marginBottom: 16 }}>
             <Link href="/collections" style={{ color: 'inherit' }}>Collections</Link>{' / '}{meta.name}
           </p>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(36px,5vw,64px)', fontWeight: 300, color: '#fff', marginBottom: 20 }}>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(32px,5vw,64px)', fontWeight: 300, color: '#fff', marginBottom: 20 }}>
             {meta.name}
           </h1>
-          <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', maxWidth: 480, lineHeight: 1.8 }}>
+          <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', maxWidth: 480, lineHeight: 1.8, margin: '0 auto' }}>
             {meta.desc}
           </p>
         </div>
       </div>
 
       {/* Toolbar */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '24px 60px', borderBottom: '1px solid var(--sand)',
-        flexWrap: 'wrap', gap: 16,
-      }}>
+      <div className="coll-toolbar">
         <span style={{ fontSize: 11, color: 'var(--taupe)' }}>
           {loading ? 'Loading…' : `${sorted.length} products`}
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--taupe)' }}>Sort</span>
           <select value={sort} onChange={e => setSort(e.target.value)}
-            style={{ fontSize: 12, color: 'var(--deep)', background: 'transparent', border: '1px solid var(--warm)', padding: '6px 12px' }}>
+            style={{ fontSize: 12, color: 'var(--deep)', background: 'transparent', border: '1px solid var(--warm)', padding: '8px 12px' }}>
             <option value="default">Featured</option>
             <option value="price-asc">Price: Low to High</option>
             <option value="price-desc">Price: High to Low</option>
@@ -141,7 +131,7 @@ export default function CollectionPage({ params }) {
       </div>
 
       {/* Grid */}
-      <div style={{ padding: '48px 60px 120px' }}>
+      <div className="coll-content">
         {loading ? (
           <div style={{ textAlign: 'center', padding: '80px 0' }}>
             <p style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontStyle: 'italic', color: 'var(--taupe)' }}>Loading collection…</p>
@@ -151,7 +141,7 @@ export default function CollectionPage({ params }) {
             <p style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontStyle: 'italic', color: 'var(--taupe)' }}>No products found</p>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 32 }} className="prod-grid">
+          <div className="prod-grid">
             {sorted.map(p => (
               <ProductCard
                 key={safe(p.id)}
@@ -178,11 +168,38 @@ export default function CollectionPage({ params }) {
       </div>
 
       <style>{`
+        .coll-hero {
+          height: clamp(240px, 30vw, 360px);
+          display: flex; flex-direction: column;
+          align-items: center; justify-content: center;
+        }
+        .coll-toolbar {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 20px var(--page-padding, 24px);
+          border-bottom: 1px solid var(--sand);
+          flex-wrap: wrap; gap: 12px;
+        }
+        .coll-content {
+          padding: 32px var(--page-padding, 24px) 100px;
+        }
+        .prod-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 32px;
+        }
         .prod-card:hover .prod-img { transform: scale(1.04); }
         .prod-card:hover .quick-add { transform: translateY(0) !important; }
-        @media(max-width:1100px){.prod-grid{grid-template-columns:repeat(3,1fr) !important}}
-        @media(max-width:900px){.prod-grid{grid-template-columns:repeat(2,1fr) !important}}
-        @media(max-width:600px){.prod-grid{grid-template-columns:1fr !important}}
+        @media(max-width:1100px) { .prod-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media(max-width:768px) {
+          .prod-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+          .coll-content { padding: 24px 16px 80px; }
+          .coll-toolbar { padding: 16px; }
+          /* 移动端显示添加按钮 */
+          .quick-add { transform: translateY(0) !important; opacity: 0.95; }
+        }
+        @media(max-width:480px) {
+          .prod-grid { gap: 12px; }
+        }
       `}</style>
     </div>
   )
@@ -196,7 +213,7 @@ function ProductCard({ product: p, onAdd }) {
 
   return (
     <div className="prod-card">
-      <div style={{ aspectRatio: '3/4', overflow: 'hidden', background: 'var(--sand)', marginBottom: 20, position: 'relative' }}>
+      <div style={{ aspectRatio: '3/4', overflow: 'hidden', background: 'var(--sand)', marginBottom: 12, position: 'relative' }}>
         {img ? (
           <img src={img} alt={name} className="prod-img"
             style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.7s ease' }} />
@@ -208,22 +225,23 @@ function ProductCard({ product: p, onAdd }) {
           background: 'rgba(28,23,20,0.9)', color: '#fff', border: 'none',
           padding: 14, fontSize: 10, letterSpacing: '0.25em', textTransform: 'uppercase',
           transform: 'translateY(100%)', transition: 'transform 0.4s', cursor: 'pointer',
+          minHeight: 44,
         }}>
           Add to Basket
         </button>
       </div>
       <Link href={`/products/${slug}`} style={{ textDecoration: 'none' }}>
-        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 400, color: 'var(--ink)', marginBottom: 6, lineHeight: 1.3 }}>
+        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(14px, 1.5vw, 18px)', fontWeight: 400, color: 'var(--ink)', marginBottom: 4, lineHeight: 1.3 }}>
           {name}
         </h3>
-        <p style={{ fontFamily: 'var(--font-display)', fontSize: 20, color: 'var(--deep)', marginTop: 8 }}>
+        <p style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(15px, 1.5vw, 20px)', color: 'var(--deep)', marginTop: 6 }}>
           {price > 0 ? `From £${price.toFixed(2)}` : ''}
         </p>
       </Link>
       {p.swatches && p.swatches.length > 0 && (
-        <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+        <div style={{ display: 'flex', gap: 5, marginTop: 8 }}>
           {p.swatches.map((hex, i) => (
-            <div key={i} style={{ width: 12, height: 12, borderRadius: '50%', background: hex, border: '1px solid var(--warm)' }} />
+            <div key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: hex, border: '1px solid var(--warm)' }} />
           ))}
         </div>
       )}

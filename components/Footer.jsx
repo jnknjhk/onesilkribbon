@@ -11,15 +11,10 @@ export function Footer() {
   ]
 
   return (
-    <footer style={{ background: 'var(--ink)', padding: '80px 60px 40px', color: 'var(--warm)' }}>
-      <div style={{
-        display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr',
-        gap: 60, paddingBottom: 60,
-        borderBottom: '1px solid rgba(255,255,255,0.08)',
-      }} className="footer-grid">
-
+    <footer className="site-footer">
+      <div className="footer-grid">
         {/* Brand */}
-        <div>
+        <div className="footer-brand">
           <Link href="/" style={{
             fontFamily: 'var(--font-display)', fontSize: 20,
             letterSpacing: '0.12em', textTransform: 'uppercase',
@@ -78,15 +73,12 @@ export function Footer() {
       </div>
 
       {/* Bottom bar */}
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        paddingTop: 32, flexWrap: 'wrap', gap: 16,
-      }}>
+      <div className="footer-bottom">
         <p style={{ fontSize: 11, color: 'var(--taupe)', letterSpacing: '0.08em' }}>
           © {new Date().getFullYear()} One Silk Ribbon. All rights reserved.
           &nbsp;·&nbsp; VAT Registered
         </p>
-        <div style={{ display: 'flex', gap: 28 }}>
+        <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap' }}>
           {[
             { label: 'Privacy Policy', href: '/privacy' },
             { label: 'Terms',          href: '/terms' },
@@ -103,14 +95,38 @@ export function Footer() {
       </div>
 
       <style>{`
+        .site-footer {
+          background: var(--ink);
+          padding: 80px var(--page-padding, 60px) 40px;
+          color: var(--warm);
+        }
+        .footer-grid {
+          display: grid;
+          grid-template-columns: 2fr 1fr 1fr 1fr;
+          gap: 60px;
+          padding-bottom: 60px;
+          border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .footer-bottom {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding-top: 32px;
+          flex-wrap: wrap;
+          gap: 16px;
+        }
         .social-link:hover { border-color: var(--gold) !important; color: var(--gold) !important; }
         .footer-legal-link:hover { color: var(--gold) !important; }
+
         @media (max-width: 900px) {
-          .footer-grid { grid-template-columns: 1fr 1fr !important; }
+          .footer-grid { grid-template-columns: 1fr 1fr; gap: 40px; }
+          .footer-brand { grid-column: 1 / -1; }
         }
         @media (max-width: 600px) {
-          .footer-grid { grid-template-columns: 1fr !important; }
-          footer { padding: 60px 24px 32px !important; }
+          .site-footer { padding: 48px 24px 32px; }
+          .footer-grid { grid-template-columns: 1fr; gap: 32px; }
+          .footer-brand { grid-column: auto; }
+          .footer-bottom { flex-direction: column; align-items: flex-start; }
         }
       `}</style>
     </footer>

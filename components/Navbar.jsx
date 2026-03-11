@@ -7,7 +7,6 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   
-  // 修复点：从 useCart 中解构 getItemCount 方法，并调用它获取 itemCount
   const { items, isOpen, toggleCart, getItemCount } = useCart()
   const itemCount = getItemCount ? getItemCount() : 0
 
@@ -16,6 +15,16 @@ export function Navbar() {
     window.addEventListener('scroll', onScroll)
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
+
+  // 锁定 body 滚动当菜单打开时
+  useEffect(() => {
+    if (menuOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => { document.body.style.overflow = '' }
+  }, [menuOpen])
 
   const collections = [
     { name: 'Fine Silk Ribbons',         slug: 'fine-silk-ribbons' },
@@ -26,20 +35,31 @@ export function Navbar() {
     { name: 'Vintage-Inspired',          slug: 'vintage-inspired-ribbons' },
   ]
 
+  const moreLinks = [
+    { name: 'Our Story',       href: '/about' },
+    { name: 'The Palette',     href: '/palette' },
+    { name: 'Bespoke & Trade', href: '/bespoke' },
+    { name: 'Journal',         href: '/journal' },
+    { name: 'Contact',         href: '/contact' },
+  ]
+
   return (
     <>
       <nav style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-        padding: scrolled ? '16px 60px' : '28px 60px',
+        padding: scrolled ? '14px 0' : '24px 0',
+        paddingLeft: 'clamp(20px, 4vw, 60px)',
+        paddingRight: 'clamp(20px, 4vw, 60px)',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        background: scrolled ? 'rgba(247,243,238,0.95)' : 'transparent',
-        backdropFilter: scrolled ? 'blur(12px)' : 'none',
+        background: scrolled || menuOpen ? 'rgba(247,243,238,0.95)' : 'transparent',
+        backdropFilter: scrolled || menuOpen ? 'blur(12px)' : 'none',
         borderBottom: scrolled ? '1px solid var(--sand)' : 'none',
         transition: 'all 0.4s ease',
       }}>
-        <Link href="/" style={{
-          fontFamily: 'var(--font-display)', fontSize: 18,
+        <Link href="/" onClick={() => setMenuOpen(false)} style={{
+          fontFamily: 'var(--font-display)', fontSize: 'clamp(15px, 1.5vw, 18px)',
           letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink)',
+          zIndex: 101,
         }}>
           One <em style={{ fontStyle: 'italic', fontWeight: 300 }}>Silk</em> Ribbon
         </Link>
@@ -64,7 +84,7 @@ export function Navbar() {
           ))}
         </ul>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(16px, 2vw, 28px)', zIndex: 101 }}>
           <Link href="/track-order" style={{
             fontSize: 11, letterSpacing: '0.18em',
             textTransform: 'uppercase', color: 'var(--deep)',
@@ -75,6 +95,7 @@ export function Navbar() {
           <button onClick={toggleCart} style={{
             background: 'none', border: 'none', position: 'relative',
             display: 'flex', alignItems: 'center', cursor: 'pointer',
+            padding: 4,
           }}>
             <CartIcon />
             {itemCount > 0 && (
@@ -92,34 +113,72 @@ export function Navbar() {
 
           <button onClick={() => setMenuOpen(!menuOpen)}
             className="nav-mobile"
-            style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              padding: 4, display: 'flex', alignItems: 'center',
+            }}>
             <HamburgerIcon open={menuOpen} />
           </button>
         </div>
       </nav>
 
+      {/* ── 移动端全屏菜单 ── */}
       {menuOpen && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 99,
-          background: 'var(--cream)', paddingTop: 100,
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-          gap: 8,
+          background: 'var(--cream)',
+          paddingTop: 80,
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
         }}>
-          {collections.map(c => (
-            <Link key={c.slug} href={`/collections/${c.slug}`}
-              onClick={() => setMenuOpen(false)}
-              style={{
-                fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 300,
-                color: 'var(--ink)', padding: '12px 0',
-              }}>
-                {c.name}
+          <div style={{ padding: '20px 32px 40px', display: 'flex', flexDirection: 'column' }}>
+            {/* Collections */}
+            <p style={{
+              fontSize: 9, letterSpacing: '.32em', textTransform: 'uppercase',
+              color: 'var(--gold)', marginBottom: 20, paddingBottom: 12,
+              borderBottom: '1px solid var(--sand)',
+            }}>Collections</p>
+            {collections.map(c => (
+              <Link key={c.slug} href={`/collections/${c.slug}`}
+                onClick={() => setMenuOpen(false)}
+                style={{
+                  fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 300,
+                  color: 'var(--ink)', padding: '12px 0',
+                  borderBottom: '1px solid var(--mist)',
+                }}>
+                  {c.name}
+              </Link>
+            ))}
+
+            {/* More links */}
+            <div style={{ height: 1, width: '100%', background: 'var(--sand)', margin: '24px 0 20px' }} />
+            <p style={{
+              fontSize: 9, letterSpacing: '.32em', textTransform: 'uppercase',
+              color: 'var(--gold)', marginBottom: 16,
+            }}>Explore</p>
+            {moreLinks.map(l => (
+              <Link key={l.href} href={l.href}
+                onClick={() => setMenuOpen(false)}
+                style={{
+                  fontSize: 15, fontWeight: 300,
+                  color: 'var(--deep)', padding: '10px 0',
+                  letterSpacing: '0.04em',
+                }}>
+                  {l.name}
+              </Link>
+            ))}
+
+            {/* Utility links */}
+            <div style={{ height: 1, width: '100%', background: 'var(--sand)', margin: '24px 0 20px' }} />
+            <Link href="/track-order" onClick={() => setMenuOpen(false)}
+              style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe)', padding: '10px 0' }}>
+              Track Order
             </Link>
-          ))}
-          <div style={{ height: 1, width: 60, background: 'var(--warm)', margin: '16px 0' }} />
-          <Link href="/track-order" onClick={() => setMenuOpen(false)}
-            style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe)' }}>
-            Track Order
-          </Link>
+            <Link href="/faq" onClick={() => setMenuOpen(false)}
+              style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe)', padding: '10px 0' }}>
+              FAQ & Help
+            </Link>
+          </div>
         </div>
       )}
 
@@ -132,7 +191,6 @@ export function Navbar() {
         .nav-link:hover::after { width: 100%; }
         @media (max-width: 900px) { .nav-desktop { display: none !important; } }
         @media (min-width: 901px) { .nav-mobile { display: none !important; } }
-        nav { padding-left: clamp(24px, 4vw, 60px) !important; padding-right: clamp(24px, 4vw, 60px) !important; }
       `}</style>
     </>
   )

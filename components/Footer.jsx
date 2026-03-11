@@ -57,7 +57,6 @@ export function Footer() {
         {/* Studio */}
         <FooterCol title="Studio" links={[
           { label: 'Our Story',           href: '/about' },
-          { label: 'The Palette',         href: '/palette' },
           { label: 'Bespoke & Wholesale', href: '/bespoke' },
           { label: 'Journal',             href: '/journal' },
         ]} />

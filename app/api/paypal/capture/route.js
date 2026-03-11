@@ -69,8 +69,7 @@ export async function GET(req) {
         }
 
         const totals = {
-          subtotalExVat: parseFloat(order.subtotal_gbp || 0).toFixed(2),
-          vatAmount:     parseFloat(order.vat_amount_gbp || 0).toFixed(2),
+          subtotal:      parseFloat(order.subtotal_gbp || 0).toFixed(2),
           shipping:      parseFloat(order.shipping_gbp || 0).toFixed(2),
           total:         parseFloat(order.total_gbp || 0).toFixed(2),
           freeShipping:  parseFloat(order.shipping_gbp || 0) === 0,

@@ -42,28 +42,12 @@ const PALETTE = [
 
 export default function HomePage() {
   const [featuredProducts, setFeaturedProducts] = useState([])
-  const [heroImage, setHeroImage] = useState(null)
   const [collectionImages, setCollectionImages] = useState({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function loadData() {
-      // 1. Hero 背景图 — 取 featured 或第一张有图的产品
-      const { data: featuredForHero } = await supabase
-        .from('products')
-        .select('images')
-        .eq('is_active', true)
-        .order('is_featured', { ascending: false })
-        .limit(10)
-
-      if (featuredForHero) {
-        for (const p of featuredForHero) {
-          const imgs = Array.isArray(p.images) ? p.images : []
-          if (imgs.length > 0) { setHeroImage(imgs[0]); break }
-        }
-      }
-
-      // 2. 每个 collection 的封面图
+      // 1. 每个 collection 的封面图
       const imgMap = {}
       for (const col of COLLECTIONS) {
         const { data: colProds } = await supabase
@@ -107,7 +91,7 @@ export default function HomePage() {
 
   return (
     <>
-      <Hero heroImage={heroImage} />
+      <Hero />
       <Marquee />
       <Collections collectionImages={collectionImages} />
       <PaletteBand />
@@ -132,29 +116,50 @@ export default function HomePage() {
 
 
 /* ═══════════════════════════════════════════════════════
-   HERO — 全屏背景图/视频 + 居中文字 + 淡入动画
-   ═══════════════════════════════════════════════════════ */
-function Hero({ heroImage }) {
-  const [loaded, setLoaded] = useState(false)
+   HERO — 多图交叉淡入淡出 + Ken Burns + 文字淡入动画
+   ═══════════════════════════════════════════════════════
+   换图方法：替换 public/images/ 下的 hero-1.jpg ~ hero-4.jpg
+   增减图片：修改下面 HERO_IMAGES 数组即可
+*/
+const HERO_IMAGES = [
+  '/images/hero-1.jpg',
+  '/images/hero-2.jpg',
+  '/images/hero-3.jpg',
+  '/images/hero-4.jpg',
+]
 
+function Hero() {
+  const [loaded, setLoaded] = useState(false)
+  const [currentIndex, setCurrentIndex] = useState(0)
+
+  // 触发文字淡入
   useEffect(() => {
     const timer = setTimeout(() => setLoaded(true), 200)
     return () => clearTimeout(timer)
   }, [])
 
+  // 自动轮播：每 6 秒切换
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentIndex(prev => (prev + 1) % HERO_IMAGES.length)
+    }, 6000)
+    return () => clearInterval(interval)
+  }, [])
+
   return (
     <section className="hero">
-      {/* ── 背景层 ── */}
-      <div className="hero-bg">
-        {/* 视频背景 — poster 用 Supabase 产品图作为加载前的占位帧 */}
-        <video
-          autoPlay muted loop playsInline
-          poster={heroImage || undefined}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+      {/* ── 多图背景层 ── */}
+      {HERO_IMAGES.map((src, i) => (
+        <div
+          key={src}
+          className={`hero-slide ${i === currentIndex ? 'hero-slide-active' : ''}`}
+          style={{ animationDuration: i === currentIndex ? '18s' : '0s' }}
         >
-          <source src="/videos/hero-silk.mp4" type="video/mp4" />
-        </video>
-      </div>
+          <img src={src} alt="" style={{
+            width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+          }} />
+        </div>
+      ))}
 
       {/* ── 遮罩层 ── */}
       <div className="hero-overlay" />
@@ -207,12 +212,23 @@ function Hero({ heroImage }) {
           position: relative; height: 100vh; height: 100dvh;
           min-height: 600px; overflow: hidden;
           display: flex; align-items: center; justify-content: center;
+          background: #1C1714;
         }
-        .hero-bg {
+
+        /* ── 图片轮播层 ── */
+        .hero-slide {
           position: absolute; inset: 0; z-index: 0;
-          animation: heroZoom 18s ease-out forwards;
+          opacity: 0;
+          transition: opacity 1.5s ease-in-out;
         }
-        @keyframes heroZoom { from { transform: scale(1.08); } to { transform: scale(1); } }
+        .hero-slide-active {
+          opacity: 1;
+          animation: kenBurns 18s ease-out forwards;
+        }
+        @keyframes kenBurns {
+          0%   { transform: scale(1.08); }
+          100% { transform: scale(1); }
+        }
 
         .hero-overlay {
           position: absolute; inset: 0; z-index: 1;
@@ -230,7 +246,7 @@ function Hero({ heroImage }) {
           display: flex; flex-direction: column; align-items: center;
         }
 
-        /* ── 淡入动画 ── */
+        /* ── 文字淡入动画 ── */
         .hero-anim {
           opacity: 0; transform: translateY(28px);
           transition: opacity 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94),

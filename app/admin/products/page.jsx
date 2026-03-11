@@ -1,6 +1,5 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '@/lib/supabase'
 
 const COLLECTIONS = [
   { value: 'fine-silk-ribbons',        label: '精品丝带 Fine Silk Ribbons' },
@@ -32,27 +31,30 @@ function slugify(text) {
 export default function ProductsPage() {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
-  const [editing, setEditing] = useState(null)       // null = 列表视图, 'new' = 新建, product object = 编辑
+  const [editing, setEditing] = useState(null)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
   const [search, setSearch] = useState('')
   const [filterCol, setFilterCol] = useState('all')
 
-  // ── 产品表单 ──
   const [form, setForm] = useState({ name: '', slug: '', description: '', collection: 'fine-silk-ribbons', active: true })
-  const [images, setImages] = useState([])            // [{url, isNew}]
+  const [images, setImages] = useState([])
   const [uploading, setUploading] = useState(false)
-  const [skus, setSkus] = useState([])                // [{id?, colour, colour_hex, width_mm, length_m, price_gbp, stock_qty, is_active}]
+  const [skus, setSkus] = useState([])
   const [deletedSkuIds, setDeletedSkuIds] = useState([])
   const [deletedImageUrls, setDeletedImageUrls] = useState([])
   const fileInputRef = useRef(null)
 
   useEffect(() => { loadProducts() }, [])
 
+  // ── 通过 API 加载产品列表 ──
   async function loadProducts() {
     setLoading(true)
-    const { data } = await supabase.from('products').select('*').order('created_at', { ascending: false })
-    setProducts(data || [])
+    try {
+      const res = await fetch('/api/admin/products')
+      const data = await res.json()
+      setProducts(Array.isArray(data) ? data : [])
+    } catch { setProducts([]) }
     setLoading(false)
   }
 
@@ -71,11 +73,16 @@ export default function ProductsPage() {
         slug: product.slug || '',
         description: product.description || '',
         collection: product.collection || 'fine-silk-ribbons',
-        active: product.active !== false && product.is_active !== false,
+        active: product.is_active !== false,
       })
       setImages((product.images || []).map(url => ({ url, isNew: false })))
-      // 加载 SKU
-      const { data: skuData } = await supabase
+      // 加载 SKU — 读取用 anon key 没问题（有 SELECT 策略）
+      const { createClient } = await import('@supabase/supabase-js')
+      const sb = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      )
+      const { data: skuData } = await sb
         .from('product_skus')
         .select('*')
         .eq('product_id', product.id)
@@ -94,7 +101,6 @@ export default function ProductsPage() {
     if (files.length === 0) return
     setUploading(true)
 
-    // 如果是新产品还没有 ID，先用临时 ID
     const productId = editing === 'new' ? 'temp-' + Date.now() : editing.id
 
     for (const file of files) {
@@ -123,7 +129,6 @@ export default function ProductsPage() {
     if (img && !img.isNew) {
       setDeletedImageUrls(prev => [...prev, img.url])
     } else if (img && img.isNew) {
-      // 新上传的图片直接从 storage 删除
       fetch('/api/admin/upload', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
@@ -162,7 +167,7 @@ export default function ProductsPage() {
     setSkus(prev => prev.filter((_, i) => i !== index))
   }
 
-  // ── 保存产品 ──
+  // ── 保存产品（通过 API） ──
   async function saveProduct() {
     if (!form.name.trim()) { setMsg('请填写产品名称'); return }
     if (!form.slug.trim()) { setMsg('请填写 URL Slug'); return }
@@ -172,28 +177,42 @@ export default function ProductsPage() {
 
     try {
       const imageUrls = images.map(img => img.url)
-      const productData = {
-        name: form.name.trim(),
-        slug: form.slug.trim(),
-        description: form.description.trim(),
-        collection: form.collection,
-        is_active: form.active,
-        is_featured: false,
-        images: imageUrls,
+
+      const payload = {
+        action: editing === 'new' ? 'create' : 'update',
+        product: {
+          ...(editing !== 'new' ? { id: editing.id } : {}),
+          name: form.name.trim(),
+          slug: form.slug.trim(),
+          description: form.description.trim(),
+          collection: form.collection,
+          is_active: form.active,
+          images: imageUrls,
+        },
+        skus: skus.map(s => ({
+          ...(s.id ? { id: s.id } : {}),
+          colour: s.colour,
+          colour_hex: s.colour_hex,
+          width_mm: s.width_mm,
+          length_m: s.length_m,
+          price_gbp: s.price_gbp,
+          stock_qty: s.stock_qty,
+          is_active: s.is_active,
+        })),
+        deletedSkuIds,
       }
 
-      let productId
+      const res = await fetch('/api/admin/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const result = await res.json()
 
-      if (editing === 'new') {
-        // 新建产品
-        const { data, error } = await supabase.from('products').insert(productData).select('id').single()
-        if (error) throw error
-        productId = data.id
-      } else {
-        // 更新产品
-        productId = editing.id
-        const { error } = await supabase.from('products').update(productData).eq('id', productId)
-        if (error) throw error
+      if (result.error) {
+        setMsg('保存失败：' + result.error)
+        setSaving(false)
+        return
       }
 
       // 删除被移除的图片文件
@@ -203,34 +222,6 @@ export default function ProductsPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url }),
         }).catch(() => {})
-      }
-
-      // 删除被移除的 SKU
-      for (const skuId of deletedSkuIds) {
-        await supabase.from('product_skus').delete().eq('id', skuId)
-      }
-
-      // 保存 SKU
-      for (const sku of skus) {
-        const skuData = {
-          product_id: productId,
-          colour: sku.colour || '默认',
-          colour_hex: sku.colour_hex || '#D4C5B0',
-          width_mm: sku.width_mm ? parseInt(sku.width_mm) : null,
-          length_m: sku.length_m ? parseInt(sku.length_m) : 10,
-          price_gbp: parseFloat(sku.price_gbp) || 0,
-          stock_qty: parseInt(sku.stock_qty) || 0,
-          is_active: sku.is_active !== false,
-        }
-
-        if (sku.id) {
-          // 更新已有 SKU
-          await supabase.from('product_skus').update(skuData).eq('id', sku.id)
-        } else {
-          // 新建 SKU — 生成 sku_code
-          skuData.sku_code = `${form.slug}-${(sku.colour || 'default').toLowerCase().replace(/\s+/g, '-')}-${Date.now().toString(36)}`
-          await supabase.from('product_skus').insert(skuData)
-        }
       }
 
       setMsg('保存成功 ✓')
@@ -245,11 +236,16 @@ export default function ProductsPage() {
     setSaving(false)
   }
 
-  // ── 删除产品 ──
+  // ── 删除产品（通过 API） ──
   async function deleteProduct(product) {
     if (!confirm(`确定删除「${product.name}」？此操作不可恢复。`)) return
-    await supabase.from('product_skus').delete().eq('product_id', product.id)
-    await supabase.from('products').delete().eq('id', product.id)
+
+    await fetch('/api/admin/products', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete', product: { id: product.id } }),
+    })
+
     // 删除 storage 图片
     if (product.images) {
       for (const url of product.images) {
@@ -278,7 +274,6 @@ export default function ProductsPage() {
   if (editing !== null) {
     return (
       <div style={{ maxWidth: 900, margin: '0 auto' }}>
-        {/* 顶部栏 */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
           <div>
             <button onClick={() => setEditing(null)} style={{
@@ -343,7 +338,7 @@ export default function ProductsPage() {
         </Section>
 
         {/* ── 产品图片 ── */}
-        <Section title="产品图片" sub="拖拽可排序，第一张为主图。建议尺寸 1200×1600，JPG 格式">
+        <Section title="产品图片" sub="第一张为主图。建议尺寸 1200×1600，JPG 格式">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
             {images.map((img, i) => (
               <div key={img.url} style={{
@@ -356,7 +351,6 @@ export default function ProductsPage() {
                   <span style={{
                     position: 'absolute', top: 4, left: 4, background: C.gold,
                     color: '#fff', fontSize: 9, padding: '2px 6px', borderRadius: 3,
-                    letterSpacing: '.05em',
                   }}>主图</span>
                 )}
                 <div style={{
@@ -370,12 +364,11 @@ export default function ProductsPage() {
               </div>
             ))}
 
-            {/* 上传按钮 */}
             <button onClick={() => fileInputRef.current?.click()} disabled={uploading} style={{
               width: 120, height: 150, border: `2px dashed ${C.border}`,
               borderRadius: 6, background: 'transparent', cursor: 'pointer',
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              gap: 8, color: C.muted, fontSize: 11, transition: 'border-color .2s',
+              gap: 8, color: C.muted, fontSize: 11,
             }}>
               <span style={{ fontSize: 28, lineHeight: 1 }}>+</span>
               {uploading ? '上传中…' : '添加图片'}
@@ -390,8 +383,8 @@ export default function ProductsPage() {
           {skus.length === 0 ? (
             <p style={{ color: C.muted, fontSize: 13, marginBottom: 16 }}>暂无 SKU，点击下方按钮添加</p>
           ) : (
-            <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden', marginBottom: 16 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'auto', marginBottom: 16 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
                 <thead>
                   <tr style={{ borderBottom: `1px solid ${C.border}` }}>
                     {['颜色', '色号', '宽度(mm)', '长度(m)', '价格(£)', '库存', '状态', ''].map(h => (
@@ -454,7 +447,6 @@ export default function ProductsPage() {
           <button onClick={addSku} style={{
             padding: '10px 20px', background: C.white, border: `1px dashed ${C.border}`,
             borderRadius: 6, color: C.gold, fontSize: 12, cursor: 'pointer',
-            letterSpacing: '.05em',
           }}>+ 添加 SKU</button>
         </Section>
 
@@ -479,7 +471,7 @@ export default function ProductsPage() {
             <button onClick={saveProduct} disabled={saving} style={{
               padding: '10px 28px', background: C.gold, border: 'none',
               borderRadius: 6, color: '#fff', fontSize: 12, cursor: 'pointer',
-              letterSpacing: '.08em', opacity: saving ? 0.7 : 1,
+              opacity: saving ? 0.7 : 1,
             }}>{saving ? '保存中…' : '保存产品'}</button>
           </div>
         </div>
@@ -500,11 +492,9 @@ export default function ProductsPage() {
         <button onClick={() => startEdit('new')} style={{
           background: C.gold, border: 'none', borderRadius: 8,
           color: '#fff', fontSize: 12, padding: '10px 24px', cursor: 'pointer',
-          letterSpacing: '.08em',
         }}>+ 新建产品</button>
       </div>
 
-      {/* 搜索和筛选 */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索产品名称…"
           style={{ flex: 1, ...inp }} />
@@ -514,7 +504,6 @@ export default function ProductsPage() {
         </select>
       </div>
 
-      {/* 产品列表 */}
       <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
         {loading ? <p style={{ color: C.muted, padding: 24, fontSize: 13 }}>加载中…</p> : filtered.length === 0 ? (
           <p style={{ color: C.muted, padding: 24, fontSize: 13 }}>暂无产品</p>
@@ -522,7 +511,7 @@ export default function ProductsPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                {['', '产品名称', '系列', '图片', 'SKU数', '状态', '操作'].map(h => (
+                {['', '产品名称', '系列', '图片', '状态', '操作'].map(h => (
                   <th key={h} style={{ padding: '12px 16px', textAlign: 'left', color: C.muted,
                     fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase' }}>{h}</th>
                 ))}
@@ -531,7 +520,7 @@ export default function ProductsPage() {
             <tbody>
               {filtered.map(p => {
                 const imgs = Array.isArray(p.images) ? p.images : []
-                const isActive = p.is_active !== false && p.active !== false
+                const isActive = p.is_active !== false
                 return (
                   <tr key={p.id} style={{ borderBottom: '1px solid #F0EDE8', cursor: 'pointer' }}
                     onClick={() => startEdit(p)}>
@@ -551,9 +540,6 @@ export default function ProductsPage() {
                     </td>
                     <td style={{ padding: '10px 16px', color: C.sub, fontSize: 12 }}>
                       {imgs.length} 张
-                    </td>
-                    <td style={{ padding: '10px 16px', color: C.sub, fontSize: 12 }}>
-                      {p.sku_count || '-'}
                     </td>
                     <td style={{ padding: '10px 16px' }}>
                       <span style={{

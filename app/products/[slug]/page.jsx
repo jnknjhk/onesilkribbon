@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useCart } from '@/lib/cart'
 
@@ -13,6 +14,7 @@ function safeNum(val) { const n = parseFloat(val); return isNaN(n) ? 0 : n }
 function fmt(amount) { return '£' + safeNum(amount).toFixed(2) }
 
 export default function ProductPage({ params }) {
+  const router = useRouter()
   const [slug, setSlug] = useState('')
   const [product, setProduct] = useState(null)
   const [skus, setSkus] = useState([])
@@ -21,8 +23,8 @@ export default function ProductPage({ params }) {
   const [imgIdx, setImgIdx] = useState(0)
   const [qty, setQty] = useState(1)
   const [added, setAdded] = useState(false)
+  const [buyingNow, setBuyingNow] = useState(false)
   const [tab, setTab] = useState('description')
-  // 多属性选择状态: { '颜色': 'Warm Sand', '宽度': '10mm' }
   const [selectedAttrs, setSelectedAttrs] = useState({})
   const { addItem } = useCart()
 
@@ -42,8 +44,6 @@ export default function ProductPage({ params }) {
         setProduct(prod)
         const list = skuData || []
         setSkus(list)
-
-        // 初始化属性选择 — 取第一个 SKU 的属性值
         if (list.length > 0) {
           const firstAttrs = list[0].attributes || {}
           setSelectedAttrs(firstAttrs)
@@ -55,7 +55,6 @@ export default function ProductPage({ params }) {
     load()
   }, [slug])
 
-  // 当属性选择变化时，找到匹配的 SKU
   useEffect(() => {
     if (skus.length === 0) return
     const match = skus.find(s => {
@@ -84,25 +83,16 @@ export default function ProductPage({ params }) {
   const price = selectedSku ? safeNum(selectedSku.price_gbp) : 0
   const inStock = selectedSku ? safeNum(selectedSku.stock_qty) > 0 : false
 
-  // 从 attribute_config 或 SKU 数据中提取属性和选项
   const attrConfig = product.attribute_config || []
   let attributeOptions = []
 
   if (attrConfig.length > 0) {
-    // 使用产品定义的属性配置
-    attributeOptions = attrConfig.map(a => ({
-      name: a.name,
-      options: a.options || [],
-    }))
+    attributeOptions = attrConfig.map(a => ({ name: a.name, options: a.options || [] }))
   } else {
-    // 兼容旧数据：从 SKU 字段中提取
     const colours = [...new Set(skus.map(s => safe(s.colour)).filter(Boolean))]
     const widths = [...new Set(skus.map(s => s.width_mm).filter(Boolean))]
-
     if (colours.length > 1) attributeOptions.push({ name: 'Colour', options: colours })
     if (widths.length > 1) attributeOptions.push({ name: 'Width', options: widths.map(w => `${w}mm`) })
-
-    // 如果没有 selectedAttrs 初始化过（旧数据），用旧的方式初始化
     if (Object.keys(selectedAttrs).length === 0 && skus.length > 0) {
       const init = {}
       if (colours.length > 1) init['Colour'] = colours[0]
@@ -115,10 +105,10 @@ export default function ProductPage({ params }) {
     setSelectedAttrs(prev => ({ ...prev, [attrName]: value }))
   }
 
-  const handleAdd = () => {
-    if (!selectedSku) return
-    const attrDesc = Object.entries(selectedAttrs).map(([k, v]) => `${v}`).join(' · ')
-    addItem({
+  const buildCartItem = () => {
+    if (!selectedSku) return null
+    const attrDesc = Object.values(selectedAttrs).filter(Boolean).join(' · ')
+    return {
       skuId: safe(selectedSku.id),
       productId: safe(product.id),
       name: safe(product.name),
@@ -128,9 +118,27 @@ export default function ProductPage({ params }) {
       price: safeNum(selectedSku.price_gbp),
       qty,
       image: images[0] || null,
-    })
+    }
+  }
+
+  const handleAdd = () => {
+    const item = buildCartItem()
+    if (!item) return
+    addItem(item)
     setAdded(true)
     setTimeout(() => setAdded(false), 2000)
+  }
+
+  // Buy Now — 加入购物车后直接跳转结账
+  const handleBuyNow = () => {
+    const item = buildCartItem()
+    if (!item) return
+    setBuyingNow(true)
+    addItem(item)
+    // 短暂延迟确保 cart state 更新后再跳转
+    setTimeout(() => {
+      router.push('/checkout')
+    }, 100)
   }
 
   const navImg = (d) => setImgIdx(i => (i + d + images.length) % images.length)
@@ -194,26 +202,22 @@ export default function ProductPage({ params }) {
           {/* RIGHT: attributes */}
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <p style={{ fontSize: 9, letterSpacing: '.38em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 14 }}>{collectionName}</p>
-            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 36, fontWeight: 300, lineHeight: 1.12, color: 'var(--ink)', marginBottom: 6 }}>{safe(product.name)}</h1>
-            <p style={{ fontSize: 10, color: 'var(--taupe)', letterSpacing: '.08em', lineHeight: 1.8, marginBottom: 28 }}>
-              Silk Satin Ribbon · 19 momme · Grade 6A Mulberry Silk
-            </p>
+            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 36, fontWeight: 300, lineHeight: 1.12, color: 'var(--ink)', marginBottom: 28 }}>{safe(product.name)}</h1>
 
-            {/* Price */}
+            {/* Price — 改为含税说明 + 运费提示 */}
             <div style={{ padding: '20px 0', borderTop: '1px solid var(--sand)', borderBottom: '1px solid var(--sand)', marginBottom: 30 }}>
               <div style={{ fontFamily: 'var(--font-display)', fontSize: 38, fontWeight: 300, color: 'var(--ink)', lineHeight: 1 }}>
                 {price > 0 ? fmt(price) : '—'}
               </div>
-              <p style={{ fontSize: 10, color: 'var(--taupe)', letterSpacing: '.06em', marginTop: 4 }}>per metre · inc. VAT</p>
+              <p style={{ fontSize: 10, color: 'var(--taupe)', letterSpacing: '.06em', marginTop: 6, lineHeight: 1.6 }}>
+                Tax included. Shipping calculated at checkout.
+              </p>
             </div>
 
-            {/* ════ 属性下拉框 ════ */}
+            {/* 属性下拉框 */}
             {attributeOptions.map(attr => (
               <div key={attr.name} style={{ marginBottom: 24 }}>
-                <label style={{
-                  display: 'block', fontSize: 9, letterSpacing: '.3em',
-                  textTransform: 'uppercase', color: 'var(--taupe)', marginBottom: 10,
-                }}>
+                <label style={{ display: 'block', fontSize: 9, letterSpacing: '.3em', textTransform: 'uppercase', color: 'var(--taupe)', marginBottom: 10 }}>
                   {attr.name}
                 </label>
                 <div style={{ position: 'relative' }}>
@@ -232,11 +236,7 @@ export default function ProductPage({ params }) {
                       <option key={opt} value={opt}>{opt}</option>
                     ))}
                   </select>
-                  {/* 下拉箭头 */}
-                  <div style={{
-                    position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)',
-                    pointerEvents: 'none', color: 'var(--taupe)', fontSize: 10,
-                  }}>▼</div>
+                  <div style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--taupe)', fontSize: 10 }}>▼</div>
                 </div>
               </div>
             ))}
@@ -248,8 +248,8 @@ export default function ProductPage({ params }) {
               </p>
             )}
 
-            {/* Qty + Add */}
-            <div style={{ display: 'flex', height: 50, marginTop: 12 }}>
+            {/* Qty + Add to Basket */}
+            <div style={{ display: 'flex', height: 50 }}>
               <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--warm)', borderRight: 'none' }}>
                 <button onClick={() => setQty(q => Math.max(1, q - 1))} style={{ width: 44, height: '100%', background: 'none', border: 'none', fontSize: 18, color: 'var(--ink)', cursor: 'pointer' }}>−</button>
                 <span style={{ width: 32, textAlign: 'center', fontSize: 13 }}>{qty}</span>
@@ -265,10 +265,16 @@ export default function ProductPage({ params }) {
               </button>
             </div>
 
-            <p style={{ fontSize: 10, color: 'var(--taupe)', lineHeight: 1.9, letterSpacing: '.02em', marginTop: 14 }}>
-              Free UK shipping over £45 · Dispatched in 2–3 working days<br />
-              Thoughtfully wrapped in tissue &amp; sealed with our wax stamp
-            </p>
+            {/* Buy Now 按钮 */}
+            <button onClick={handleBuyNow} disabled={!selectedSku || !inStock || buyingNow} style={{
+              width: '100%', height: 50, marginTop: 10,
+              background: 'var(--gold)', color: '#fff', border: 'none',
+              fontFamily: 'var(--font-body)', fontSize: 9, letterSpacing: '.3em', textTransform: 'uppercase',
+              cursor: selectedSku && inStock && !buyingNow ? 'pointer' : 'not-allowed',
+              opacity: !selectedSku || !inStock ? 0.5 : 1, transition: 'background .28s',
+            }}>
+              {buyingNow ? 'Redirecting…' : 'Buy Now'}
+            </button>
           </div>
         </div>
 
@@ -325,9 +331,7 @@ export default function ProductPage({ params }) {
                 ].map(({ title, items }) => (
                   <div key={title}>
                     <p style={{ fontSize: 9, letterSpacing: '.28em', textTransform: 'uppercase', color: 'var(--ink)', marginBottom: 16, marginTop: 36, paddingBottom: 12, borderBottom: '1px solid var(--sand)' }} className="first-section-title">{title}</p>
-                    {items.map((item, i) => (
-                      <p key={i} style={{ fontSize: 13, color: 'var(--taupe)', lineHeight: 2.2, marginBottom: 8 }}>· {item}</p>
-                    ))}
+                    {items.map((item, i) => <p key={i} style={{ fontSize: 13, color: 'var(--taupe)', lineHeight: 2.2, marginBottom: 8 }}>· {item}</p>)}
                   </div>
                 ))}
               </div>
@@ -342,9 +346,7 @@ export default function ProductPage({ params }) {
                 ].map(({ title, items }) => (
                   <div key={title}>
                     <p style={{ fontSize: 9, letterSpacing: '.28em', textTransform: 'uppercase', color: 'var(--ink)', marginBottom: 16, marginTop: 36, paddingBottom: 12, borderBottom: '1px solid var(--sand)' }}>{title}</p>
-                    {items.map((item, i) => (
-                      <p key={i} style={{ fontSize: 13, color: 'var(--taupe)', lineHeight: 2.2, marginBottom: 8 }}>· {item}</p>
-                    ))}
+                    {items.map((item, i) => <p key={i} style={{ fontSize: 13, color: 'var(--taupe)', lineHeight: 2.2, marginBottom: 8 }}>· {item}</p>)}
                   </div>
                 ))}
               </div>
@@ -360,7 +362,7 @@ export default function ProductPage({ params }) {
                 The Art of the<br /><em>Hand-Torn Edge</em>
               </h2>
               <p style={{ fontSize: 13, color: 'var(--taupe)', lineHeight: 2.2, marginBottom: 16 }}>
-                Each ribbon is carefully hand-torn to create naturally frayed edges that celebrate the beauty of imperfection. Working with Grade 6A mulberry silk — the finest available — our ribbons carry a luminous sheen and skin-like softness.
+                Each ribbon is carefully hand-torn to create naturally frayed edges that celebrate the beauty of imperfection.
               </p>
               <p style={{ fontSize: 13, color: 'var(--taupe)', lineHeight: 2.2 }}>
                 The result is something you feel before you see: a quiet luxury in the hands, a weight that speaks of care, and an edge that tells the story of how it was made.

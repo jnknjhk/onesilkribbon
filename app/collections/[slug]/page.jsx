@@ -5,12 +5,12 @@ import { supabase } from '@/lib/supabase'
 import { useCart } from '@/lib/cart'
 
 const COLLECTION_META = {
-  'fine-silk-ribbons':        { name: 'Fine Silk Ribbons',        desc: 'Our signature ultra-fine 100% mulberry silk ribbons, in widths from 2mm to 10mm and 30 hand-selected colourways.', bg: 'linear-gradient(135deg,#D4C5B0,#9A8878)' },
-  'hand-frayed-silk-ribbons': { name: 'Hand-Frayed Silk Ribbons', desc: 'Each edge carefully frayed by hand for an ethereal, organic finish.', bg: 'linear-gradient(135deg,#E8C9B8,#9A7A66)' },
-  'handcrafted-adornments':   { name: 'Handcrafted Adornments',   desc: 'Silk scrunchies, bows and decorative pieces — each made by hand from pure mulberry silk.', bg: 'linear-gradient(135deg,#B8A898,#4A3A30)' },
-  'patterned-ribbons':        { name: 'Patterned Ribbons',        desc: 'Botanical, geometric and heritage-inspired patterns printed on pure silk.', bg: 'linear-gradient(135deg,#C8D4C0,#5A7050)' },
-  'studio-tools':             { name: 'Studio Tools',             desc: 'Everything you need for a well-appointed ribbon and craft studio.', bg: 'linear-gradient(135deg,#D0D0C8,#5A5A54)' },
-  'vintage-inspired-ribbons': { name: 'Vintage-Inspired Ribbons', desc: 'Heritage tones and antique-inspired textures.', bg: 'linear-gradient(135deg,#D4B8C0,#5A3A44)' },
+  'fine-silk-ribbons':        { name: 'Fine Silk Ribbons',        desc: 'Our signature ultra-fine 100% mulberry silk ribbons, in widths from 2mm to 10mm and 30 hand-selected colourways.', bg: 'linear-gradient(135deg,#D4C5B0,#9A8878)', hero: null },
+  'hand-frayed-silk-ribbons': { name: 'Hand-Frayed Silk Ribbons', desc: 'Each edge carefully frayed by hand for an ethereal, organic finish. Perfect for bouquets, invitations and fine craft.', bg: 'linear-gradient(135deg,#E8C9B8,#9A7A66)', hero: null },
+  'handcrafted-adornments':   { name: 'Handcrafted Adornments',   desc: 'Silk scrunchies, bows and decorative pieces — each made by hand from pure mulberry silk.', bg: 'linear-gradient(135deg,#B8A898,#4A3A30)', hero: null },
+  'patterned-ribbons':        { name: 'Patterned Ribbons',        desc: 'Botanical, geometric and heritage-inspired patterns printed on pure silk.', bg: 'linear-gradient(135deg,#C8D4C0,#5A7050)', hero: null },
+  'studio-tools':             { name: 'Studio Tools',             desc: 'Everything you need for a well-appointed ribbon and craft studio.', bg: 'linear-gradient(135deg,#D0D0C8,#5A5A54)', hero: null },
+  'vintage-inspired-ribbons': { name: 'Vintage-Inspired Ribbons', desc: 'Heritage tones and antique-inspired textures, evoking the romance of a bygone era.', bg: 'linear-gradient(135deg,#D4B8C0,#5A3A44)', hero: null },
 }
 
 function safe(val) {
@@ -29,12 +29,15 @@ export default function CollectionPage({ params }) {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [sort, setSort] = useState('default')
+  const [heroVisible, setHeroVisible] = useState(false)
   const { addItem } = useCart()
 
   useEffect(() => {
     const parts = window.location.pathname.split('/')
     const s = parts[parts.length - 1] || ''
     setSlug(s)
+    const t = setTimeout(() => setHeroVisible(true), 80)
+    return () => clearTimeout(t)
   }, [])
 
   useEffect(() => {
@@ -61,18 +64,9 @@ export default function CollectionPage({ params }) {
             const skuList = skus || []
             const lowestPrice = safeNum(skuList[0]?.price_gbp)
             const firstSku = skuList[0] || null
-            const hexSeen = new Set()
-            const swatches = []
-            for (const s of skuList) {
-              const hex = safe(s.colour_hex)
-              if (hex && !hexSeen.has(hex) && swatches.length < 5) {
-                hexSeen.add(hex)
-                swatches.push(hex)
-              }
-            }
-            return { ...p, lowestPrice, firstSku, swatches }
+            return { ...p, lowestPrice, firstSku }
           } catch {
-            return { ...p, lowestPrice: 0, firstSku: null, swatches: [] }
+            return { ...p, lowestPrice: 0, firstSku: null }
           }
         }))
 
@@ -85,7 +79,7 @@ export default function CollectionPage({ params }) {
     load()
   }, [slug])
 
-  const meta = COLLECTION_META[slug] || { name: slug, desc: '', bg: 'var(--sand)' }
+  const meta = COLLECTION_META[slug] || { name: slug, desc: '', bg: 'var(--sand)', hero: null }
 
   const sorted = [...products].sort((a, b) => {
     if (sort === 'price-asc')  return a.lowestPrice - b.lowestPrice
@@ -95,33 +89,85 @@ export default function CollectionPage({ params }) {
   })
 
   return (
-    <div style={{ paddingTop: 100, background: 'var(--cream)', minHeight: '100vh' }}>
+    <div style={{ background: 'var(--cream)', minHeight: '100vh' }}>
 
       {/* Hero */}
-      <div className="coll-hero" style={{ background: meta.bg, position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(28,23,20,0.3)' }} />
-        <div style={{ position: 'relative', textAlign: 'center', padding: '0 24px', maxWidth: 600, margin: '0 auto' }}>
-          <p style={{ fontSize: 10, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', marginBottom: 16 }}>
-            <Link href="/collections" style={{ color: 'inherit' }}>Collections</Link>{' / '}{meta.name}
+      <div className="coll-hero" style={{
+        background: meta.hero
+          ? `url(${meta.hero}) center/cover no-repeat`
+          : meta.bg,
+        paddingTop: 100,
+      }}>
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: meta.hero
+            ? 'linear-gradient(to bottom, rgba(28,23,20,0.35) 0%, rgba(28,23,20,0.55) 100%)'
+            : 'rgba(28,23,20,0.28)',
+        }} />
+
+        <div style={{
+          position: 'relative', zIndex: 1,
+          textAlign: 'center', padding: '0 24px',
+          maxWidth: 640, margin: '0 auto',
+          opacity: heroVisible ? 1 : 0,
+          transform: heroVisible ? 'translateY(0)' : 'translateY(24px)',
+          transition: 'opacity 0.9s ease, transform 0.9s ease',
+        }}>
+          <p style={{ fontSize: 10, letterSpacing: '0.28em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.55)', marginBottom: 20 }}>
+            <Link href="/collections" style={{ color: 'inherit', textDecoration: 'none' }}
+              onMouseEnter={e => e.target.style.color = 'rgba(184,155,106,0.9)'}
+              onMouseLeave={e => e.target.style.color = 'rgba(255,255,255,0.55)'}>
+              Collections
+            </Link>
+            <span style={{ margin: '0 10px', opacity: 0.4 }}>—</span>
+            {meta.name}
           </p>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(32px,5vw,64px)', fontWeight: 300, color: '#fff', marginBottom: 20 }}>
+
+          <h1 style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: 'clamp(36px,5.5vw,72px)',
+            fontWeight: 300, color: '#fff',
+            lineHeight: 1.1, marginBottom: 24,
+            letterSpacing: '0.01em',
+          }}>
             {meta.name}
           </h1>
-          <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', maxWidth: 480, lineHeight: 1.8, margin: '0 auto' }}>
+
+          <div style={{
+            width: heroVisible ? 56 : 0, height: 1,
+            background: 'var(--gold)', margin: '0 auto 24px',
+            transition: 'width 1.1s ease 0.4s',
+          }} />
+
+          <p style={{
+            fontSize: 14, color: 'rgba(255,255,255,0.72)',
+            lineHeight: 1.9, maxWidth: 460, margin: '0 auto',
+            opacity: heroVisible ? 1 : 0,
+            transition: 'opacity 0.9s ease 0.3s',
+          }}>
             {meta.desc}
           </p>
         </div>
+
+        <div style={{
+          position: 'absolute', bottom: 0, left: 0, right: 0,
+          height: 80,
+          background: 'linear-gradient(to bottom, transparent, var(--cream))',
+        }} />
       </div>
 
       {/* Toolbar */}
       <div className="coll-toolbar">
-        <span style={{ fontSize: 11, color: 'var(--taupe)' }}>
-          {loading ? 'Loading…' : `${sorted.length} products`}
+        <span style={{ fontSize: 11, color: 'var(--taupe)', letterSpacing: '0.08em' }}>
+          {loading ? '' : `${sorted.length} ${sorted.length === 1 ? 'product' : 'products'}`}
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--taupe)' }}>Sort</span>
-          <select value={sort} onChange={e => setSort(e.target.value)}
-            style={{ fontSize: 12, color: 'var(--deep)', background: 'transparent', border: '1px solid var(--warm)', padding: '8px 12px' }}>
+          <span style={{ fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe)' }}>Sort</span>
+          <select value={sort} onChange={e => setSort(e.target.value)} style={{
+            fontSize: 12, color: 'var(--deep)', background: 'transparent',
+            border: '1px solid var(--warm)', padding: '8px 14px',
+            cursor: 'pointer', outline: 'none',
+          }}>
             <option value="default">Featured</option>
             <option value="price-asc">Price: Low to High</option>
             <option value="price-desc">Price: High to Low</option>
@@ -133,31 +179,33 @@ export default function CollectionPage({ params }) {
       {/* Grid */}
       <div className="coll-content">
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '80px 0' }}>
-            <p style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontStyle: 'italic', color: 'var(--taupe)' }}>Loading collection…</p>
+          <div style={{ textAlign: 'center', padding: '100px 0' }}>
+            <p style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontStyle: 'italic', color: 'var(--taupe)' }}>Loading collection…</p>
           </div>
         ) : sorted.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '80px 0' }}>
+          <div style={{ textAlign: 'center', padding: '100px 0' }}>
             <p style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontStyle: 'italic', color: 'var(--taupe)' }}>No products found</p>
           </div>
         ) : (
           <div className="prod-grid">
-            {sorted.map(p => (
+            {sorted.map((p) => (
               <ProductCard
                 key={safe(p.id)}
                 product={p}
-                onAdd={() => {
+                onAdd={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
                   if (p.firstSku) {
                     addItem({
-                      skuId: safe(p.firstSku.id),
+                      skuId:     safe(p.firstSku.id),
                       productId: safe(p.id),
-                      name: safe(p.name),
-                      skuDesc: safe(p.firstSku.colour),
-                      colour: safe(p.firstSku.colour),
+                      name:      safe(p.name),
+                      skuDesc:   safe(p.firstSku.colour),
+                      colour:    safe(p.firstSku.colour),
                       colourHex: safe(p.firstSku.colour_hex),
-                      price: safeNum(p.firstSku.price_gbp),
-                      qty: 1,
-                      image: Array.isArray(p.images) ? (p.images[0] || null) : null,
+                      price:     safeNum(p.firstSku.price_gbp),
+                      qty:       1,
+                      image:     Array.isArray(p.images) ? (p.images[0] || null) : null,
                     })
                   }
                 }}
@@ -169,81 +217,129 @@ export default function CollectionPage({ params }) {
 
       <style>{`
         .coll-hero {
-          height: clamp(240px, 30vw, 360px);
-          display: flex; flex-direction: column;
-          align-items: center; justify-content: center;
+          position: relative;
+          height: clamp(380px, 48vw, 520px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
         }
         .coll-toolbar {
           display: flex; align-items: center; justify-content: space-between;
-          padding: 20px var(--page-padding, 24px);
+          padding: 22px var(--page-padding, 48px);
           border-bottom: 1px solid var(--sand);
           flex-wrap: wrap; gap: 12px;
         }
         .coll-content {
-          padding: 32px var(--page-padding, 24px) 100px;
+          padding: 48px var(--page-padding, 48px) 120px;
         }
         .prod-grid {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
-          gap: 32px;
+          gap: 36px 28px;
         }
-        .prod-card:hover .prod-img { transform: scale(1.04); }
-        .prod-card:hover .quick-add { transform: translateY(0) !important; }
-        @media(max-width:1100px) { .prod-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media(max-width:1100px) { .prod-grid { grid-template-columns: repeat(3,1fr); } }
         @media(max-width:768px) {
-          .prod-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
-          .coll-content { padding: 24px 16px 80px; }
-          .coll-toolbar { padding: 16px; }
-          .quick-add { transform: translateY(0) !important; opacity: 0.95; }
+          .prod-grid { grid-template-columns: repeat(2,1fr); gap: 20px 14px; }
+          .coll-content { padding: 32px 20px 80px; }
+          .coll-toolbar { padding: 16px 20px; }
         }
-        @media(max-width:480px) {
-          .prod-grid { gap: 12px; }
-        }
+        @media(max-width:480px) { .prod-grid { gap: 16px 10px; } }
       `}</style>
     </div>
   )
 }
 
 function ProductCard({ product: p, onAdd }) {
-  const img = Array.isArray(p.images) ? p.images[0] : null
+  const [hovered, setHovered] = useState(false)
+  const img   = Array.isArray(p.images) ? p.images[0] : null
   const price = safeNum(p.lowestPrice)
-  const name = safe(p.name)
-  const slug = safe(p.slug)
+  const name  = safe(p.name)
+  const slug  = safe(p.slug)
 
   return (
-    <div className="prod-card">
-      <div style={{ aspectRatio: '1/1', overflow: 'hidden', background: 'var(--sand)', marginBottom: 12, position: 'relative' }}>
-        {img ? (
-          <img src={img} alt={name} className="prod-img"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.7s ease' }} />
-        ) : (
-          <div className="prod-img" style={{ width: '100%', height: '100%', background: 'linear-gradient(170deg,#E8DDD0,#C4A882)', transition: 'transform 0.7s ease' }} />
-        )}
-        <button className="quick-add" onClick={onAdd} style={{
-          position: 'absolute', bottom: 0, left: 0, right: 0,
-          background: 'rgba(28,23,20,0.9)', color: '#fff', border: 'none',
-          padding: 14, fontSize: 10, letterSpacing: '0.25em', textTransform: 'uppercase',
-          transform: 'translateY(100%)', transition: 'transform 0.4s', cursor: 'pointer',
-          minHeight: 44,
+    <Link
+      href={`/products/${slug}`}
+      style={{ textDecoration: 'none', display: 'block' }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <div style={{
+        transform: hovered ? 'translateY(-5px)' : 'translateY(0)',
+        transition: 'transform 0.5s cubic-bezier(0.25,0.46,0.45,0.94)',
+      }}>
+        {/* 图片 */}
+        <div style={{
+          aspectRatio: '1/1', overflow: 'hidden',
+          background: 'var(--sand)', marginBottom: 14,
+          position: 'relative',
         }}>
-          Add to Basket
-        </button>
-      </div>
-      <Link href={`/products/${slug}`} style={{ textDecoration: 'none' }}>
-        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(14px, 1.5vw, 18px)', fontWeight: 400, color: 'var(--ink)', marginBottom: 4, lineHeight: 1.3 }}>
-          {name}
-        </h3>
-        <p style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(15px, 1.5vw, 20px)', color: 'var(--deep)', marginTop: 6 }}>
-          {price > 0 ? `From £${price.toFixed(2)}` : ''}
-        </p>
-      </Link>
-      {p.swatches && p.swatches.length > 0 && (
-        <div style={{ display: 'flex', gap: 5, marginTop: 8 }}>
-          {p.swatches.map((hex, i) => (
-            <div key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: hex, border: '1px solid var(--warm)' }} />
-          ))}
+          {img ? (
+            <img src={img} alt={name} style={{
+              width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+              transform: hovered ? 'scale(1.07)' : 'scale(1)',
+              transition: 'transform 1.2s cubic-bezier(0.25,0.46,0.45,0.94)',
+            }} />
+          ) : (
+            <div style={{
+              width: '100%', height: '100%',
+              background: 'linear-gradient(170deg,#E8DDD0,#C4A882)',
+              transform: hovered ? 'scale(1.07)' : 'scale(1)',
+              transition: 'transform 1.2s cubic-bezier(0.25,0.46,0.45,0.94)',
+            }} />
+          )}
+
+          {/* 金色光晕 */}
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'linear-gradient(135deg, rgba(184,155,106,0.18) 0%, rgba(28,23,20,0.32) 100%)',
+            opacity: hovered ? 1 : 0,
+            transition: 'opacity 0.6s ease',
+            pointerEvents: 'none',
+          }} />
+
+          {/* Add to Basket */}
+          <button onClick={onAdd} style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0,
+            background: 'rgba(28,23,20,0.88)',
+            backdropFilter: 'blur(4px)',
+            color: '#F7F3EE', border: 'none',
+            padding: '15px 0', fontSize: 10,
+            letterSpacing: '0.28em', textTransform: 'uppercase',
+            cursor: 'pointer', minHeight: 46,
+            opacity: hovered ? 1 : 0,
+            transform: hovered ? 'translateY(0)' : 'translateY(6px)',
+            transition: 'opacity 0.4s ease, transform 0.4s ease',
+          }}>
+            Add to Basket
+          </button>
         </div>
-      )}
-    </div>
+
+        {/* 文字 */}
+        <div style={{
+          paddingBottom: 16,
+          borderBottom: '1px solid',
+          borderColor: hovered ? 'var(--gold)' : 'var(--sand)',
+          transition: 'border-color 0.4s ease',
+        }}>
+          <h3 style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: 'clamp(14px,1.4vw,17px)',
+            fontWeight: 400, lineHeight: 1.3, marginBottom: 6,
+            color: hovered ? 'var(--gold)' : 'var(--ink)',
+            transition: 'color 0.35s ease',
+          }}>
+            {name}
+          </h3>
+          <p style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: 'clamp(14px,1.3vw,17px)',
+            color: 'var(--gold)', fontWeight: 300,
+          }}>
+            {price > 0 ? `From £${price.toFixed(2)}` : ''}
+          </p>
+        </div>
+      </div>
+    </Link>
   )
 }

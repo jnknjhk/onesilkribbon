@@ -305,8 +305,8 @@ export default function ProductPage({ params }) {
                   )}
                 </div>
                 <div>
-                  {(Array.isArray(product.specifications) && product.specifications.length > 0
-                    ? product.specifications
+                  {(Array.isArray(product.specifications)
+                    ? product.specifications.filter(s => s.key?.trim() && s.value?.toString().trim())
                     : []
                   ).map((spec, i) => (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '13px 0', borderBottom: '1px solid var(--sand)', fontSize: 12 }}>
@@ -314,7 +314,7 @@ export default function ProductPage({ params }) {
                       <span style={{ color: 'var(--ink)', textAlign: 'right', maxWidth: 200, lineHeight: 1.6 }}>{spec.value}</span>
                     </div>
                   ))}
-                  {(!Array.isArray(product.specifications) || product.specifications.length === 0) && (
+                  {(!Array.isArray(product.specifications) || product.specifications.filter(s => s.key?.trim() && s.value?.toString().trim()).length === 0) && (
                     <p style={{ fontSize: 12, color: 'var(--warm)', fontStyle: 'italic' }}>No specifications listed.</p>
                   )}
                 </div>

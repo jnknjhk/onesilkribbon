@@ -78,8 +78,17 @@ export default function ProductPage({ params }) {
   )
 
   const productImages = Array.isArray(product.images) ? product.images : []
-  const skuImages = selectedSku && Array.isArray(selectedSku.images) && selectedSku.images.length > 0 ? selectedSku.images : null
-  const images = skuImages || productImages
+  // 从attribute_config里找当前选中属性对应的图片
+  const attrConfig = product.attribute_config || []
+  let attrImage = null
+  for (const attr of attrConfig) {
+    const selectedVal = selectedAttrs[attr.name]
+    if (selectedVal) {
+      const opt = (attr.options || []).find(o => (typeof o === 'object' ? o.value : o) === selectedVal)
+      if (opt && typeof opt === 'object' && opt.image) { attrImage = opt.image; break }
+    }
+  }
+  const images = attrImage ? [attrImage] : productImages
   const collectionSlug = safe(product.collection)
   const collectionName = collectionSlug.replace(/-/g, ' ')
   const price = selectedSku ? safeNum(selectedSku.price_gbp) : 0
@@ -235,9 +244,10 @@ export default function ProductPage({ params }) {
                       WebkitAppearance: 'none', borderRadius: 0,
                     }}
                   >
-                    {attr.options.map(opt => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ))}
+                    {attr.options.map(opt => {
+                      const val = typeof opt === 'object' ? opt.value : opt
+                      return <option key={val} value={val}>{val}</option>
+                    })}
                   </select>
                   <div style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--taupe)', fontSize: 10 }}>▼</div>
                 </div>

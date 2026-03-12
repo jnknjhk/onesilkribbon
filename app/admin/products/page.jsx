@@ -87,7 +87,10 @@ export default function ProductsPage() {
         active: product.is_active !== false,
       })
       setImages((product.images || []).map(url => ({ url, isNew: false })))
-      setAttrConfig(product.attribute_config || [])
+      setAttrConfig((product.attribute_config || []).map(a => ({
+        ...a,
+        options: (a.options || []).map(o => typeof o === 'string' ? { value: o, image: '' } : o)
+      })))
       setSpecifications(
         Array.isArray(product.specifications) && product.specifications.length > 0
           ? product.specifications
@@ -137,16 +140,16 @@ export default function ProductsPage() {
 
   // ── 属性配置 ──
   function addAttribute() {
-    setAttrConfig(p => [...p, { name: '', options: [''] }])
+    setAttrConfig(p => [...p, { name: '', options: [{ value: '', image: '' }] }])
   }
   function updateAttrName(i, name) {
     setAttrConfig(p => p.map((a, j) => j === i ? { ...a, name } : a))
   }
   function addAttrOption(i) {
-    setAttrConfig(p => p.map((a, j) => j === i ? { ...a, options: [...a.options, ''] } : a))
+    setAttrConfig(p => p.map((a, j) => j === i ? { ...a, options: [...a.options, { value: '', image: '' }] } : a))
   }
   function updateAttrOption(ai, oi, value) {
-    setAttrConfig(p => p.map((a, j) => j === ai ? { ...a, options: a.options.map((o, k) => k === oi ? value : o) } : a))
+    setAttrConfig(p => p.map((a, j) => j === ai ? { ...a, options: a.options.map((o, k) => k === oi ? { ...(typeof o === 'object' ? o : { value: o, image: '' }), value } : o) } : a))
   }
   function removeAttrOption(ai, oi) {
     setAttrConfig(p => p.map((a, j) => j === ai ? { ...a, options: a.options.filter((_, k) => k !== oi) } : a))
@@ -162,7 +165,7 @@ export default function ProductsPage() {
 
     // 生成所有组合
     const combos = validAttrs.reduce((acc, attr) => {
-      const opts = attr.options.filter(o => o.trim())
+      const opts = attr.options.map(o => typeof o === 'object' ? o.value : o).filter(o => o.trim())
       if (acc.length === 0) return opts.map(o => ({ [attr.name]: o }))
       const result = []
       for (const combo of acc) {
@@ -233,7 +236,7 @@ export default function ProductsPage() {
     try {
       const cleanConfig = attrConfig
         .filter(a => a.name.trim())
-        .map(a => ({ name: a.name.trim(), options: a.options.filter(o => o.trim()) }))
+        .map(a => ({ name: a.name.trim(), options: a.options.filter(o => (typeof o === 'object' ? o.value : o).trim()).map(o => typeof o === 'object' ? o : { value: o, image: '' }) }))
 
       const payload = {
         action: editing === 'new' ? 'create' : 'update',
@@ -302,6 +305,10 @@ export default function ProductsPage() {
   // ═══════════════════════════════
   if (editing !== null) {
     const attrNames = attrConfig.filter(a => a.name.trim()).map(a => a.name)
+    const attrOptionMap = {}
+    attrConfig.forEach(a => {
+      attrOptionMap[a.name] = (a.options || []).map(o => typeof o === 'object' ? o : { value: o, image: '' })
+    })
 
     return (
       <div style={{ maxWidth: 960, margin: '0 auto' }}>
@@ -423,14 +430,25 @@ export default function ProductsPage() {
               </div>
               <Label>选项值（每个一行）</Label>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {attr.options.map((opt, oi) => (
-                  <div key={oi} style={{ display: 'flex', gap: 8 }}>
-                    <input value={opt} onChange={e => updateAttrOption(ai, oi, e.target.value)}
-                      style={{ ...inp, background: C.white, flex: 1 }} placeholder={`选项 ${oi + 1}`} />
-                    <button onClick={() => removeAttrOption(ai, oi)} disabled={attr.options.length <= 1}
-                      style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 4, color: C.red, fontSize: 12, padding: '0 10px', cursor: attr.options.length <= 1 ? 'default' : 'pointer', opacity: attr.options.length <= 1 ? 0.3 : 1 }}>✕</button>
-                  </div>
-                ))}
+                {attr.options.map((opt, oi) => {
+                  const optObj = typeof opt === 'object' ? opt : { value: opt, image: '' }
+                  return (
+                    <div key={oi} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <input value={optObj.value} onChange={e => updateAttrOption(ai, oi, e.target.value)}
+                        style={{ ...inp, background: C.white, flex: 1 }} placeholder={`选项 ${oi + 1}`} />
+                      {/* 图片缩略图或上传按钮 */}
+                      <AttrOptionImage
+                        image={optObj.image}
+                        productId={editing}
+                        onChange={url => setAttrConfig(p => p.map((a, j) => j === ai ? {
+                          ...a, options: a.options.map((o, k) => k === oi ? { ...(typeof o === 'object' ? o : { value: o, image: '' }), image: url } : o)
+                        } : a))}
+                      />
+                      <button onClick={() => removeAttrOption(ai, oi)} disabled={attr.options.length <= 1}
+                        style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 4, color: C.red, fontSize: 12, padding: '0 10px', height: 36, cursor: attr.options.length <= 1 ? 'default' : 'pointer', opacity: attr.options.length <= 1 ? 0.3 : 1 }}>✕</button>
+                    </div>
+                  )
+                })}
               </div>
               <button onClick={() => addAttrOption(ai)} style={{ marginTop: 8, background: 'none', border: `1px dashed ${C.border}`, borderRadius: 4, color: C.gold, fontSize: 11, padding: '6px 14px', cursor: 'pointer' }}>
                 + 添加选项
@@ -701,5 +719,58 @@ function SkuImageUpload({ images, productId, onChange }) {
         <span style={{ fontSize: 10, color: '#C8B8A8' }}>先保存商品</span>
       )}
     </div>
+  )
+}
+
+/* ── 属性选项图片上传组件 ── */
+function AttrOptionImage({ image, productId, onChange }) {
+  const [uploading, setUploading] = useState(false)
+
+  async function handleUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file || !productId || productId === 'new') return
+    setUploading(true)
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('productId', productId)
+    try {
+      const res = await fetch('/api/admin/upload', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (data.url) onChange(data.url)
+    } catch {}
+    setUploading(false)
+    e.target.value = ''
+  }
+
+  async function handleRemove() {
+    if (image) {
+      try { await fetch('/api/admin/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: image }) }) } catch {}
+    }
+    onChange('')
+  }
+
+  if (image) return (
+    <div style={{ position: 'relative', width: 36, height: 36, flexShrink: 0 }}>
+      <img src={image} style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 3, border: '1px solid #E8E4DF' }} />
+      <button onClick={handleRemove} style={{
+        position: 'absolute', top: -4, right: -4, width: 14, height: 14,
+        background: '#ef4444', border: 'none', borderRadius: '50%',
+        color: '#fff', fontSize: 8, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>✕</button>
+    </div>
+  )
+
+  return (
+    <label style={{
+      width: 36, height: 36, border: '1px dashed #C8C0B8', borderRadius: 3, flexShrink: 0,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      cursor: uploading || !productId || productId === 'new' ? 'default' : 'pointer',
+      color: '#9A8878', fontSize: 16,
+    }} title={!productId || productId === 'new' ? '先保存商品再上传图片' : '上传此选项的图片'}>
+      {uploading ? '…' : '🖼'}
+      <input type="file" accept="image/*" onChange={handleUpload} style={{ display: 'none' }}
+        disabled={uploading || !productId || productId === 'new'} />
+    </label>
   )
 }

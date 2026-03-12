@@ -462,6 +462,7 @@ export default function ProductsPage() {
                       <th key={n} style={{ padding: '10px 12px', textAlign: 'left', color: C.muted, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase' }}>{n}</th>
                     ))}
                     <th style={{ padding: '10px 12px', textAlign: 'left', color: C.muted, fontSize: 10, letterSpacing: '.08em' }}>色号</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'left', color: C.muted, fontSize: 10, letterSpacing: '.08em' }}>图片</th>
                     <th style={{ padding: '10px 12px', textAlign: 'left', color: C.muted, fontSize: 10, letterSpacing: '.08em' }}>价格(£)</th>
                     <th style={{ padding: '10px 12px', textAlign: 'left', color: C.muted, fontSize: 10, letterSpacing: '.08em' }}>库存</th>
                     <th style={{ padding: '10px 12px', textAlign: 'left', color: C.muted, fontSize: 10, letterSpacing: '.08em' }}>状态</th>
@@ -484,6 +485,13 @@ export default function ProductsPage() {
                           <input value={sku.colour_hex || ''} onChange={e => updateSku(i, 'colour_hex', e.target.value)}
                             style={{ ...inp, padding: '6px 8px', fontSize: 11, width: 80, fontFamily: 'monospace' }} />
                         </div>
+                      </td>
+                      <td style={{ padding: '8px 12px' }}>
+                        <SkuImageUpload
+                          images={sku.images || []}
+                          productId={editing}
+                          onChange={imgs => updateSku(i, 'images', imgs)}
+                        />
                       </td>
                       <td style={{ padding: '8px 12px' }}>
                         <input type="number" step="0.01" value={sku.price_gbp || ''} onChange={e => updateSku(i, 'price_gbp', e.target.value)}
@@ -636,5 +644,62 @@ function SmallBtn({ onClick, disabled, danger, children }) {
       color: '#fff', fontSize: 10, cursor: disabled ? 'default' : 'pointer',
       display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.3 : 1,
     }}>{children}</button>
+  )
+}
+
+/* ── SKU 图片上传组件 ── */
+function SkuImageUpload({ images, productId, onChange }) {
+  const [uploading, setUploading] = useState(false)
+
+  async function handleUpload(e) {
+    const files = Array.from(e.target.files)
+    if (!files.length || !productId || productId === 'new') return
+    setUploading(true)
+    const newImgs = [...(images || [])]
+    for (const file of files) {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('productId', productId)
+      try {
+        const res = await fetch('/api/admin/upload', { method: 'POST', body: fd })
+        const data = await res.json()
+        if (data.url) newImgs.push(data.url)
+      } catch {}
+    }
+    onChange(newImgs)
+    setUploading(false)
+    e.target.value = ''
+  }
+
+  async function handleRemove(url) {
+    onChange((images || []).filter(u => u !== url))
+    try { await fetch('/api/admin/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }) } catch {}
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', maxWidth: 160 }}>
+      {(images || []).map((url, i) => (
+        <div key={i} style={{ position: 'relative', width: 36, height: 36 }}>
+          <img src={url} style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 3, border: '1px solid #E8E4DF' }} />
+          <button onClick={() => handleRemove(url)} style={{
+            position: 'absolute', top: -4, right: -4, width: 14, height: 14,
+            background: '#ef4444', border: 'none', borderRadius: '50%',
+            color: '#fff', fontSize: 8, cursor: 'pointer', lineHeight: 1,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>✕</button>
+        </div>
+      ))}
+      <label style={{
+        width: 36, height: 36, border: '1px dashed #C8C0B8', borderRadius: 3,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: uploading ? 'default' : 'pointer', color: '#9A8878', fontSize: 18, flexShrink: 0,
+      }}>
+        {uploading ? '…' : '+'}
+        <input type="file" accept="image/*" multiple onChange={handleUpload} style={{ display: 'none' }} disabled={uploading || !productId || productId === 'new'} />
+      </label>
+      {(!productId || productId === 'new') && (
+        <span style={{ fontSize: 10, color: '#C8B8A8' }}>先保存商品</span>
+      )}
+    </div>
   )
 }

@@ -110,6 +110,7 @@ export async function POST(req) {
             stock_qty: parseInt(sku.stock_qty) || 0,
             is_active: sku.is_active !== false,
             attributes: sku.attributes || {},
+            images: sku.images || [],
           }
 
           if (sku.id) {

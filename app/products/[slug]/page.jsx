@@ -77,7 +77,9 @@ export default function ProductPage({ params }) {
     </div>
   )
 
-  const images = Array.isArray(product.images) ? product.images : []
+  const productImages = Array.isArray(product.images) ? product.images : []
+  const skuImages = selectedSku && Array.isArray(selectedSku.images) && selectedSku.images.length > 0 ? selectedSku.images : null
+  const images = skuImages || productImages
   const collectionSlug = safe(product.collection)
   const collectionName = collectionSlug.replace(/-/g, ' ')
   const price = selectedSku ? safeNum(selectedSku.price_gbp) : 0
@@ -103,6 +105,7 @@ export default function ProductPage({ params }) {
 
   const handleAttrChange = (attrName, value) => {
     setSelectedAttrs(prev => ({ ...prev, [attrName]: value }))
+    setImgIdx(0)
   }
 
   const buildCartItem = () => {

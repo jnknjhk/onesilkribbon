@@ -34,6 +34,7 @@ export async function POST(req) {
           is_featured: false,
           images: product.images || [],
           attribute_config: product.attribute_config || [],
+          specifications: product.specifications || [],
         })
         .select('id')
         .single()
@@ -73,6 +74,7 @@ export async function POST(req) {
           is_active: product.is_active,
           images: product.images || [],
           attribute_config: product.attribute_config || [],
+          specifications: product.specifications || [],
         })
         .eq('id', product.id)
 

@@ -305,19 +305,18 @@ export default function ProductPage({ params }) {
                   )}
                 </div>
                 <div>
-                  {[
-                    ['Material', '100% Pure Mulberry Silk, Grade 6A'],
-                    ['Weight', '19 momme'],
-                    ['Texture', 'Crepe satin — lustrous front, matte reverse'],
-                    ['Edges', 'Hand-torn, naturally frayed'],
-                    ['Dyeing', 'Naturally dyed'],
-                    ['Packaging', 'Vintage wooden spool'],
-                  ].map(([k, v]) => (
-                    <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '13px 0', borderBottom: '1px solid var(--sand)', fontSize: 12 }}>
-                      <span style={{ fontSize: 9, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--taupe)' }}>{k}</span>
-                      <span style={{ color: 'var(--ink)', textAlign: 'right', maxWidth: 200, lineHeight: 1.6 }}>{v}</span>
+                  {(Array.isArray(product.specifications) && product.specifications.length > 0
+                    ? product.specifications
+                    : []
+                  ).map((spec, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '13px 0', borderBottom: '1px solid var(--sand)', fontSize: 12 }}>
+                      <span style={{ fontSize: 9, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--taupe)' }}>{spec.key}</span>
+                      <span style={{ color: 'var(--ink)', textAlign: 'right', maxWidth: 200, lineHeight: 1.6 }}>{spec.value}</span>
                     </div>
                   ))}
+                  {(!Array.isArray(product.specifications) || product.specifications.length === 0) && (
+                    <p style={{ fontSize: 12, color: 'var(--warm)', fontStyle: 'italic' }}>No specifications listed.</p>
+                  )}
                 </div>
               </div>
             )}

@@ -38,6 +38,7 @@ export default function ProductsPage() {
   // 产品表单
   const [form, setForm] = useState({ name: '', slug: '', description: '', collection: 'fine-silk-ribbons', active: true })
   const [images, setImages] = useState([])
+  const [specifications, setSpecifications] = useState([{ key: '', value: '' }])
   const [uploading, setUploading] = useState(false)
   // 属性配置: [{name: '颜色', options: ['Warm Sand', 'Blush']}, {name: '宽度', options: ['7mm','10mm']}]
   const [attrConfig, setAttrConfig] = useState([])
@@ -64,6 +65,7 @@ export default function ProductsPage() {
       setForm({ name: '', slug: '', description: '', collection: 'fine-silk-ribbons', active: true })
       setImages([]); setAttrConfig([]); setSkus([])
       setDeletedSkuIds([]); setDeletedImageUrls([])
+      setSpecifications([{ key: '', value: '' }])
       setEditing('new')
     } else {
       setForm({
@@ -74,6 +76,11 @@ export default function ProductsPage() {
       })
       setImages((product.images || []).map(url => ({ url, isNew: false })))
       setAttrConfig(product.attribute_config || [])
+      setSpecifications(
+        Array.isArray(product.specifications) && product.specifications.length > 0
+          ? product.specifications
+          : [{ key: '', value: '' }]
+      )
 
       const { createClient } = await import('@supabase/supabase-js')
       const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
@@ -217,6 +224,7 @@ export default function ProductsPage() {
           description: form.description.trim(), collection: form.collection,
           is_active: form.active, images: images.map(img => img.url),
           attribute_config: cleanConfig,
+          specifications: specifications.filter(s => s.key.trim() && s.value.trim()),
         },
         skus: skus.map(s => ({
           ...(s.id ? { id: s.id } : {}),
@@ -329,6 +337,30 @@ export default function ProductsPage() {
               style={{ ...inp, minHeight: 120, resize: 'vertical' }}
               placeholder="描述产品的材质、特点、用途…" />
           </div>
+        </Section>
+
+        {/* 规格参数 */}
+        <Section title="规格参数" sub="在商品详情页的 Description 标签中显示，每行一项（如 Material / 100% Pure Mulberry Silk）">
+          {specifications.map((spec, i) => (
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 2fr auto', gap: 10, marginBottom: 10, alignItems: 'center' }}>
+              <input
+                value={spec.key} placeholder="名称（如 Material）"
+                onChange={e => setSpecifications(p => p.map((s, j) => j === i ? { ...s, key: e.target.value } : s))}
+                style={inp} />
+              <input
+                value={spec.value} placeholder="内容（如 100% Pure Mulberry Silk）"
+                onChange={e => setSpecifications(p => p.map((s, j) => j === i ? { ...s, value: e.target.value } : s))}
+                style={inp} />
+              <button
+                onClick={() => setSpecifications(p => p.filter((_, j) => j !== i))}
+                disabled={specifications.length <= 1}
+                style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 4, color: C.red, fontSize: 12, padding: '8px 12px', cursor: specifications.length <= 1 ? 'default' : 'pointer', opacity: specifications.length <= 1 ? 0.3 : 1 }}>✕</button>
+            </div>
+          ))}
+          <button onClick={() => setSpecifications(p => [...p, { key: '', value: '' }])}
+            style={{ padding: '8px 18px', background: C.white, border: `1px dashed ${C.border}`, borderRadius: 6, color: C.gold, fontSize: 12, cursor: 'pointer', marginTop: 4 }}>
+            + 添加规格项
+          </button>
         </Section>
 
         {/* 图片 */}

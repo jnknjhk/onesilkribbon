@@ -241,16 +241,16 @@ function Collections({ collectionImages }) {
 
       <style>{`
         .col-row {
-          display: grid; grid-template-columns: 1fr 1fr;
-          gap: 0; margin-bottom: clamp(24px, 4vw, 48px);
-          overflow: hidden; min-height: 400px;
+          display: grid; grid-template-columns: 5fr 7fr;
+          gap: 0; margin-bottom: clamp(16px, 3vw, 32px);
+          overflow: hidden; min-height: 280px;
         }
-        .col-row-reverse { direction: rtl; }
+        .col-row-reverse { direction: rtl; grid-template-columns: 7fr 5fr; }
         .col-row-reverse > * { direction: ltr; }
 
         .col-row-img {
           overflow: hidden; position: relative;
-          min-height: 360px;
+          min-height: 240px;
         }
         .col-row:hover .col-row-img-inner { transform: scale(1.05); }
 
@@ -273,9 +273,9 @@ function Collections({ collectionImages }) {
 
         @media (max-width: 768px) {
           .col-row { grid-template-columns: 1fr; min-height: auto; }
-          .col-row-reverse { direction: ltr; }
-          .col-row-img { min-height: 260px; }
-          .col-row-text { padding: 28px 24px 36px; }
+          .col-row-reverse { direction: ltr; grid-template-columns: 1fr; }
+          .col-row-img { min-height: 200px; }
+          .col-row-text { padding: 24px 20px 32px; }
         }
       `}</style>
     </section>

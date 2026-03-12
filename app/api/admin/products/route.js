@@ -80,9 +80,21 @@ export async function POST(req) {
 
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+      // 删除前端标记要删除的SKU
       if (deletedSkuIds && deletedSkuIds.length > 0) {
-        for (const skuId of deletedSkuIds) {
-          await supabase.from('product_skus').delete().eq('id', skuId)
+        await supabase.from('product_skus').delete().in('id', deletedSkuIds)
+      }
+
+      // 额外保障：把数据库里不在当前skus列表中的也删掉
+      if (skus && skus.length > 0) {
+        const keepIds = skus.filter(s => s.id).map(s => s.id)
+        if (keepIds.length > 0) {
+          await supabase.from('product_skus').delete()
+            .eq('product_id', product.id)
+            .not('id', 'in', `(${keepIds.join(',')})`)
+        } else {
+          // 没有保留任何已有SKU，全部删掉
+          await supabase.from('product_skus').delete().eq('product_id', product.id)
         }
       }
 

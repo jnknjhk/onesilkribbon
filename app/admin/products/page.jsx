@@ -194,6 +194,13 @@ export default function ProductsPage() {
       }
     })
 
+    // 把不在新组合里的旧SKU加入待删除列表
+    const newKeys = new Set(combos.map(attrs => JSON.stringify(attrs)))
+    const toDelete = skus.filter(s => s.id && !newKeys.has(JSON.stringify(s.attributes || {})))
+    if (toDelete.length > 0) {
+      setDeletedSkuIds(p => [...p, ...toDelete.map(s => s.id)])
+    }
+
     setSkus(newSkus)
     setMsg(`已生成 ${newSkus.length} 个 SKU 组合`)
     setTimeout(() => setMsg(''), 3000)

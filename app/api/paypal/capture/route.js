@@ -75,16 +75,29 @@ export async function GET(req) {
           freeShipping:  parseFloat(order.shipping_gbp || 0) === 0,
         }
 
+        // 从数据库获取订单商品详情
+        const { data: orderItems } = await supabaseAdmin
+          .from('order_items')
+          .select('*')
+          .eq('order_id', order.id)
+
+        const items = (orderItems || []).map(item => ({
+          name:     item.product_name,
+          skuDesc:  item.sku_description,
+          price:    parseFloat(item.unit_price_gbp || 0),
+          qty:      item.quantity,
+        }))
+
         // Send both emails, log any errors
         try {
-          await sendOrderConfirmation({ order, items: [], form, totals })
+          await sendOrderConfirmation({ order, items, form, totals })
           console.log('Order confirmation sent to:', form.email)
         } catch (e) {
           console.error('Order confirmation email error:', e.message)
         }
 
         try {
-          await sendOwnerNotification({ order, items: [], form, totals })
+          await sendOwnerNotification({ order, items, form, totals })
           console.log('Owner notification sent')
         } catch (e) {
           console.error('Owner notification email error:', e.message)

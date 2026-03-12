@@ -94,7 +94,6 @@ export default function ProductPage({ params }) {
   const price = selectedSku ? safeNum(selectedSku.price_gbp) : 0
   const inStock = selectedSku ? safeNum(selectedSku.stock_qty) > 0 : false
 
-  const attrConfig = product.attribute_config || []
   let attributeOptions = []
 
   if (attrConfig.length > 0) {

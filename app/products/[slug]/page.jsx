@@ -296,12 +296,10 @@ export default function ProductPage({ params }) {
             {tab === 'description' && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, alignItems: 'start' }} className="desc-grid">
                 <div style={{ fontSize: 13, lineHeight: 2.2, color: 'var(--taupe)' }}>
-                  <p style={{ marginBottom: 16 }}>
-                    <span style={{ color: 'var(--gold)' }}>✦</span>{' '}
-                    {safe(product.description) ? safe(product.description).split('\n')[0] : 'A beautiful silk ribbon, handcrafted with care.'}
-                  </p>
-                  {safe(product.description) && (
+                  {safe(product.description) ? (
                     <div dangerouslySetInnerHTML={{ __html: safe(product.description).replace(/\n/g, '<br/>').replace(/✦/g, '<span style="color:var(--gold)">✦</span>') }} />
+                  ) : (
+                    <p><span style={{ color: 'var(--gold)' }}>✦</span>{' '}A beautiful silk ribbon, handcrafted with care.</p>
                   )}
                 </div>
                 <div>

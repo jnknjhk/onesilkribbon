@@ -22,16 +22,14 @@ const GROUPS = [
     ],
   },
   {
-    label: '首页图片',
-    desc: '首页各区块使用的图片，建议尺寸 1200×800px 或以上',
+    label: '首页轮播图',
+    desc: '首页全屏背景轮播图，上传几张就轮播几张，一张都没有则显示纯色背景。建议尺寸 1920×1080px 或以上，横向构图',
     keys: [
-      { key: 'home_banner',                  label: '首页主横幅' },
-      { key: 'home_collection_fine-silk',    label: '系列卡片 — Fine Silk' },
-      { key: 'home_collection_hand-frayed',  label: '系列卡片 — Hand-Frayed' },
-      { key: 'home_collection_adornments',   label: '系列卡片 — Adornments' },
-      { key: 'home_collection_patterned',    label: '系列卡片 — Patterned' },
-      { key: 'home_collection_studio',       label: '系列卡片 — Studio Tools' },
-      { key: 'home_collection_vintage',      label: '系列卡片 — Vintage' },
+      { key: 'home_hero_1', label: '轮播图 1' },
+      { key: 'home_hero_2', label: '轮播图 2' },
+      { key: 'home_hero_3', label: '轮播图 3' },
+      { key: 'home_hero_4', label: '轮播图 4' },
+      { key: 'home_hero_5', label: '轮播图 5' },
     ],
   },
 ]

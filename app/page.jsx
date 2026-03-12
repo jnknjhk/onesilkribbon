@@ -24,12 +24,7 @@ const COLLECTION_FALLBACK_BG = {
 }
 
 
-const HERO_IMAGES = [
-  '/images/hero-1.jpg',
-  '/images/hero-2.jpg',
-  '/images/hero-3.jpg',
-  '/images/hero-4.jpg',
-]
+
 
 export default function HomePage() {
   const [featuredProducts, setFeaturedProducts] = useState([])
@@ -106,26 +101,43 @@ export default function HomePage() {
 function Hero() {
   const [loaded, setLoaded] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [heroImages, setHeroImages] = useState([])
 
   useEffect(() => {
     const timer = setTimeout(() => setLoaded(true), 200)
+    // 从数据库加载轮播图
+    fetch('/api/admin/site-images')
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          const imgs = ['home_hero_1','home_hero_2','home_hero_3','home_hero_4','home_hero_5']
+            .map(key => data.find(d => d.key === key)?.url)
+            .filter(Boolean)
+          setHeroImages(imgs)
+        }
+      }).catch(() => {})
     return () => clearTimeout(timer)
   }, [])
 
   useEffect(() => {
+    if (heroImages.length <= 1) return
     const interval = setInterval(() => {
-      setCurrentIndex(prev => (prev + 1) % HERO_IMAGES.length)
+      setCurrentIndex(prev => (prev + 1) % heroImages.length)
     }, 6000)
     return () => clearInterval(interval)
-  }, [])
+  }, [heroImages])
 
   return (
     <section className="hero">
-      {HERO_IMAGES.map((src, i) => (
-        <div key={src} className={`hero-slide ${i === currentIndex ? 'hero-slide-active' : ''}`}>
-          <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-        </div>
-      ))}
+      {heroImages.length > 0 ? (
+        heroImages.map((src, i) => (
+          <div key={src} className={`hero-slide ${i === currentIndex ? 'hero-slide-active' : ''}`}>
+            <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          </div>
+        ))
+      ) : (
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(160deg,#2C2420,#1C1714)' }} />
+      )}
       <div className="hero-overlay" />
       <div className="hero-gradient" />
 

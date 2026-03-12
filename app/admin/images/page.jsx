@@ -21,6 +21,18 @@ const GROUPS = [
     ],
   },
   {
+    label: '首页系列图',
+    desc: '首页"Our Collections"区块每个系列的展示图，建议尺寸 800×600px。没有上传时自动使用该系列的商品图片',
+    keys: [
+      { key: 'home_col_fine-silk-ribbons',        label: 'Fine Silk Ribbons' },
+      { key: 'home_col_hand-frayed-silk-ribbons', label: 'Hand-Frayed Silk Ribbons' },
+      { key: 'home_col_handcrafted-adornments',   label: 'Handcrafted Adornments' },
+      { key: 'home_col_patterned-ribbons',         label: 'Patterned Ribbons' },
+      { key: 'home_col_studio-tools',              label: 'Studio Tools' },
+      { key: 'home_col_vintage-inspired-ribbons',  label: 'Vintage-Inspired Ribbons' },
+    ],
+  },
+  {
     label: '首页品牌故事图',
     desc: '首页"Our Story"区块左侧的图片，建议尺寸 800×900px，竖向构图',
     keys: [

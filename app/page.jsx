@@ -33,15 +33,38 @@ export default function HomePage() {
 
   useEffect(() => {
     async function loadData() {
+      // 优先从site_images读取，没有再从商品图自动取
       const imgMap = {}
-      for (const col of COLLECTIONS) {
-        const { data: colProds } = await supabase
-          .from('products').select('images')
-          .eq('collection', col.slug).eq('is_active', true).limit(3)
-        if (colProds) {
-          for (const p of colProds) {
-            const imgs = Array.isArray(p.images) ? p.images : []
-            if (imgs.length > 0) { imgMap[col.slug] = imgs[0]; break }
+      try {
+        const res = await fetch('/api/admin/site-images')
+        const siteImgs = await res.json()
+        if (Array.isArray(siteImgs)) {
+          for (const col of COLLECTIONS) {
+            const row = siteImgs.find(d => d.key === `home_col_${col.slug}`)
+            if (row?.url) { imgMap[col.slug] = row.url; continue }
+            // 没有单独设置就从商品图取
+            const { data: colProds } = await supabase
+              .from('products').select('images')
+              .eq('collection', col.slug).eq('is_active', true).limit(3)
+            if (colProds) {
+              for (const p of colProds) {
+                const imgs = Array.isArray(p.images) ? p.images : []
+                if (imgs.length > 0) { imgMap[col.slug] = imgs[0]; break }
+              }
+            }
+          }
+        }
+      } catch {
+        // fallback：从商品图取
+        for (const col of COLLECTIONS) {
+          const { data: colProds } = await supabase
+            .from('products').select('images')
+            .eq('collection', col.slug).eq('is_active', true).limit(3)
+          if (colProds) {
+            for (const p of colProds) {
+              const imgs = Array.isArray(p.images) ? p.images : []
+              if (imgs.length > 0) { imgMap[col.slug] = imgs[0]; break }
+            }
           }
         }
       }

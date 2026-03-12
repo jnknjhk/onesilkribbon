@@ -23,11 +23,6 @@ const COLLECTION_FALLBACK_BG = {
   'vintage-inspired-ribbons': 'linear-gradient(160deg,#D4B8C0,#9A7A84,#5A3A44)',
 }
 
-const JOURNAL_POSTS = [
-  { slug: 'how-to-tie-a-silk-ribbon-bow', date: 'March 2026', category: 'Guide', title: 'How to Tie a Silk Ribbon Bow', excerpt: 'The perfect bow is slower than it looks. We share our studio method — and the small adjustments that make all the difference.' },
-  { slug: 'choosing-the-right-ribbon-width', date: 'February 2026', category: 'Guide', title: 'Choosing the Right Ribbon Width', excerpt: 'From 4mm to 38mm, every width has its ideal use. A practical guide to matching ribbon to occasion.' },
-  { slug: 'the-story-behind-our-colours', date: 'January 2026', category: 'Behind the Scenes', title: 'The Story Behind Our Colours', excerpt: 'How we develop each colourway — from initial dye tests to the final name. Some colours take months to get right.' },
-]
 
 const HERO_IMAGES = [
   '/images/hero-1.jpg',
@@ -382,6 +377,36 @@ function FeaturedProducts({ products, loading }) {
    JOURNAL — 博客卡片区域
    ═══════════════════════════════════ */
 function JournalSection() {
+  const [posts, setPosts] = useState([])
+
+  useEffect(() => {
+    async function load() {
+      const { createClient } = await import('@supabase/supabase-js')
+      const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+      const { data } = await sb
+        .from('journal_posts')
+        .select('slug, title, category, excerpt, cover_image, published_at')
+        .eq('is_published', true)
+        .order('published_at', { ascending: false })
+        .limit(3)
+      setPosts(data || [])
+    }
+    load()
+  }, [])
+
+  if (posts.length === 0) return null
+
+  const FALLBACK_BG = [
+    'linear-gradient(135deg, #E8DDD0, #C4A882)',
+    'linear-gradient(135deg, #D4C5B0, #9A8878)',
+    'linear-gradient(135deg, #E8C9B8, #9A7A66)',
+  ]
+
+  function formatDate(iso) {
+    if (!iso) return ''
+    return new Date(iso).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+  }
+
   return (
     <section className="journal-section">
       <div className="journal-header reveal" style={{ textAlign: 'center', marginBottom: 'clamp(40px, 5vw, 64px)' }}>
@@ -392,26 +417,21 @@ function JournalSection() {
       </div>
 
       <div className="journal-grid">
-        {JOURNAL_POSTS.map((post, i) => (
+        {posts.map((post, i) => (
           <Link key={post.slug} href={`/journal/${post.slug}`} style={{ textDecoration: 'none' }}>
-            <div className={`journal-card reveal`} style={{ transitionDelay: `${i * 0.12}s` }}>
-              {/* 卡片顶部图片区域 — 用渐变色占位，以后可以换成真实图片 */}
+            <div className="journal-card reveal" style={{ transitionDelay: `${i * 0.12}s` }}>
               <div className="journal-card-img">
-                <div style={{
-                  width: '100%', height: '100%',
-                  background: [
-                    'linear-gradient(135deg, #E8DDD0, #C4A882)',
-                    'linear-gradient(135deg, #D4C5B0, #9A8878)',
-                    'linear-gradient(135deg, #E8C9B8, #9A7A66)',
-                  ][i % 3],
-                }} />
+                {post.cover_image
+                  ? <img src={post.cover_image} alt={post.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transition: 'transform 0.6s ease' }} className="journal-card-img-inner" />
+                  : <div style={{ width: '100%', height: '100%', background: FALLBACK_BG[i % 3], transition: 'transform 0.6s ease' }} />
+                }
               </div>
 
               <div className="journal-card-body">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
                   <span style={{ fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--gold)' }}>{post.category}</span>
                   <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'var(--warm)' }} />
-                  <span style={{ fontSize: 10, color: 'var(--taupe)', letterSpacing: '0.05em' }}>{post.date}</span>
+                  <span style={{ fontSize: 10, color: 'var(--taupe)', letterSpacing: '0.05em' }}>{formatDate(post.published_at)}</span>
                 </div>
 
                 <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(18px, 2vw, 22px)', fontWeight: 300, color: 'var(--ink)', marginBottom: 12, lineHeight: 1.3 }}>
@@ -422,9 +442,7 @@ function JournalSection() {
                   {post.excerpt}
                 </p>
 
-                <span className="journal-card-link">
-                  Read More →
-                </span>
+                <span className="journal-card-link">Read More →</span>
               </div>
             </div>
           </Link>
@@ -457,9 +475,7 @@ function JournalSection() {
         .journal-card-img {
           aspect-ratio: 16/10; overflow: hidden;
         }
-        .journal-card-img > div {
-          transition: transform 0.6s ease;
-        }
+        .journal-card:hover .journal-card-img-inner,
         .journal-card:hover .journal-card-img > div {
           transform: scale(1.05);
         }

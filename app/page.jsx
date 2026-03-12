@@ -241,11 +241,11 @@ function Collections({ collectionImages }) {
 
       <style>{`
         .col-row {
-          display: grid; grid-template-columns: 5fr 7fr;
+          display: grid; grid-template-columns: 1fr 1fr;
           gap: 0; margin-bottom: clamp(16px, 3vw, 32px);
-          overflow: hidden; min-height: 280px;
+          overflow: hidden; min-height: 260px;
         }
-        .col-row-reverse { direction: rtl; grid-template-columns: 7fr 5fr; }
+        .col-row-reverse { direction: rtl; }
         .col-row-reverse > * { direction: ltr; }
 
         .col-row-img {
@@ -273,9 +273,9 @@ function Collections({ collectionImages }) {
 
         @media (max-width: 768px) {
           .col-row { grid-template-columns: 1fr; min-height: auto; }
-          .col-row-reverse { direction: ltr; grid-template-columns: 1fr; }
+          .col-row-reverse { direction: ltr; }
           .col-row-img { min-height: 200px; }
-          .col-row-text { padding: 24px 20px 32px; }
+          .col-row-text { padding: 28px 24px 36px; }
         }
       `}</style>
     </section>

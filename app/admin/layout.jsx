@@ -13,7 +13,7 @@ const NAV = [
   { href: '/admin/marketing', label: '营销',   icon: '◇' },
 ]
 
-const ADMIN_PASSWORD = 'onesilk2024'
+const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'onesilk2024'
 
 // 浅色设计系统
 const C = {

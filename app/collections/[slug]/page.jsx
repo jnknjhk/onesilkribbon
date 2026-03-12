@@ -5,12 +5,12 @@ import { supabase } from '@/lib/supabase'
 import { useCart } from '@/lib/cart'
 
 const COLLECTION_META = {
-  'fine-silk-ribbons':        { name: 'Fine Silk Ribbons',        desc: 'Our signature ultra-fine 100% mulberry silk ribbons, in widths from 2mm to 10mm and 30 hand-selected colourways.', bg: 'linear-gradient(135deg,#D4C5B0,#9A8878)', hero: null },
-  'hand-frayed-silk-ribbons': { name: 'Hand-Frayed Silk Ribbons', desc: 'Each edge carefully frayed by hand for an ethereal, organic finish. Perfect for bouquets, invitations and fine craft.', bg: 'linear-gradient(135deg,#E8C9B8,#9A7A66)', hero: null },
-  'handcrafted-adornments':   { name: 'Handcrafted Adornments',   desc: 'Silk scrunchies, bows and decorative pieces — each made by hand from pure mulberry silk.', bg: 'linear-gradient(135deg,#B8A898,#4A3A30)', hero: null },
-  'patterned-ribbons':        { name: 'Patterned Ribbons',        desc: 'Botanical, geometric and heritage-inspired patterns printed on pure silk.', bg: 'linear-gradient(135deg,#C8D4C0,#5A7050)', hero: null },
-  'studio-tools':             { name: 'Studio Tools',             desc: 'Everything you need for a well-appointed ribbon and craft studio.', bg: 'linear-gradient(135deg,#D0D0C8,#5A5A54)', hero: null },
-  'vintage-inspired-ribbons': { name: 'Vintage-Inspired Ribbons', desc: 'Heritage tones and antique-inspired textures, evoking the romance of a bygone era.', bg: 'linear-gradient(135deg,#D4B8C0,#5A3A44)', hero: null },
+  'fine-silk-ribbons':        { name: 'Fine Silk Ribbons',        desc: 'Our signature ultra-fine 100% mulberry silk ribbons, in widths from 2mm to 10mm and 30 hand-selected colourways.', bg: 'linear-gradient(135deg,#D4C5B0,#9A8878)' },
+  'hand-frayed-silk-ribbons': { name: 'Hand-Frayed Silk Ribbons', desc: 'Each edge carefully frayed by hand for an ethereal, organic finish. Perfect for bouquets, invitations and fine craft.', bg: 'linear-gradient(135deg,#E8C9B8,#9A7A66)' },
+  'handcrafted-adornments':   { name: 'Handcrafted Adornments',   desc: 'Silk scrunchies, bows and decorative pieces — each made by hand from pure mulberry silk.', bg: 'linear-gradient(135deg,#B8A898,#4A3A30)' },
+  'patterned-ribbons':        { name: 'Patterned Ribbons',        desc: 'Botanical, geometric and heritage-inspired patterns printed on pure silk.', bg: 'linear-gradient(135deg,#C8D4C0,#5A7050)' },
+  'studio-tools':             { name: 'Studio Tools',             desc: 'Everything you need for a well-appointed ribbon and craft studio.', bg: 'linear-gradient(135deg,#D0D0C8,#5A5A54)' },
+  'vintage-inspired-ribbons': { name: 'Vintage-Inspired Ribbons', desc: 'Heritage tones and antique-inspired textures, evoking the romance of a bygone era.', bg: 'linear-gradient(135deg,#D4B8C0,#5A3A44)' },
 }
 
 function safe(val) {
@@ -30,6 +30,7 @@ export default function CollectionPage({ params }) {
   const [loading, setLoading] = useState(true)
   const [sort, setSort] = useState('default')
   const [heroVisible, setHeroVisible] = useState(false)
+  const [heroImg, setHeroImg] = useState(null)
   const { addItem } = useCart()
 
   useEffect(() => {
@@ -37,6 +38,17 @@ export default function CollectionPage({ params }) {
     const s = parts[parts.length - 1] || ''
     setSlug(s)
     const t = setTimeout(() => setHeroVisible(true), 80)
+    // 从数据库读取Hero图片
+    fetch('/api/admin/site-images')
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          const parts2 = window.location.pathname.split('/')
+          const currentSlug = parts2[parts2.length - 1] || ''
+          const row = data.find(d => d.key === `hero_${currentSlug}`)
+          if (row?.url) setHeroImg(row.url)
+        }
+      }).catch(() => {})
     return () => clearTimeout(t)
   }, [])
 
@@ -93,14 +105,14 @@ export default function CollectionPage({ params }) {
 
       {/* Hero */}
       <div className="coll-hero" style={{
-        background: meta.hero
-          ? `url(${meta.hero}) center/cover no-repeat`
+        background: heroImg
+          ? `url(${heroImg}) center/cover no-repeat`
           : meta.bg,
         paddingTop: 100,
       }}>
         <div style={{
           position: 'absolute', inset: 0,
-          background: meta.hero
+          background: heroImg
             ? 'linear-gradient(to bottom, rgba(28,23,20,0.35) 0%, rgba(28,23,20,0.55) 100%)'
             : 'rgba(28,23,20,0.28)',
         }} />

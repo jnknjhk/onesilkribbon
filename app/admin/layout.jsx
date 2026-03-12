@@ -7,7 +7,6 @@ const NAV = [
   { href: '/admin',           label: '总览',   icon: '▤' },
   { href: '/admin/orders',    label: '订单',   icon: '◫' },
   { href: '/admin/products',  label: '产品',   icon: '◈' },
-  { href: '/admin/inventory', label: '库存',   icon: '◧' },
   { href: '/admin/journal',   label: '文章',   icon: '✎' },
   { href: '/admin/customers', label: '客户',   icon: '◉' },
   { href: '/admin/marketing', label: '营销',   icon: '◇' },

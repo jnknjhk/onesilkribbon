@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendOrderConfirmation, sendOwnerNotification } from '@/lib/email'
 import { redirect } from 'next/navigation'
@@ -114,6 +115,7 @@ export async function GET(req) {
       }
     }
   } catch (err) {
+    Sentry.captureException(err, { tags: { api: 'paypal-capture', orderNumber } })
     console.error('PayPal capture error:', err)
   }
 

@@ -1,3 +1,5 @@
+const { withSentryConfig } = require('@sentry/nextjs')
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
@@ -8,7 +10,14 @@ const nextConfig = {
   },
   experimental: {
     serverActions: { allowedOrigins: ['localhost:3000', 'onesilkribbon.com'] }
-  }
+  },
 }
 
-module.exports = nextConfig
+module.exports = withSentryConfig(nextConfig, {
+  org:     'onesilkribbon',
+  project: 'onesilkribbon',
+  silent:  true,
+  widenClientFileUpload: true,
+  hideSourceMaps: true,
+  disableLogger:  true,
+})

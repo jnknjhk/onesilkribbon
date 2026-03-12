@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs'
 import { supabaseAdmin } from '@/lib/supabase'
 
 const PAYPAL_BASE = process.env.PAYPAL_MODE === 'live'
@@ -98,6 +99,7 @@ export async function POST(req) {
 
     return Response.json({ approvalUrl })
   } catch (err) {
+    Sentry.captureException(err, { tags: { api: 'paypal-create-order' } })
     console.error('PayPal error:', err)
     return Response.json({ error: err.message }, { status: 500 })
   }

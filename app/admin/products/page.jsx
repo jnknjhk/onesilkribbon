@@ -34,9 +34,7 @@ export default function ProductsPage() {
   const [msg, setMsg] = useState('')
   const [search, setSearch] = useState('')
   const [filterCol, setFilterCol] = useState('all')
-  const [skuMap, setSkuMap] = useState({})       // productId -> skus[]
-  const [editingStock, setEditingStock] = useState(null) // {skuId, val}
-  const [savingStock, setSavingStock] = useState(false)
+  const [skuMap, setSkuMap] = useState({})
 
   // 产品表单
   const [form, setForm] = useState({ name: '', slug: '', description: '', collection: 'fine-silk-ribbons', active: true })
@@ -72,20 +70,6 @@ export default function ProductsPage() {
       setSkuMap(map)
     } catch { setProducts([]) }
     setLoading(false)
-  }
-
-  async function saveStock(skuId, productId) {
-    setSavingStock(true)
-    const { createClient } = await import('@supabase/supabase-js')
-    const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-    const newQty = parseInt(editingStock.val) || 0
-    await sb.from('product_skus').update({ stock_qty: newQty }).eq('id', skuId)
-    setSkuMap(prev => ({
-      ...prev,
-      [productId]: prev[productId].map(s => s.id === skuId ? { ...s, stock_qty: newQty } : s)
-    }))
-    setEditingStock(null)
-    setSavingStock(false)
   }
 
   async function startEdit(product) {
@@ -591,49 +575,15 @@ export default function ProductsPage() {
                     <td style={{ padding: '10px 16px', color: C.sub, fontSize: 12 }}>{collectionLabel(p.collection)}</td>
                     <td style={{ padding: '10px 16px', color: C.sub, fontSize: 12 }}>{imgs.length} 张</td>
                     <td style={{ padding: '10px 16px', color: C.sub, fontSize: 12 }}>{attrs.length > 0 ? attrs.map(a => a.name).join('、') : '-'}</td>
-                    <td style={{ padding: '10px 16px' }} onClick={e => e.stopPropagation()}>
+                    <td style={{ padding: '10px 16px' }}>
                       {(() => {
                         const skus = skuMap[p.id] || []
                         if (skus.length === 0) return <span style={{ color: C.muted, fontSize: 12 }}>—</span>
-                        const total = skus.reduce((s, k) => s + (k.stock_qty || 0), 0)
-                        const low = skus.some(k => (k.stock_qty || 0) < 10)
-                        const out = skus.some(k => (k.stock_qty || 0) === 0)
-                        return (
-                          <div>
-                            <span style={{ fontSize: 13, fontWeight: 500, color: out ? C.red : low ? '#facc15' : C.green }}>{total}</span>
-                            <span style={{ fontSize: 10, color: C.muted, marginLeft: 4 }}>/ {skus.length} SKU</span>
-                            {skus.map(sku => {
-                              const attrLabel = sku.attributes ? Object.values(sku.attributes).join(' · ') : sku.colour || ''
-                              const qty = sku.stock_qty || 0
-                              const qtyColor = qty === 0 ? C.red : qty < 10 ? '#facc15' : C.green
-                              return (
-                                <div key={sku.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                                  {sku.colour_hex && <div style={{ width: 10, height: 10, borderRadius: '50%', background: sku.colour_hex, border: '1px solid #DDD', flexShrink: 0 }} />}
-                                  <span style={{ fontSize: 11, color: C.muted, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 100 }}>{attrLabel}</span>
-                                  {editingStock?.skuId === sku.id ? (
-                                    <div style={{ display: 'flex', gap: 4 }}>
-                                      <input type="number" value={editingStock.val}
-                                        onChange={e => setEditingStock(s => ({ ...s, val: e.target.value }))}
-                                        autoFocus
-                                        style={{ width: 52, padding: '2px 6px', border: `1px solid ${C.gold}`, borderRadius: 4, fontSize: 11, outline: 'none', background: C.bg }}
-                                        onKeyDown={e => { if (e.key === 'Enter') saveStock(sku.id, p.id); if (e.key === 'Escape') setEditingStock(null) }} />
-                                      <button onClick={() => saveStock(sku.id, p.id)} disabled={savingStock}
-                                        style={{ background: C.gold, border: 'none', borderRadius: 3, color: '#fff', fontSize: 10, padding: '2px 6px', cursor: 'pointer' }}>✓</button>
-                                      <button onClick={() => setEditingStock(null)}
-                                        style={{ background: C.light, border: 'none', borderRadius: 3, color: C.muted, fontSize: 10, padding: '2px 6px', cursor: 'pointer' }}>✕</button>
-                                    </div>
-                                  ) : (
-                                    <span onClick={() => setEditingStock({ skuId: sku.id, val: String(qty) })}
-                                      style={{ fontSize: 12, fontWeight: 500, color: qtyColor, cursor: 'pointer', borderBottom: `1px dashed ${qtyColor}`, minWidth: 20, textAlign: 'right' }}
-                                      title="点击修改库存">
-                                      {qty}
-                                    </span>
-                                  )}
-                                </div>
-                              )
-                            })}
-                          </div>
-                        )
+                        const hasOut = skus.some(k => (k.stock_qty || 0) === 0)
+                        const hasLow = skus.some(k => (k.stock_qty || 0) > 0 && (k.stock_qty || 0) < 10)
+                        if (hasOut) return <span style={{ fontSize: 11, color: C.red, background: C.red + '18', padding: '3px 8px', borderRadius: 10 }}>⚠ 有SKU售罄</span>
+                        if (hasLow) return <span style={{ fontSize: 11, color: '#facc15', background: '#facc1518', padding: '3px 8px', borderRadius: 10 }}>⚠ 有SKU库存不足</span>
+                        return <span style={{ fontSize: 11, color: C.green }}>正常</span>
                       })()}
                     </td>
                     <td style={{ padding: '10px 16px' }}>

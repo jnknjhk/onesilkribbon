@@ -222,10 +222,10 @@ function Collections({ collectionImages }) {
                   <span style={{ fontSize: 9, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 16, display: 'block' }}>
                     {c.count}
                   </span>
-                  <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(26px, 3vw, 36px)', fontWeight: 300, color: 'var(--ink)', marginBottom: 20, lineHeight: 1.2 }}>
+                  <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(30px, 3.5vw, 42px)', fontWeight: 300, color: 'var(--ink)', marginBottom: 20, lineHeight: 1.2 }}>
                     {c.name}
                   </h3>
-                  <p style={{ fontSize: 13, color: 'var(--taupe)', lineHeight: 2, marginBottom: 28 }}>
+                  <p style={{ fontSize: 15, color: 'var(--taupe)', lineHeight: 2, marginBottom: 28 }}>
                     {c.desc}
                   </p>
                   <span className="col-row-cta">
@@ -241,16 +241,16 @@ function Collections({ collectionImages }) {
 
       <style>{`
         .col-row {
-          display: grid; grid-template-columns: 1fr 1fr;
+          display: grid; grid-template-columns: 2fr 3fr;
           gap: 0; margin-bottom: clamp(16px, 3vw, 32px);
-          overflow: hidden; min-height: 260px;
+          overflow: hidden; min-height: 220px;
         }
         .col-row-reverse { direction: rtl; }
         .col-row-reverse > * { direction: ltr; }
 
         .col-row-img {
           overflow: hidden; position: relative;
-          min-height: 240px;
+          min-height: 200px;
         }
         .col-row:hover .col-row-img-inner { transform: scale(1.05); }
 
@@ -274,7 +274,7 @@ function Collections({ collectionImages }) {
         @media (max-width: 768px) {
           .col-row { grid-template-columns: 1fr; min-height: auto; }
           .col-row-reverse { direction: ltr; }
-          .col-row-img { min-height: 200px; }
+          .col-row-img { min-height: 180px; }
           .col-row-text { padding: 28px 24px 36px; }
         }
       `}</style>

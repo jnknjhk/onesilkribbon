@@ -71,14 +71,19 @@ export default function HomePage() {
       setLoading(false)
     }
     loadData()
-
-    const els = document.querySelectorAll('.reveal')
-    const obs = new IntersectionObserver(entries => {
-      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target) } })
-    }, { threshold: 0.08 })
-    els.forEach(el => obs.observe(el))
-    return () => obs.disconnect()
   }, [])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const els = document.querySelectorAll('.reveal')
+      const obs = new IntersectionObserver(entries => {
+        entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target) } })
+      }, { threshold: 0.08 })
+      els.forEach(el => obs.observe(el))
+      return () => obs.disconnect()
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [featuredProducts])
 
   return (
     <>

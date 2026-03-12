@@ -86,22 +86,14 @@ export async function POST(req) {
       return Response.json({ error: 'PayPal did not return approval URL', details: ppData }, { status: 500 })
     }
 
-    await supabaseAdmin.from('orders').insert({
-      order_number:      orderNumber,
-      customer_email:    form.email,
-      status:            'pending',
-      subtotal_gbp:      itemsTotal.toFixed(2),
-      vat_amount_gbp:    '0.00',
-      shipping_gbp:      shippingAmount.toFixed(2),
-      total_gbp:         grandTotal.toFixed(2),
-      shipping_name:     `${form.firstName} ${form.lastName}`,
-      shipping_line1:    form.line1,
-      shipping_line2:    form.line2 || null,
-      shipping_city:     form.city,
-      shipping_postcode: form.postcode || '',
-      shipping_country:  form.country,
-      payment_method:    'paypal',
-      payment_intent_id: ppData.id,
+    // 不在这里创建订单，先存临时session，支付成功后才创建正式订单
+    await supabaseAdmin.from('paypal_sessions').insert({
+      order_number:    orderNumber,
+      paypal_order_id: ppData.id,
+      items:           JSON.stringify(items),
+      form:            JSON.stringify(form),
+      totals:          JSON.stringify({ subtotal: itemsTotal.toFixed(2), shipping: shippingAmount.toFixed(2), total: grandTotal.toFixed(2) }),
+      expires_at:      new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
     })
 
     return Response.json({ approvalUrl })

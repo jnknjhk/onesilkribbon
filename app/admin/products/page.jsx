@@ -439,7 +439,7 @@ export default function ProductsPage() {
                       {/* 图片缩略图或上传按钮 */}
                       <AttrOptionImage
                         image={optObj.image}
-                        productId={editing}
+                        productId={editing === 'new' ? 'new' : editing?.id}
                         onChange={url => setAttrConfig(p => p.map((a, j) => j === ai ? {
                           ...a, options: a.options.map((o, k) => k === oi ? { ...(typeof o === 'object' ? o : { value: o, image: '' }), image: url } : o)
                         } : a))}
@@ -507,7 +507,7 @@ export default function ProductsPage() {
                       <td style={{ padding: '8px 12px' }}>
                         <SkuImageUpload
                           images={sku.images || []}
-                          productId={editing}
+                          productId={editing === 'new' ? 'new' : editing?.id}
                           onChange={imgs => updateSku(i, 'images', imgs)}
                         />
                       </td>

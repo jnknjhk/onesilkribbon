@@ -10,18 +10,6 @@ const C = {
 
 const GROUPS = [
   {
-    label: '系列封面图',
-    desc: '每个系列页顶部的 Hero 大图，建议尺寸 1600×900px 或以上',
-    keys: [
-      { key: 'hero_fine-silk-ribbons',        label: 'Fine Silk Ribbons' },
-      { key: 'hero_hand-frayed-silk-ribbons',  label: 'Hand-Frayed Silk Ribbons' },
-      { key: 'hero_handcrafted-adornments',    label: 'Handcrafted Adornments' },
-      { key: 'hero_patterned-ribbons',         label: 'Patterned Ribbons' },
-      { key: 'hero_studio-tools',              label: 'Studio Tools' },
-      { key: 'hero_vintage-inspired-ribbons',  label: 'Vintage-Inspired Ribbons' },
-    ],
-  },
-  {
     label: '首页轮播图',
     desc: '首页全屏背景轮播图，上传几张就轮播几张，一张都没有则显示纯色背景。建议尺寸 1920×1080px 或以上，横向构图',
     keys: [
@@ -30,6 +18,33 @@ const GROUPS = [
       { key: 'home_hero_3', label: '轮播图 3' },
       { key: 'home_hero_4', label: '轮播图 4' },
       { key: 'home_hero_5', label: '轮播图 5' },
+    ],
+  },
+  {
+    label: '首页品牌故事图',
+    desc: '首页"Our Story"区块左侧的图片，建议尺寸 800×900px，竖向构图',
+    keys: [
+      { key: 'home_story', label: '品牌故事图' },
+    ],
+  },
+  {
+    label: '系列封面图',
+    desc: '每个系列页顶部的 Hero 大图，建议尺寸 1600×900px 或以上，横向构图',
+    keys: [
+      { key: 'hero_fine-silk-ribbons',        label: 'Fine Silk Ribbons' },
+      { key: 'hero_hand-frayed-silk-ribbons', label: 'Hand-Frayed Silk Ribbons' },
+      { key: 'hero_handcrafted-adornments',   label: 'Handcrafted Adornments' },
+      { key: 'hero_patterned-ribbons',        label: 'Patterned Ribbons' },
+      { key: 'hero_studio-tools',             label: 'Studio Tools' },
+      { key: 'hero_vintage-inspired-ribbons', label: 'Vintage-Inspired Ribbons' },
+    ],
+  },
+  {
+    label: 'About 页图片',
+    desc: 'About 页面各区块的图片，建议尺寸 800×1000px，竖向构图',
+    keys: [
+      { key: 'about_main',  label: 'About 主图' },
+      { key: 'about_craft', label: '工艺展示图' },
     ],
   },
 ]

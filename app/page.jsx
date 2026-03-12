@@ -299,11 +299,27 @@ function Collections({ collectionImages }) {
    STORY SECTION
    ═══════════════════════════════════ */
 function StorySection() {
+  const [storyImg, setStoryImg] = useState(null)
+
+  useEffect(() => {
+    fetch('/api/admin/site-images')
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          const row = data.find(d => d.key === 'home_story')
+          if (row?.url) setStoryImg(row.url)
+        }
+      }).catch(() => {})
+  }, [])
+
   return (
     <section style={{ background: 'var(--sand)', overflow: 'hidden' }}>
       <div className="story-row reveal">
         <div className="story-img">
-          <div style={{ width: '100%', height: '100%', background: 'linear-gradient(160deg, #D4C5B0, #9A8878, #C4A882)' }} />
+          {storyImg
+            ? <img src={storyImg} alt="Our Story" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(160deg, #D4C5B0, #9A8878, #C4A882)' }} />
+          }
         </div>
         <div className="story-text">
           <span className="eyebrow" style={{ marginBottom: 20 }}>Our Story</span>

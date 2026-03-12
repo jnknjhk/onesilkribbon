@@ -1,9 +1,21 @@
-export const metadata = {
-  title: 'Our Story — One Silk Ribbon',
-  description: 'The story behind One Silk Ribbon — handcrafted mulberry silk ribbons made with care.',
-}
+'use client'
+import { useState, useEffect } from 'react'
 
 export default function About() {
+  const [aboutMain, setAboutMain]   = useState(null)
+  const [aboutCraft, setAboutCraft] = useState(null)
+
+  useEffect(() => {
+    fetch('/api/admin/site-images')
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setAboutMain(data.find(d => d.key === 'about_main')?.url || null)
+          setAboutCraft(data.find(d => d.key === 'about_craft')?.url || null)
+        }
+      }).catch(() => {})
+  }, [])
+
   return (
     <>
       <div style={{ paddingTop: 68, background: 'var(--cream)', minHeight: '100vh' }}>
@@ -34,7 +46,10 @@ export default function About() {
           </div>
           <div style={{ padding: '80px 0 80px 80px' }}>
             <div style={{ aspectRatio: '4/5', overflow: 'hidden', background: 'var(--sand)' }}>
-              <div style={{ width: '100%', height: '100%', background: 'linear-gradient(160deg, #E8DDD0 0%, #C4A882 100%)' }} />
+              {aboutMain
+                ? <img src={aboutMain} alt="Our Story" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(160deg, #E8DDD0 0%, #C4A882 100%)' }} />
+              }
             </div>
           </div>
         </div>
@@ -46,25 +61,16 @@ export default function About() {
           </p>
         </div>
 
-        {/* Section 3 — values */}
+        {/* Section 3 — values + craft image */}
         <div style={{ maxWidth: 1360, margin: '0 auto', padding: '80px 60px 100px' }}>
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 300, color: 'var(--ink)', marginBottom: 56, textAlign: 'center' }}>
             What we stand for
           </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 48 }} className="values-grid">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 48, marginBottom: aboutCraft ? 72 : 0 }} className="values-grid">
             {[
-              {
-                title: 'Craft',
-                body: 'Every ribbon is hand-torn or hand-finished in our studio. We work slowly, because the details are everything.',
-              },
-              {
-                title: 'Material',
-                body: 'We use only Grade 6A mulberry silk — the highest classification available. The quality you feel in your hands is the quality we insist on.',
-              },
-              {
-                title: 'Intention',
-                body: 'We make ribbons for people who care about how things are given — for weddings, gifts, and the small rituals that make life beautiful.',
-              },
+              { title: 'Craft',     body: 'Every ribbon is hand-torn or hand-finished in our studio. We work slowly, because the details are everything.' },
+              { title: 'Material',  body: 'We use only Grade 6A mulberry silk — the highest classification available. The quality you feel in your hands is the quality we insist on.' },
+              { title: 'Intention', body: 'We make ribbons for people who care about how things are given — for weddings, gifts, and the small rituals that make life beautiful.' },
             ].map(({ title, body }) => (
               <div key={title} style={{ paddingTop: 32, borderTop: '1px solid var(--sand)' }}>
                 <p style={{ fontSize: 9, letterSpacing: '.32em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 16 }}>{title}</p>
@@ -72,6 +78,13 @@ export default function About() {
               </div>
             ))}
           </div>
+
+          {/* 工艺展示图（有图才显示） */}
+          {aboutCraft && (
+            <div style={{ aspectRatio: '21/9', overflow: 'hidden', borderRadius: 2 }}>
+              <img src={aboutCraft} alt="Our Craft" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            </div>
+          )}
         </div>
 
       </div>

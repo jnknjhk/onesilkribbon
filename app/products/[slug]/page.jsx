@@ -26,6 +26,7 @@ export default function ProductPage({ params }) {
   const [buyingNow, setBuyingNow] = useState(false)
   const [tab, setTab] = useState('description')
   const [selectedAttrs, setSelectedAttrs] = useState({})
+  const [userSelected, setUserSelected] = useState(false)
   const { addItem } = useCart()
 
   useEffect(() => {
@@ -78,18 +79,22 @@ export default function ProductPage({ params }) {
   )
 
   const productImages = Array.isArray(product.images) ? product.images : []
-  // 从attribute_config里找当前选中属性对应的图片
+  // 从attribute_config里找当前选中属性对应的图片（只在用户主动选择后才切换）
   const attrConfig = product.attribute_config || []
   let attrImage = null
-  for (const attr of attrConfig) {
-    const selectedVal = selectedAttrs[attr.name]
-    if (selectedVal) {
-      const opt = (attr.options || []).find(o => (typeof o === 'object' ? o.value : o) === selectedVal)
-      if (opt && typeof opt === 'object' && opt.image) { attrImage = opt.image; break }
+  if (userSelected) {
+    for (const attr of attrConfig) {
+      const selectedVal = selectedAttrs[attr.name]
+      if (selectedVal) {
+        const opt = (attr.options || []).find(o => (typeof o === 'object' ? o.value : o) === selectedVal)
+        if (opt && typeof opt === 'object' && opt.image) { attrImage = opt.image; break }
+      }
     }
   }
-  // images 仍然用于缩略图和导航，主图单独处理
-  const images = productImages
+  // 用户主动选择且有属性图：属性图排第一，主图跟后面；否则只显示主图
+  const images = attrImage
+    ? [attrImage, ...productImages.filter(img => img !== attrImage)]
+    : productImages
   const collectionSlug = safe(product.collection)
   const collectionName = collectionSlug.replace(/-/g, ' ')
   const price = selectedSku ? safeNum(selectedSku.price_gbp) : 0
@@ -114,6 +119,7 @@ export default function ProductPage({ params }) {
 
   const handleAttrChange = (attrName, value) => {
     setSelectedAttrs(prev => ({ ...prev, [attrName]: value }))
+    setUserSelected(true)
     setImgIdx(0)
   }
 

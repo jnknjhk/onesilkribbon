@@ -168,12 +168,12 @@ function Hero() {
         <p className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.1s', fontSize: 10, letterSpacing: '0.4em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 32 }}>
           100% Pure Mulberry Silk · Handcrafted
         </p>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(42px, 7vw, 88px)', fontWeight: 300, lineHeight: 1.05, color: '#fff', marginBottom: 36, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.3s', display: 'block' }}>Woven from</span>
-          <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.55s', display: 'block', fontStyle: 'italic', color: 'var(--gold)' }}>nature's finest</span>
-          <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.8s', display: 'block' }}>thread</span>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(48px, 8.5vw, 96px)', fontWeight: 600, lineHeight: 1.08, color: '#fff', marginBottom: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', letterSpacing: '-0.02em' }}>
+          <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.3s', display: 'block', fontWeight: 500 }}>Woven from</span>
+          <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.55s', display: 'block', fontStyle: 'italic', color: 'var(--gold)', fontWeight: 600 }}>nature's finest</span>
+          <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.8s', display: 'block', fontWeight: 500 }}>thread</span>
         </h1>
-        <p className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '1.1s', fontSize: 14, lineHeight: 2, color: 'rgba(255,255,255,0.65)', maxWidth: 420, marginBottom: 48, textAlign: 'center' }}>
+        <p className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '1.1s', fontSize: 15, lineHeight: 1.75, color: 'rgba(255,255,255,0.72)', maxWidth: 460, marginBottom: 52, textAlign: 'center', fontFamily: 'var(--font-serif-alt)', fontWeight: 400, letterSpacing: '0.01em' }}>
           Each ribbon carries the quiet beauty of silk in its most natural form — hand-treated, botanically inspired, made to last.
         </p>
         <div className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '1.4s' }}>

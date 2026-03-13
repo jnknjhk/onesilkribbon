@@ -88,7 +88,8 @@ export default function ProductPage({ params }) {
       if (opt && typeof opt === 'object' && opt.image) { attrImage = opt.image; break }
     }
   }
-  const images = attrImage ? [attrImage] : productImages
+  // images 仍然用于缩略图和导航，主图单独处理
+  const images = productImages
   const collectionSlug = safe(product.collection)
   const collectionName = collectionSlug.replace(/-/g, ' ')
   const price = selectedSku ? safeNum(selectedSku.price_gbp) : 0
@@ -177,18 +178,18 @@ export default function ProductPage({ params }) {
           {/* LEFT: gallery */}
           <div>
             <div style={{ position: 'relative', width: '100%', aspectRatio: '1/1', overflow: 'hidden', background: 'var(--sand)', cursor: 'zoom-in' }} className="main-wrap">
-              {images.length > 0 ? (
-                <img src={images[imgIdx]} alt={safe(product.name)}
+              {(attrImage || images.length > 0) ? (
+                <img src={attrImage || images[imgIdx]} alt={safe(product.name)}
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transition: 'transform .8s cubic-bezier(.25,.46,.45,.94)' }}
                   className="main-img-hover" />
               ) : (
                 <div style={{ width: '100%', height: '100%', background: 'linear-gradient(160deg,#E8DDD0,#C4A882)' }} />
               )}
-              {images.length > 1 && <>
+              {!attrImage && images.length > 1 && <>
                 <button onClick={() => navImg(-1)} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 36, height: 36, background: 'rgba(247,243,238,0.88)', backdropFilter: 'blur(6px)', border: 'none', color: 'var(--ink)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>‹</button>
                 <button onClick={() => navImg(1)} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', width: 36, height: 36, background: 'rgba(247,243,238,0.88)', backdropFilter: 'blur(6px)', border: 'none', color: 'var(--ink)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>›</button>
               </>}
-              {images.length > 1 && (
+              {!attrImage && images.length > 1 && (
                 <div style={{ position: 'absolute', bottom: 14, right: 14, background: 'rgba(247,243,238,0.88)', backdropFilter: 'blur(6px)', padding: '4px 11px', fontSize: 9, letterSpacing: '.14em', color: 'var(--taupe)' }}>
                   {imgIdx + 1} / {images.length}
                 </div>

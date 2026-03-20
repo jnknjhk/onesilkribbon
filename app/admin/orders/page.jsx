@@ -13,6 +13,7 @@ export default function OrdersPage() {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState(null)
   const [updating, setUpdating] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => { loadOrders() }, [])
 
@@ -26,9 +27,18 @@ export default function OrdersPage() {
   async function updateStatus(id, status) {
     setUpdating(true)
     await supabase.from('orders').update({ status }).eq('id', id)
-    await loadOrders()
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o))
     if (selected?.id === id) setSelected(prev => ({ ...prev, status }))
     setUpdating(false)
+  }
+
+  async function deleteOrder(id) {
+    if (!confirm('确认删除该订单？此操作不可撤销。')) return
+    setDeleting(true)
+    await supabase.from('orders').delete().eq('id', id)
+    setOrders(prev => prev.filter(o => o.id !== id))
+    if (selected?.id === id) setSelected(null)
+    setDeleting(false)
   }
 
   const filtered = orders.filter(o => {
@@ -61,7 +71,7 @@ export default function OrdersPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead style={{ position: 'sticky', top: 0, background: '#FFFFFF' }}>
                 <tr style={{ borderBottom: '1px solid #E8E4DF' }}>
-                  {['订单号','客户','金额','状态','日期','操作'].map(h => (
+                  {['订单号','客户','金额','状态','日期','操作','删除'].map(h => (
                     <th key={h} style={{ padding: '12px 16px', textAlign: 'left', color: '#8A8480', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase' }}>{h}</th>
                   ))}
                 </tr>
@@ -81,6 +91,12 @@ export default function OrdersPage() {
                         style={{ background: '#F5F3F0', border: '1px solid #DDD8D2', borderRadius: 6, color: '#504C48', fontSize: 11, padding: '4px 8px', cursor: 'pointer' }}>
                         {['pending','paid','shipped','cancelled'].map(s => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
                       </select>
+                    </td>
+                    <td style={{ padding: '12px 16px' }} onClick={e => e.stopPropagation()}>
+                      <button onClick={() => deleteOrder(o.id)} disabled={deleting}
+                        style={{ background: 'none', border: '1px solid #f87171', borderRadius: 6, color: '#f87171', fontSize: 11, padding: '4px 10px', cursor: 'pointer' }}>
+                        删除
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -130,6 +146,12 @@ export default function OrdersPage() {
                 </button>
               ))}
             </div>
+          </div>
+          <div style={{ marginTop: 16 }}>
+            <button onClick={() => deleteOrder(selected.id)} disabled={deleting}
+              style={{ width: '100%', padding: '9px', background: 'none', border: '1px solid #f87171', borderRadius: 6, color: '#f87171', fontSize: 12, cursor: 'pointer' }}>
+              删除此订单
+            </button>
           </div>
         </div>
       )}

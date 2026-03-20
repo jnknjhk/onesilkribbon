@@ -169,7 +169,7 @@ export default function AdminLayout({ children }) {
         </aside>
 
         {/* Main */}
-        <div style={{ flex: 1, marginLeft: 196, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, marginLeft: 196, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
           {/* Top bar */}
           <header style={{
             height: 48, borderBottom: `1px solid ${C.border}`,
@@ -182,7 +182,7 @@ export default function AdminLayout({ children }) {
             <span style={{ marginLeft: 'auto', fontSize: 11, color: C.muted }}>{currentLabel}</span>
           </header>
 
-          <main style={{ flex: 1, padding: '32px', overflow: 'auto' }}>
+          <main style={{ padding: '32px' }}>
             {children}
           </main>
         </div>

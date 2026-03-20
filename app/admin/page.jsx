@@ -23,8 +23,9 @@ export default function AdminDashboard() {
       const { count: customerCount } = await supabase.from('orders').select('customer_email', { count: 'exact', head: true })
       const { data: revenueData } = await supabase.from('orders').select('total_gbp').eq('status', 'paid')
       const revenue = (revenueData || []).reduce((s, o) => s + (parseFloat(o.total_gbp) || 0), 0)
-      const { count: pending } = await supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'pending')
-      setStats({ orders: orderCount || 0, revenue, products: 14, customers: customerCount || 0, pending: pending || 0, recentOrders: orders || [] })
+      const { data: allOrders } = await supabase.from('orders').select('status')
+      const pending = (allOrders || []).filter(o => o.status === 'pending').length
+      setStats({ orders: orderCount || 0, revenue, products: 14, customers: customerCount || 0, pending, recentOrders: orders || [] })
       setLoading(false)
     }
     load()

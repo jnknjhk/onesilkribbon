@@ -27,6 +27,7 @@ export default function ProductPage({ params }) {
   const [tab, setTab] = useState('description')
   const [selectedAttrs, setSelectedAttrs] = useState({})
   const [userSelected, setUserSelected] = useState(false)
+  const [lastChangedAttr, setLastChangedAttr] = useState(null)
   const { addItem } = useCart()
 
   useEffect(() => {
@@ -82,12 +83,22 @@ export default function ProductPage({ params }) {
   // 从attribute_config里找当前选中属性对应的图片（只在用户主动选择后才切换）
   const attrConfig = product.attribute_config || []
   let attrImage = null
-  if (userSelected) {
-    for (const attr of attrConfig) {
-      const selectedVal = selectedAttrs[attr.name]
-      if (selectedVal) {
-        const opt = (attr.options || []).find(o => (typeof o === 'object' ? o.value : o) === selectedVal)
-        if (opt && typeof opt === 'object' && opt.image) { attrImage = opt.image; break }
+  if (userSelected && lastChangedAttr) {
+    const changedAttrCfg = attrConfig.find(a => a.name === lastChangedAttr)
+    if (changedAttrCfg) {
+      const selectedVal = selectedAttrs[lastChangedAttr]
+      const opt = (changedAttrCfg.options || []).find(o => (typeof o === 'object' ? o.value : o) === selectedVal)
+      if (opt && typeof opt === 'object' && opt.image) attrImage = opt.image
+    }
+    // 如果最后改动的属性没有图，往前找其他有图的属性
+    if (!attrImage) {
+      for (const attr of attrConfig) {
+        if (attr.name === lastChangedAttr) continue
+        const selectedVal = selectedAttrs[attr.name]
+        if (selectedVal) {
+          const opt = (attr.options || []).find(o => (typeof o === 'object' ? o.value : o) === selectedVal)
+          if (opt && typeof opt === 'object' && opt.image) { attrImage = opt.image; break }
+        }
       }
     }
   }
@@ -120,6 +131,7 @@ export default function ProductPage({ params }) {
   const handleAttrChange = (attrName, value) => {
     setSelectedAttrs(prev => ({ ...prev, [attrName]: value }))
     setUserSelected(true)
+    setLastChangedAttr(attrName)
     setImgIdx(0)
   }
 

@@ -160,7 +160,7 @@ export default function ProductsPage() {
 
   // ── 批量生成 SKU ──
   function generateSkus() {
-    const validAttrs = attrConfig.filter(a => a.name.trim() && a.options.some(o => o.trim()))
+    const validAttrs = attrConfig.filter(a => a.name.trim() && a.options.some(o => (typeof o === 'object' ? o.value : o).trim()))
     if (validAttrs.length === 0) { setMsg('请先添加至少一个属性和选项'); return }
 
     // 生成所有组合

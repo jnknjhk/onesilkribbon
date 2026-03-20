@@ -35,9 +35,15 @@ export default function OrdersPage() {
   async function deleteOrder(id) {
     if (!confirm('确认删除该订单？此操作不可撤销。')) return
     setDeleting(true)
-    await supabase.from('orders').delete().eq('id', id)
-    setOrders(prev => prev.filter(o => o.id !== id))
-    if (selected?.id === id) setSelected(null)
+    const res = await fetch('/api/admin/orders', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+    if (res.ok) {
+      setOrders(prev => prev.filter(o => o.id !== id))
+      if (selected?.id === id) setSelected(null)
+    }
     setDeleting(false)
   }
 

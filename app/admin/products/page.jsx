@@ -36,14 +36,11 @@ export default function ProductsPage() {
   const [filterCol, setFilterCol] = useState('all')
   const [skuMap, setSkuMap] = useState({})
 
-  // 产品表单
   const [form, setForm] = useState({ name: '', slug: '', description: '', collection: 'fine-silk-ribbons', active: true })
   const [images, setImages] = useState([])
   const [specifications, setSpecifications] = useState([{ key: '', value: '' }])
   const [uploading, setUploading] = useState(false)
-  // 属性配置: [{name: '颜色', options: ['Warm Sand', 'Blush']}, {name: '宽度', options: ['7mm','10mm']}]
   const [attrConfig, setAttrConfig] = useState([])
-  // SKU 列表: [{id?, attributes: {颜色:'Warm Sand', 宽度:'7mm'}, colour_hex, price_gbp, stock_qty, is_active}]
   const [skus, setSkus] = useState([])
   const [deletedSkuIds, setDeletedSkuIds] = useState([])
   const [deletedImageUrls, setDeletedImageUrls] = useState([])
@@ -58,7 +55,6 @@ export default function ProductsPage() {
       const data = await res.json()
       setProducts(Array.isArray(data) ? data : [])
 
-      // 同时加载所有SKU库存
       const { createClient } = await import('@supabase/supabase-js')
       const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
       const { data: skuData } = await sb.from('product_skus').select('id, product_id, colour, colour_hex, attributes, stock_qty, price_gbp').order('product_id')
@@ -110,7 +106,6 @@ export default function ProductsPage() {
     setMsg('')
   }
 
-  // ── 图片 ──
   async function handleImageUpload(e) {
     const files = Array.from(e.target.files)
     if (!files.length) return
@@ -138,7 +133,6 @@ export default function ProductsPage() {
     setImages(p => { const a = [...p]; const t = i + d; if (t < 0 || t >= a.length) return a; [a[i], a[t]] = [a[t], a[i]]; return a })
   }
 
-  // ── 属性配置 ──
   function addAttribute() {
     setAttrConfig(p => [...p, { name: '', options: [{ value: '', image: '' }] }])
   }
@@ -158,12 +152,10 @@ export default function ProductsPage() {
     setAttrConfig(p => p.filter((_, j) => j !== i))
   }
 
-  // ── 批量生成 SKU ──
   function generateSkus() {
     const validAttrs = attrConfig.filter(a => a.name.trim() && a.options.some(o => (typeof o === 'object' ? o.value : o).trim()))
     if (validAttrs.length === 0) { setMsg('请先添加至少一个属性和选项'); return }
 
-    // 生成所有组合
     const combos = validAttrs.reduce((acc, attr) => {
       const opts = attr.options.map(o => typeof o === 'object' ? o.value : o).filter(o => o.trim())
       if (acc.length === 0) return opts.map(o => ({ [attr.name]: o }))
@@ -176,7 +168,6 @@ export default function ProductsPage() {
       return result
     }, [])
 
-    // 保留已有 SKU 的价格和库存，合并新组合
     const existingMap = {}
     skus.forEach(s => {
       const key = JSON.stringify(s.attributes || {})
@@ -197,7 +188,6 @@ export default function ProductsPage() {
       }
     })
 
-    // 把不在新组合里的旧SKU加入待删除列表
     const newKeys = new Set(combos.map(attrs => JSON.stringify(attrs)))
     const toDelete = skus.filter(s => s.id && !newKeys.has(JSON.stringify(s.attributes || {})))
     if (toDelete.length > 0) {
@@ -209,7 +199,6 @@ export default function ProductsPage() {
     setTimeout(() => setMsg(''), 3000)
   }
 
-  // ── SKU 操作 ──
   function addSkuManual() {
     const attrs = {}
     attrConfig.forEach(a => { if (a.name.trim()) attrs[a.name] = '' })
@@ -227,7 +216,6 @@ export default function ProductsPage() {
     setSkus(p => p.filter((_, j) => j !== i))
   }
 
-  // ── 保存 ──
   async function saveProduct() {
     if (!form.name.trim()) { setMsg('请填写产品名称'); return }
     if (!form.slug.trim()) { setMsg('请填写 URL Slug'); return }
@@ -312,7 +300,6 @@ export default function ProductsPage() {
 
     return (
       <div style={{ maxWidth: 960, margin: '0 auto' }}>
-        {/* 顶部 */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32, flexWrap: 'wrap', gap: 12 }}>
           <div>
             <button onClick={() => setEditing(null)} style={{ background: 'none', border: 'none', color: C.gold, fontSize: 12, cursor: 'pointer', marginBottom: 8, padding: 0, display: 'block' }}>← 返回产品列表</button>
@@ -414,7 +401,7 @@ export default function ProductsPage() {
           </div>
         </Section>
 
-        {/* ════════ 属性配置 ════════ */}
+        {/* 属性配置 */}
         <Section title="产品属性" sub="定义这个产品有哪些可选属性（如颜色、宽度、长度），客户在详情页通过下拉框选择">
           {attrConfig.map((attr, ai) => (
             <div key={ai} style={{ background: C.bg, borderRadius: 8, padding: 20, marginBottom: 12 }}>
@@ -436,7 +423,6 @@ export default function ProductsPage() {
                     <div key={oi} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                       <input value={optObj.value} onChange={e => updateAttrOption(ai, oi, e.target.value)}
                         style={{ ...inp, background: C.white, flex: 1 }} placeholder={`选项 ${oi + 1}`} />
-                      {/* 图片缩略图或上传按钮 */}
                       <AttrOptionImage
                         image={optObj.image}
                         productId={editing === 'new' ? 'new' : editing?.id}
@@ -467,19 +453,18 @@ export default function ProductsPage() {
           </div>
         </Section>
 
-        {/* ════════ SKU 列表 ════════ */}
+        {/* SKU 列表 */}
         <Section title="SKU / 库存" sub={`共 ${skus.length} 个 SKU。可自动生成，也可手动添加`}>
           {skus.length === 0 ? (
             <p style={{ color: C.muted, fontSize: 13, marginBottom: 16 }}>暂无 SKU。请先添加属性后点击"自动生成 SKU 组合"，或手动添加</p>
           ) : (
             <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'auto', marginBottom: 16 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: attrNames.length * 120 + 400 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: attrNames.length * 120 + 300 }}>
                 <thead>
                   <tr style={{ borderBottom: `1px solid ${C.border}` }}>
                     {attrNames.map(n => (
                       <th key={n} style={{ padding: '10px 12px', textAlign: 'left', color: C.muted, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase' }}>{n}</th>
                     ))}
-                    <th style={{ padding: '10px 12px', textAlign: 'left', color: C.muted, fontSize: 10, letterSpacing: '.08em' }}>色号</th>
                     <th style={{ padding: '10px 12px', textAlign: 'left', color: C.muted, fontSize: 10, letterSpacing: '.08em' }}>图片</th>
                     <th style={{ padding: '10px 12px', textAlign: 'left', color: C.muted, fontSize: 10, letterSpacing: '.08em' }}>价格(£)</th>
                     <th style={{ padding: '10px 12px', textAlign: 'left', color: C.muted, fontSize: 10, letterSpacing: '.08em' }}>库存</th>
@@ -497,14 +482,6 @@ export default function ProductsPage() {
                         </td>
                       ))}
                       <td style={{ padding: '8px 12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <input type="color" value={sku.colour_hex || '#D4C5B0'} onChange={e => updateSku(i, 'colour_hex', e.target.value)}
-                            style={{ width: 28, height: 28, border: 'none', padding: 0, cursor: 'pointer', background: 'none' }} />
-                          <input value={sku.colour_hex || ''} onChange={e => updateSku(i, 'colour_hex', e.target.value)}
-                            style={{ ...inp, padding: '6px 8px', fontSize: 11, width: 80, fontFamily: 'monospace' }} />
-                        </div>
-                      </td>
-                      <td style={{ padding: '8px 12px' }}>
                         <SkuImageUpload
                           images={sku.images || []}
                           productId={editing === 'new' ? 'new' : editing?.id}
@@ -513,7 +490,7 @@ export default function ProductsPage() {
                       </td>
                       <td style={{ padding: '8px 12px' }}>
                         <input type="number" step="0.01" value={sku.price_gbp || ''} onChange={e => updateSku(i, 'price_gbp', e.target.value)}
-                          style={{ ...inp, padding: '6px 10px', fontSize: 12, width: 80 }} placeholder="4.95" />
+                          style={{ ...inp, padding: '6px 10px', fontSize: 12, width: 80 }} placeholder="0.00" />
                       </td>
                       <td style={{ padding: '8px 12px' }}>
                         <input type="number" value={sku.stock_qty || 0} onChange={e => updateSku(i, 'stock_qty', e.target.value)}
@@ -583,11 +560,21 @@ export default function ProductsPage() {
         {loading ? <p style={{ color: C.muted, padding: 24, fontSize: 13 }}>加载中…</p> : filtered.length === 0 ? (
           <p style={{ color: C.muted, padding: 24, fontSize: 13 }}>暂无产品</p>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: 56 }} />
+              <col style={{ width: 220 }} />
+              <col />
+              <col style={{ width: 60 }} />
+              <col style={{ width: 120 }} />
+              <col style={{ width: 120 }} />
+              <col style={{ width: 70 }} />
+              <col style={{ width: 100 }} />
+            </colgroup>
             <thead>
               <tr style={{ borderBottom: `1px solid ${C.border}` }}>
                 {['', '产品名称', '系列', '图片', '属性', '库存', '状态', '操作'].map(h => (
-                  <th key={h} style={{ padding: '12px 16px', textAlign: 'left', color: C.muted, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase' }}>{h}</th>
+                  <th key={h} style={{ padding: '12px 16px', textAlign: 'left', color: C.muted, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -598,28 +585,28 @@ export default function ProductsPage() {
                 const attrs = p.attribute_config || []
                 return (
                   <tr key={p.id} style={{ borderBottom: '1px solid #F0EDE8', cursor: 'pointer' }} onClick={() => startEdit(p)}>
-                    <td style={{ padding: '10px 16px', width: 56 }}>
+                    <td style={{ padding: '10px 16px' }}>
                       {imgs[0] ? <img src={imgs[0]} style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4, display: 'block' }} /> : <div style={{ width: 40, height: 40, background: C.light, borderRadius: 4 }} />}
                     </td>
-                    <td style={{ padding: '10px 16px' }}>
-                      <p style={{ color: C.ink, fontSize: 13, fontWeight: 400 }}>{p.name}</p>
-                      <p style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>{p.slug}</p>
+                    <td style={{ padding: '10px 16px', overflow: 'hidden' }}>
+                      <p style={{ color: C.ink, fontSize: 13, fontWeight: 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }}>{p.name}</p>
+                      <p style={{ color: C.muted, fontSize: 11, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: '2px 0 0' }}>{p.slug}</p>
                     </td>
-                    <td style={{ padding: '10px 16px', color: C.sub, fontSize: 12 }}>{collectionLabel(p.collection)}</td>
-                    <td style={{ padding: '10px 16px', color: C.sub, fontSize: 12 }}>{imgs.length} 张</td>
-                    <td style={{ padding: '10px 16px', color: C.sub, fontSize: 12 }}>{attrs.length > 0 ? attrs.map(a => a.name).join('、') : '-'}</td>
-                    <td style={{ padding: '10px 16px' }}>
+                    <td style={{ padding: '10px 16px', color: C.sub, fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{collectionLabel(p.collection)}</td>
+                    <td style={{ padding: '10px 16px', color: C.sub, fontSize: 12, whiteSpace: 'nowrap' }}>{imgs.length} 张</td>
+                    <td style={{ padding: '10px 16px', color: C.sub, fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{attrs.length > 0 ? attrs.map(a => a.name).join('、') : '-'}</td>
+                    <td style={{ padding: '10px 16px', whiteSpace: 'nowrap' }}>
                       {(() => {
                         const skus = skuMap[p.id] || []
                         if (skus.length === 0) return <span style={{ color: C.muted, fontSize: 12 }}>—</span>
                         const hasOut = skus.some(k => (k.stock_qty || 0) === 0)
                         const hasLow = skus.some(k => (k.stock_qty || 0) > 0 && (k.stock_qty || 0) < 10)
-                        if (hasOut) return <span style={{ fontSize: 11, color: C.red, background: C.red + '18', padding: '3px 8px', borderRadius: 10 }}>⚠ 有SKU售罄</span>
-                        if (hasLow) return <span style={{ fontSize: 11, color: '#facc15', background: '#facc1518', padding: '3px 8px', borderRadius: 10 }}>⚠ 有SKU库存不足</span>
+                        if (hasOut) return <span style={{ fontSize: 11, color: C.red, background: C.red + '18', padding: '3px 8px', borderRadius: 10 }}>⚠ 售罄</span>
+                        if (hasLow) return <span style={{ fontSize: 11, color: '#facc15', background: '#facc1518', padding: '3px 8px', borderRadius: 10 }}>⚠ 不足</span>
                         return <span style={{ fontSize: 11, color: C.green }}>正常</span>
                       })()}
                     </td>
-                    <td style={{ padding: '10px 16px' }}>
+                    <td style={{ padding: '10px 16px', whiteSpace: 'nowrap' }}>
                       <span style={{ background: isActive ? C.green + '22' : C.red + '22', color: isActive ? C.green : C.red, fontSize: 11, padding: '3px 10px', borderRadius: 20 }}>{isActive ? '上架' : '下架'}</span>
                     </td>
                     <td style={{ padding: '10px 16px' }} onClick={e => e.stopPropagation()}>

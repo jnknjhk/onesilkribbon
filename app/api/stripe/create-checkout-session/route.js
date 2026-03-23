@@ -8,49 +8,30 @@ export async function POST(req) {
   try {
     const { items, form, totals } = await req.json()
 
-    const lineItems = items.map(item => ({
+    // 直接用实际应付总额（已含折扣+运费）作为单笔收款
+    const totalAmount = gbpToPence(totals.total)
+
+    const orderDesc = items.map(i => `${i.name}${i.skuDesc ? ' · ' + i.skuDesc : ''} ×${i.qty}`).join(', ')
+
+    const lineItems = [{
       price_data: {
         currency: 'gbp',
         product_data: {
-          name: item.name,
-          description: item.skuDesc || undefined,
+          name: 'One Silk Ribbon Order',
+          description: orderDesc,
         },
-        unit_amount: gbpToPence(item.price),
+        unit_amount: totalAmount,
       },
-      quantity: item.qty,
-    }))
-
-    if (parseFloat(totals.shipping) > 0) {
-      lineItems.push({
-        price_data: {
-          currency: 'gbp',
-          product_data: { name: 'Shipping' },
-          unit_amount: gbpToPence(totals.shipping),
-        },
-        quantity: 1,
-      })
-    }
+      quantity: 1,
+    }]
 
     const orderNumber = `OSR-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`
-
-    // 折扣：用 Stripe coupon 对象
-    let discounts = []
-    if (totals.discount && parseFloat(totals.discount) > 0) {
-      const coupon = await stripe.coupons.create({
-        amount_off: gbpToPence(totals.discount),
-        currency: 'gbp',
-        duration: 'once',
-        name: totals.couponCode ? `Promo: ${totals.couponCode}` : 'Discount',
-      })
-      discounts = [{ coupon: coupon.id }]
-    }
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'payment',
       customer_email: form.email,
-      discounts: discounts.length > 0 ? discounts : undefined,
       success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/order-confirmed?order=${orderNumber}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/checkout`,
       metadata: {

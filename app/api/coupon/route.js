@@ -37,10 +37,13 @@ export async function POST(req) {
   // 计算折扣
   let discountAmount = 0
   if (coupon.discount_type === 'percentage') {
-    discountAmount = Math.round(subtotal * coupon.discount_value) / 100
+    // discount_value 是百分比数字，如 10 表示打九折（折扣10%）
+    discountAmount = parseFloat((subtotal * coupon.discount_value / 100).toFixed(2))
   } else {
-    discountAmount = Math.min(coupon.discount_value, subtotal)
+    discountAmount = parseFloat(Math.min(coupon.discount_value, subtotal).toFixed(2))
   }
+  // 确保折扣后金额不低于 Stripe 最低收款额 £0.30
+  discountAmount = parseFloat(Math.min(discountAmount, subtotal - 0.30).toFixed(2))
 
   return Response.json({
     valid: true,

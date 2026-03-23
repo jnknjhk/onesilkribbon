@@ -88,6 +88,12 @@ export async function GET(req) {
         )
       }
 
+      // 递增优惠券使用次数
+      const couponCode = totals.couponCode
+      if (couponCode) {
+        await supabaseAdmin.rpc('increment_coupon_uses', { coupon_code: couponCode })
+      }
+
       // 删除临时session
       await supabaseAdmin.from('paypal_sessions').delete().eq('order_number', orderNumber)
 

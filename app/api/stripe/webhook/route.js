@@ -28,6 +28,12 @@ export async function POST(req) {
         const { data: order } = await supabaseAdmin.from('orders')
           .select('*').eq('order_number', orderNumber).single()
 
+        // 递增优惠券使用次数
+        const couponCode = session.metadata?.couponCode
+        if (couponCode) {
+          await supabaseAdmin.rpc('increment_coupon_uses', { coupon_code: couponCode })
+        }
+
         if (order) {
           const form = {
             email:     order.customer_email,

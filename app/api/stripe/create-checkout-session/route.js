@@ -58,6 +58,7 @@ export async function POST(req) {
         orderNumber,
         customerEmail: form.email,
         shippingName: `${form.firstName} ${form.lastName}`,
+        couponCode: totals.couponCode || '',
       },
     })
 

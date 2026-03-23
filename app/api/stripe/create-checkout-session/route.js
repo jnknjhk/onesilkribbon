@@ -8,32 +8,18 @@ export async function POST(req) {
   try {
     const { items, form, totals } = await req.json()
 
-    // 商品标价已含税，直接用
     const lineItems = items.map(item => ({
       price_data: {
         currency: 'gbp',
         product_data: {
           name: item.name,
-          description: item.skuDesc,
+          description: item.skuDesc || undefined,
         },
         unit_amount: gbpToPence(item.price),
       },
       quantity: item.qty,
     }))
 
-    // 优惠券折扣（负数行项目）
-    if (totals.discount && parseFloat(totals.discount) > 0) {
-      lineItems.push({
-        price_data: {
-          currency: 'gbp',
-          product_data: { name: `Discount${totals.couponCode ? ' (' + totals.couponCode + ')' : ''}` },
-          unit_amount: -gbpToPence(totals.discount),
-        },
-        quantity: 1,
-      })
-    }
-
-    // 运费
     if (parseFloat(totals.shipping) > 0) {
       lineItems.push({
         price_data: {
@@ -47,11 +33,24 @@ export async function POST(req) {
 
     const orderNumber = `OSR-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`
 
+    // 折扣：用 Stripe coupon 对象
+    let discounts = []
+    if (totals.discount && parseFloat(totals.discount) > 0) {
+      const coupon = await stripe.coupons.create({
+        amount_off: gbpToPence(totals.discount),
+        currency: 'gbp',
+        duration: 'once',
+        name: totals.couponCode ? `Promo: ${totals.couponCode}` : 'Discount',
+      })
+      discounts = [{ coupon: coupon.id }]
+    }
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'payment',
       customer_email: form.email,
+      discounts: discounts.length > 0 ? discounts : undefined,
       success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/order-confirmed?order=${orderNumber}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/checkout`,
       metadata: {

@@ -31,7 +31,10 @@ export async function POST(req) {
         // 递增优惠券使用次数
         const couponCode = session.metadata?.couponCode
         if (couponCode) {
-          await supabaseAdmin.rpc('increment_coupon_uses', { coupon_code: couponCode })
+          const { data: cp } = await supabaseAdmin.from('coupons').select('uses_count').eq('code', couponCode).single()
+          if (cp) {
+            await supabaseAdmin.from('coupons').update({ uses_count: (cp.uses_count || 0) + 1 }).eq('code', couponCode)
+          }
         }
 
         if (order) {

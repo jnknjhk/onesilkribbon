@@ -138,7 +138,11 @@ export default function CheckoutPage() {
   }
 
   const discountAmount = coupon ? coupon.discountAmount : 0
-  const totals = calculateTotals(subtotalValue - discountAmount, shippingSettings)
+  const totals = {
+    ...calculateTotals(subtotalValue - discountAmount, shippingSettings),
+    discount: discountAmount.toFixed(2),
+    couponCode: coupon?.code || '',
+  }
 
   const handleContinue = () => { if (validate()) setStep('payment') }
 

@@ -21,6 +21,18 @@ export async function POST(req) {
       quantity: item.qty,
     }))
 
+    // 优惠券折扣（负数行项目）
+    if (totals.discount && parseFloat(totals.discount) > 0) {
+      lineItems.push({
+        price_data: {
+          currency: 'gbp',
+          product_data: { name: `Discount${totals.couponCode ? ' (' + totals.couponCode + ')' : ''}` },
+          unit_amount: -gbpToPence(totals.discount),
+        },
+        quantity: 1,
+      })
+    }
+
     // 运费
     if (parseFloat(totals.shipping) > 0) {
       lineItems.push({

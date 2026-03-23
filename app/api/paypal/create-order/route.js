@@ -29,8 +29,9 @@ export async function POST(req) {
 
     // 商品标价已含税，直接用
     const itemsTotal = items.reduce((sum, i) => sum + (parseFloat(i.price) * i.qty), 0)
+    const discountAmount = parseFloat(totals.discount) || 0
     const shippingAmount = parseFloat(totals.shipping) || 0
-    const grandTotal = parseFloat((itemsTotal + shippingAmount).toFixed(2))
+    const grandTotal = parseFloat((itemsTotal - discountAmount + shippingAmount).toFixed(2))
 
     const paypalOrder = await fetch(`${PAYPAL_BASE}/v2/checkout/orders`, {
       method: 'POST',
@@ -49,6 +50,7 @@ export async function POST(req) {
             breakdown: {
               item_total: { currency_code: 'GBP', value: itemsTotal.toFixed(2) },
               shipping:   { currency_code: 'GBP', value: shippingAmount.toFixed(2) },
+              discount:   { currency_code: 'GBP', value: discountAmount.toFixed(2) },
             },
           },
           items: items.map(i => ({

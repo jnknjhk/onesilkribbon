@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useCart } from '@/lib/cart'
+import { useAuth } from '@/lib/auth'
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false)
@@ -11,12 +12,15 @@ export function Navbar() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [searching, setSearching] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
   const searchInputRef = useRef(null)
   const searchTimerRef = useRef(null)
+  const accountRef = useRef(null)
   const pathname = usePathname()
   const router = useRouter()
 
   const { toggleCart, getItemCount } = useCart()
+  const { user, loading, signOut } = useAuth()
   const itemCount = getItemCount ? getItemCount() : 0
 
   const isDarkHero = pathname === '/'
@@ -34,7 +38,6 @@ export function Navbar() {
     return () => { document.body.style.overflow = '' }
   }, [menuOpen, searchOpen])
 
-  // 搜索打开时自动聚焦
   useEffect(() => {
     if (searchOpen && searchInputRef.current) {
       setTimeout(() => searchInputRef.current?.focus(), 100)
@@ -42,7 +45,6 @@ export function Navbar() {
     if (!searchOpen) { setSearchQuery(''); setSearchResults([]) }
   }, [searchOpen])
 
-  // 搜索防抖
   useEffect(() => {
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
     if (searchQuery.trim().length < 2) { setSearchResults([]); return }
@@ -58,9 +60,24 @@ export function Navbar() {
     return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current) }
   }, [searchQuery])
 
+  useEffect(() => {
+    const handler = (e) => {
+      if (accountRef.current && !accountRef.current.contains(e.target)) {
+        setAccountOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
   const handleSearchClick = (slug) => {
     setSearchOpen(false)
     router.push(`/products/${slug}`)
+  }
+
+  const handleSignOut = async () => {
+    setAccountOpen(false)
+    await signOut()
   }
 
   const textColor = isLight ? '#fff' : 'var(--deep)'
@@ -90,6 +107,13 @@ export function Navbar() {
     { name: 'Contact',         href: '/contact' },
   ]
 
+  const getInitial = () => {
+    if (!user) return ''
+    if (user.name) return user.name.charAt(0).toUpperCase()
+    if (user.email) return user.email.charAt(0).toUpperCase()
+    return '?'
+  }
+
   return (
     <>
       <nav className="site-nav" style={{
@@ -101,7 +125,6 @@ export function Navbar() {
         borderBottom: scrolled ? '1px solid var(--sand)' : 'none',
         transition: 'all 0.4s ease',
       }}>
-        {/* ── 左：Logo + 品牌名 ── */}
         <Link href="/" onClick={() => { setMenuOpen(false); setSearchOpen(false) }} className="nav-brand">
           <img src={logoSrc} alt="One Silk Ribbon" className="nav-logo" style={{ transition: 'opacity 0.3s' }} />
           <span className="nav-brand-text" style={{
@@ -113,7 +136,6 @@ export function Navbar() {
           </span>
         </Link>
 
-        {/* ── 中：桌面端导航链接 ── */}
         <ul className="nav-desktop nav-links">
           {navLinks.map(l => (
             <li key={l.href}>
@@ -128,7 +150,6 @@ export function Navbar() {
           ))}
         </ul>
 
-        {/* ── 右：图标组 ── */}
         <div className="nav-icons">
           {/* 搜索 */}
           <button onClick={() => { setSearchOpen(!searchOpen); setMenuOpen(false) }} className="nav-icon-btn" aria-label="Search">
@@ -140,34 +161,74 @@ export function Navbar() {
             </svg>
           </button>
 
+          {/* 账户（桌面端） */}
+          {!loading && (
+            <div className="nav-desktop" ref={accountRef} style={{ position: 'relative' }}>
+              {user ? (
+                <button onClick={() => setAccountOpen(!accountOpen)} className="nav-icon-btn" aria-label="My account" style={{ padding: 4 }}>
+                  {user.avatar ? (
+                    <img src={user.avatar} alt={user.name || user.email} style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', display: 'block', border: '1.5px solid var(--gold)' }} />
+                  ) : (
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--gold)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 400 }}>
+                      {getInitial()}
+                    </div>
+                  )}
+                </button>
+              ) : (
+                <Link href="/login" className="nav-icon-btn" aria-label="Sign in" style={{ display: 'flex', padding: 6 }}>
+                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke={iconStroke} strokeWidth="1.4" style={{ transition: 'stroke 0.4s', filter: isLight ? 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))' : 'none' }}>
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                  </svg>
+                </Link>
+              )}
+
+              {user && accountOpen && (
+                <div style={{ position: 'absolute', top: 'calc(100% + 10px)', right: 0, width: 220, background: '#fff', border: '1px solid var(--sand)', boxShadow: '0 8px 32px rgba(28,23,20,0.10)', zIndex: 200, animation: 'fadeInDown 0.18s ease' }}>
+                  <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid var(--mist)' }}>
+                    <p style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 400, marginBottom: 2 }}>{user.name || 'My Account'}</p>
+                    <p style={{ fontSize: 11, color: 'var(--taupe)', wordBreak: 'break-all' }}>{user.email}</p>
+                  </div>
+                  {[
+                    { href: '/account', label: 'My Account' },
+                    { href: '/account/orders', label: 'My Orders' },
+                    { href: '/account/addresses', label: 'Saved Addresses' },
+                    { href: '/account/profile', label: 'Edit Profile' },
+                  ].map(item => (
+                    <Link key={item.href} href={item.href} onClick={() => setAccountOpen(false)}
+                      style={{ display: 'block', padding: '10px 16px', fontSize: 12, color: 'var(--deep)', letterSpacing: '.03em', borderBottom: '1px solid var(--mist)', transition: 'background 0.15s' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--mist)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                      {item.label}
+                    </Link>
+                  ))}
+                  <button onClick={handleSignOut} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 16px', fontSize: 11, color: 'var(--taupe)', letterSpacing: '.08em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'color 0.15s' }}
+                    onMouseEnter={e => e.currentTarget.style.color = 'var(--ink)'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'var(--taupe)'}>
+                    Sign out
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* 购物车 */}
           <button onClick={toggleCart} className="nav-icon-btn" aria-label="Cart" style={{ position: 'relative' }}>
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none"
-              stroke={iconStroke} strokeWidth="1.4"
-              style={{ transition: 'stroke 0.4s', filter: isLight ? 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))' : 'none' }}>
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke={iconStroke} strokeWidth="1.4" style={{ transition: 'stroke 0.4s', filter: isLight ? 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))' : 'none' }}>
               <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
               <line x1="3" y1="6" x2="21" y2="6"/>
               <path d="M16 10a4 4 0 01-8 0"/>
             </svg>
             {itemCount > 0 && (
-              <span style={{
-                position: 'absolute', top: 0, right: 0,
-                background: 'var(--gold)', color: '#fff',
-                width: 15, height: 15, borderRadius: '50%',
-                fontSize: 9, display: 'flex', alignItems: 'center',
-                justifyContent: 'center', fontWeight: 400,
-              }}>
+              <span style={{ position: 'absolute', top: 0, right: 0, background: 'var(--gold)', color: '#fff', width: 15, height: 15, borderRadius: '50%', fontSize: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 400 }}>
                 {itemCount}
               </span>
             )}
           </button>
 
-          {/* 汉堡菜单（移动端） */}
-          <button onClick={() => { setMenuOpen(!menuOpen); setSearchOpen(false) }}
-            className="nav-mobile nav-icon-btn" aria-label="Menu">
-            <svg width="22" height="22" viewBox="0 0 22 22" fill="none"
-              stroke={menuOpen ? 'var(--ink)' : iconStroke} strokeWidth="1.3"
-              style={{ transition: 'stroke 0.4s' }}>
+          {/* 汉堡（移动端） */}
+          <button onClick={() => { setMenuOpen(!menuOpen); setSearchOpen(false) }} className="nav-mobile nav-icon-btn" aria-label="Menu">
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke={menuOpen ? 'var(--ink)' : iconStroke} strokeWidth="1.3" style={{ transition: 'stroke 0.4s' }}>
               {menuOpen ? (
                 <><line x1="4" y1="4" x2="18" y2="18"/><line x1="18" y1="4" x2="4" y2="18"/></>
               ) : (
@@ -178,43 +239,23 @@ export function Navbar() {
         </div>
       </nav>
 
-      {/* ══════ 搜索弹出层 ══════ */}
+      {/* 搜索弹出层 */}
       {searchOpen && (
         <>
-          <div onClick={() => setSearchOpen(false)} style={{
-            position: 'fixed', inset: 0, zIndex: 98,
-            background: 'rgba(28,23,20,0.4)', backdropFilter: 'blur(2px)',
-            animation: 'fadeIn 0.2s ease',
-          }} />
+          <div onClick={() => setSearchOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 98, background: 'rgba(28,23,20,0.4)', backdropFilter: 'blur(2px)', animation: 'fadeIn 0.2s ease' }} />
           <div className="search-panel">
             <div className="search-inner">
               <div className="search-input-wrap">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--taupe)" strokeWidth="1.4" style={{ flexShrink: 0 }}>
                   <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
                 </svg>
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Search products…"
-                  className="search-input"
-                />
-                <button onClick={() => setSearchOpen(false)} style={{
-                  background: 'none', border: 'none', color: 'var(--taupe)',
-                  fontSize: 18, cursor: 'pointer', padding: 4, lineHeight: 1,
-                }}>✕</button>
+                <input ref={searchInputRef} type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search products…" className="search-input" />
+                <button onClick={() => setSearchOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--taupe)', fontSize: 18, cursor: 'pointer', padding: 4, lineHeight: 1 }}>✕</button>
               </div>
-
-              {/* 搜索结果 */}
               <div className="search-results">
-                {searching && (
-                  <p style={{ padding: '20px 0', fontSize: 12, color: 'var(--taupe)', textAlign: 'center' }}>Searching…</p>
-                )}
+                {searching && <p style={{ padding: '20px 0', fontSize: 12, color: 'var(--taupe)', textAlign: 'center' }}>Searching…</p>}
                 {!searching && searchQuery.length >= 2 && searchResults.length === 0 && (
-                  <p style={{ padding: '20px 0', fontSize: 13, color: 'var(--taupe)', textAlign: 'center' }}>
-                    No products found for "{searchQuery}"
-                  </p>
+                  <p style={{ padding: '20px 0', fontSize: 13, color: 'var(--taupe)', textAlign: 'center' }}>No products found for "{searchQuery}"</p>
                 )}
                 {searchResults.map(p => {
                   const img = Array.isArray(p.images) ? p.images[0] : null
@@ -225,9 +266,7 @@ export function Navbar() {
                       </div>
                       <div>
                         <p style={{ fontSize: 13, color: 'var(--ink)', marginBottom: 3, textAlign: 'left' }}>{p.name}</p>
-                        <p style={{ fontSize: 10, color: 'var(--taupe)', letterSpacing: '.08em', textTransform: 'uppercase', textAlign: 'left' }}>
-                          {(p.collection || '').replace(/-/g, ' ')}
-                        </p>
+                        <p style={{ fontSize: 10, color: 'var(--taupe)', letterSpacing: '.08em', textTransform: 'uppercase', textAlign: 'left' }}>{(p.collection || '').replace(/-/g, ' ')}</p>
                       </div>
                     </button>
                   )
@@ -238,150 +277,67 @@ export function Navbar() {
         </>
       )}
 
-      {/* ══════ 移动端菜单 ══════ */}
+      {/* 移动端菜单 */}
       {menuOpen && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 99,
-          background: 'var(--cream)', paddingTop: 72,
-          overflowY: 'auto', WebkitOverflowScrolling: 'touch',
-        }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 99, background: 'var(--cream)', paddingTop: 72, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
           <div style={{ padding: '20px 32px 40px', display: 'flex', flexDirection: 'column' }}>
             <p style={{ fontSize: 9, letterSpacing: '.32em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid var(--sand)' }}>Shop</p>
             {mobileCollections.map(c => (
-              <Link key={c.slug} href={`/collections/${c.slug}`} onClick={() => setMenuOpen(false)}
-                style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 300, color: 'var(--ink)', padding: '12px 0', borderBottom: '1px solid var(--mist)' }}>
+              <Link key={c.slug} href={`/collections/${c.slug}`} onClick={() => setMenuOpen(false)} style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 300, color: 'var(--ink)', padding: '12px 0', borderBottom: '1px solid var(--mist)' }}>
                 {c.name}
               </Link>
             ))}
             <div style={{ height: 1, width: '100%', background: 'var(--sand)', margin: '24px 0 20px' }} />
             <p style={{ fontSize: 9, letterSpacing: '.32em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 16 }}>Explore</p>
             {mobileLinks.map(l => (
-              <Link key={l.href} href={l.href} onClick={() => setMenuOpen(false)}
-                style={{ fontSize: 15, fontWeight: 300, color: 'var(--deep)', padding: '10px 0', letterSpacing: '0.04em' }}>
+              <Link key={l.href} href={l.href} onClick={() => setMenuOpen(false)} style={{ fontSize: 15, fontWeight: 300, color: 'var(--deep)', padding: '10px 0', letterSpacing: '0.04em' }}>
                 {l.name}
               </Link>
             ))}
             <div style={{ height: 1, width: '100%', background: 'var(--sand)', margin: '24px 0 20px' }} />
-            <Link href="/track-order" onClick={() => setMenuOpen(false)}
-              style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe)', padding: '10px 0' }}>
-              Track Order
-            </Link>
-            <Link href="/faq" onClick={() => setMenuOpen(false)}
-              style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe)', padding: '10px 0' }}>
-              FAQ & Help
-            </Link>
+            <Link href="/track-order" onClick={() => setMenuOpen(false)} style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe)', padding: '10px 0' }}>Track Order</Link>
+            <Link href="/faq" onClick={() => setMenuOpen(false)} style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe)', padding: '10px 0' }}>FAQ & Help</Link>
+            <div style={{ height: 1, width: '100%', background: 'var(--sand)', margin: '24px 0 20px' }} />
+            {user ? (
+              <>
+                <Link href="/account" onClick={() => setMenuOpen(false)} style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--gold)', padding: '10px 0' }}>My Account</Link>
+                <Link href="/account/orders" onClick={() => setMenuOpen(false)} style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe)', padding: '10px 0' }}>My Orders</Link>
+                <button onClick={() => { setMenuOpen(false); signOut() }} style={{ background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe)', padding: '10px 0', fontFamily: 'var(--font-body)' }}>Sign out</button>
+              </>
+            ) : (
+              <Link href="/login" onClick={() => setMenuOpen(false)} style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--gold)', padding: '10px 0' }}>Sign in / Register</Link>
+            )}
           </div>
         </div>
       )}
 
       <style>{`
-        /* ── 导航栏布局 ── */
-        .site-nav {
-          padding-left: clamp(28px, 5vw, 60px) !important;
-          padding-right: clamp(28px, 5vw, 60px) !important;
-        }
-
-        /* ── 品牌区域 ── */
-        .nav-brand {
-          display: flex; align-items: center; gap: 10px;
-          text-decoration: none; z-index: 101; flex-shrink: 0;
-        }
-        .nav-logo {
-          height: 34px; width: 34px; border-radius: 50%;
-          object-fit: cover; display: block;
-          position: relative; top: -1px;
-        }
-        .nav-brand-text {
-          font-family: var(--font-display);
-          font-size: 16px; letter-spacing: 0.08em;
-          text-transform: uppercase; font-weight: 300;
-        }
-        .nav-brand-text em {
-          font-style: italic; font-weight: 300;
-        }
-
-        /* ── 导航链接 ── */
-        .nav-links {
-          display: flex; gap: 40px; list-style: none; margin: 0;
-          position: absolute; left: 50%; transform: translateX(-50%);
-          align-items: center;
-        }
-        .nav-link {
-          font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
-          position: relative; padding-bottom: 2px;
-        }
-        .nav-link::after {
-          content: ''; position: absolute; bottom: 0; left: 0;
-          width: 0; height: 1px; background: var(--gold);
-          transition: width 0.4s ease;
-        }
+        .site-nav { padding-left: clamp(28px, 5vw, 60px) !important; padding-right: clamp(28px, 5vw, 60px) !important; }
+        .nav-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; z-index: 101; flex-shrink: 0; }
+        .nav-logo { height: 34px; width: 34px; border-radius: 50%; object-fit: cover; display: block; position: relative; top: -1px; }
+        .nav-brand-text { font-family: var(--font-display); font-size: 16px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 300; }
+        .nav-brand-text em { font-style: italic; font-weight: 300; }
+        .nav-links { display: flex; gap: 40px; list-style: none; margin: 0; position: absolute; left: 50%; transform: translateX(-50%); align-items: center; }
+        .nav-link { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; position: relative; padding-bottom: 2px; }
+        .nav-link::after { content: ''; position: absolute; bottom: 0; left: 0; width: 0; height: 1px; background: var(--gold); transition: width 0.4s ease; }
         .nav-link:hover::after { width: 100%; }
-
-        /* ── 图标组 ── */
-        .nav-icons {
-          display: flex; align-items: center;
-          gap: clamp(12px, 2vw, 20px); z-index: 101;
-        }
-        .nav-icon-btn {
-          background: none; border: none; cursor: pointer;
-          padding: 6px; display: flex; align-items: center;
-          -webkit-tap-highlight-color: transparent;
-        }
-
-        /* ── 搜索面板 ── */
-        .search-panel {
-          position: fixed; top: 0; left: 0; right: 0; z-index: 99;
-          background: var(--cream);
-          border-bottom: 1px solid var(--sand);
-          padding-top: 72px;
-          animation: slideDown 0.25s ease;
-        }
-        .search-inner {
-          max-width: 640px; margin: 0 auto;
-          padding: 20px clamp(24px, 5vw, 60px) 24px;
-        }
-        .search-input-wrap {
-          display: flex; align-items: center; gap: 12;
-          border-bottom: 1px solid var(--warm);
-          padding-bottom: 14px; margin-bottom: 8px;
-        }
-        .search-input {
-          flex: 1; background: none; border: none; outline: none;
-          font-family: var(--font-body); font-size: 16px;
-          color: var(--ink); letter-spacing: 0.03em;
-        }
+        .nav-icons { display: flex; align-items: center; gap: clamp(12px, 2vw, 20px); z-index: 101; }
+        .nav-icon-btn { background: none; border: none; cursor: pointer; padding: 6px; display: flex; align-items: center; -webkit-tap-highlight-color: transparent; }
+        .search-panel { position: fixed; top: 0; left: 0; right: 0; z-index: 99; background: var(--cream); border-bottom: 1px solid var(--sand); padding-top: 72px; animation: slideDown 0.25s ease; }
+        .search-inner { max-width: 640px; margin: 0 auto; padding: 20px clamp(24px, 5vw, 60px) 24px; }
+        .search-input-wrap { display: flex; align-items: center; gap: 12; border-bottom: 1px solid var(--warm); padding-bottom: 14px; margin-bottom: 8px; }
+        .search-input { flex: 1; background: none; border: none; outline: none; font-family: var(--font-body); font-size: 16px; color: var(--ink); letter-spacing: 0.03em; }
         .search-input::placeholder { color: var(--warm); }
-        .search-results {
-          max-height: 400px; overflow-y: auto;
-        }
-        .search-result-item {
-          display: flex; align-items: center; gap: 14;
-          width: 100%; padding: 12px 0;
-          border-bottom: 1px solid var(--mist);
-          background: none; border-left: none; border-right: none; border-top: none;
-          cursor: pointer; transition: opacity 0.2s;
-        }
+        .search-results { max-height: 400px; overflow-y: auto; }
+        .search-result-item { display: flex; align-items: center; gap: 14; width: 100%; padding: 12px 0; border-bottom: 1px solid var(--mist); background: none; border-left: none; border-right: none; border-top: none; cursor: pointer; transition: opacity 0.2s; }
         .search-result-item:hover { opacity: 0.7; }
-        .search-result-img {
-          width: 48px; height: 48px; border-radius: 4px;
-          background: var(--sand); flex-shrink: 0; overflow: hidden;
-        }
-
+        .search-result-img { width: 48px; height: 48px; border-radius: 4px; background: var(--sand); flex-shrink: 0; overflow: hidden; }
         @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
         @keyframes slideDown { from { transform: translateY(-20px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
-
-        /* ── 响应式 ── */
-        @media (max-width: 900px) {
-          .nav-desktop { display: none !important; }
-          .nav-links { position: static; transform: none; }
-        }
-        @media (min-width: 901px) {
-          .nav-mobile { display: none !important; }
-        }
-        @media (max-width: 480px) {
-          .nav-brand-text { font-size: 14px; }
-          .nav-logo { height: 32px; width: 32px; }
-        }
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-8px) } to { opacity: 1; transform: translateY(0) } }
+        @media (max-width: 900px) { .nav-desktop { display: none !important; } .nav-links { position: static; transform: none; } }
+        @media (min-width: 901px) { .nav-mobile { display: none !important; } }
+        @media (max-width: 480px) { .nav-brand-text { font-size: 14px; } .nav-logo { height: 32px; width: 32px; } }
       `}</style>
     </>
   )

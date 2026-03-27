@@ -6,7 +6,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
 export async function POST(req) {
   try {
-    const { items, form, totals } = await req.json()
+    const { items, form, totals, userId } = await req.json()
 
     // 直接用实际应付总额（已含折扣+运费）作为单笔收款
     const totalAmount = gbpToPence(totals.total)
@@ -39,12 +39,14 @@ export async function POST(req) {
         customerEmail: form.email,
         shippingName: `${form.firstName} ${form.lastName}`,
         couponCode: totals.couponCode || '',
+        userId: userId || '',
       },
     })
 
     await supabaseAdmin.from('orders').insert({
       order_number: orderNumber,
       customer_email: form.email,
+      user_id: userId || null,
       status: 'pending',
       subtotal_gbp: totals.subtotal,
       vat_amount_gbp: '0.00',

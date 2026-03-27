@@ -56,9 +56,13 @@ export async function GET(req) {
       const shippingAmount = parseFloat(totals.shipping || 0)
       const grandTotal    = parseFloat(totals.total    || 0)
 
+      // 尝试从 session 中读取 user_id（已登录用户下单时写入）
+      const userId = session?.user_id || null
+
       const { data: order } = await supabaseAdmin.from('orders').insert({
         order_number:      orderNumber,
         customer_email:    form.email,
+        user_id:           userId,
         status:            'paid',
         paid_at:           new Date().toISOString(),
         subtotal_gbp:      itemsTotal.toFixed(2),

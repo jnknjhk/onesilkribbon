@@ -21,8 +21,10 @@ export async function POST(req) {
       const orderNumber = session.metadata?.orderNumber
 
       if (orderNumber) {
+        const userId = session.metadata?.userId || null
+
         await supabaseAdmin.from('orders')
-          .update({ status: 'paid', paid_at: new Date().toISOString() })
+          .update({ status: 'paid', paid_at: new Date().toISOString(), user_id: userId || undefined })
           .eq('order_number', orderNumber)
 
         const { data: order } = await supabaseAdmin.from('orders')

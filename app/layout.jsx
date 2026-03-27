@@ -6,6 +6,7 @@ import { CartProvider } from '@/components/CartProvider'
 import { CartDrawer } from '@/components/CartDrawer'
 import ShellWrapper from '@/components/ShellWrapper'
 import WelcomePopup from '@/components/WelcomePopup'
+import { AuthProvider } from '@/lib/auth'
 
 export const metadata = {
   title: {
@@ -35,12 +36,14 @@ export default function RootLayout({ children }) {
       </head>
       <body>
         <CartProvider>
-          <ShellWrapper navbar={<Navbar />} cartDrawer={<CartDrawer />} footer={<Footer />}>
-            {children}
-          </ShellWrapper>
-          <Suspense fallback={null}>
-            <WelcomePopup />
-          </Suspense>
+          <AuthProvider>
+            <ShellWrapper navbar={<Navbar />} cartDrawer={<CartDrawer />} footer={<Footer />}>
+              {children}
+            </ShellWrapper>
+            <Suspense fallback={null}>
+              <WelcomePopup />
+            </Suspense>
+          </AuthProvider>
         </CartProvider>
       </body>
     </html>

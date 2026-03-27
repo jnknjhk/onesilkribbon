@@ -1,12 +1,14 @@
 import './globals.css'
 import { Suspense } from 'react'
-import { Navbar } from '@/components/Navbar'
 import { Footer } from '@/components/Footer'
 import { CartProvider } from '@/components/CartProvider'
 import { CartDrawer } from '@/components/CartDrawer'
 import ShellWrapper from '@/components/ShellWrapper'
 import WelcomePopup from '@/components/WelcomePopup'
 import { AuthProvider } from '@/lib/auth'
+import dynamic from 'next/dynamic'
+
+const Navbar = dynamic(() => import('@/components/Navbar').then(m => ({ default: m.Navbar })), { ssr: false })
 
 export const metadata = {
   title: {

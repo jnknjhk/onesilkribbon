@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
 export async function GET(request) {
@@ -10,13 +11,33 @@ export async function GET(request) {
     return NextResponse.redirect(`${origin}/login?error=auth_failed`)
   }
 
-  // PKCE flow: 有 code，交换 session（由 Supabase 客户端在前端处理）
-  // Implicit flow: token 在 hash 中，直接重定向到目标页面让前端处理
   if (code) {
-    // 重定向到目标页，Supabase JS SDK 会自动处理 code exchange
-    return NextResponse.redirect(`${origin}${next}`)
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    )
+    const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+
+    if (!exchangeError && data.session) {
+      const response = NextResponse.redirect(`${origin}${next}`)
+      // 把 token 存到 cookie 让前端 SDK 能读取
+      response.cookies.set('sb-access-token', data.session.access_token, {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 30,
+        path: '/',
+      })
+      response.cookies.set('sb-refresh-token', data.session.refresh_token, {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 30,
+        path: '/',
+      })
+      return response
+    }
   }
 
-  // 没有 code 也没有 error，可能是 implicit flow，重定向首页
-  return NextResponse.redirect(`${origin}/account`)
+  return NextResponse.redirect(`${origin}/login?error=auth_failed`)
 }

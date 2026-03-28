@@ -1,4 +1,3 @@
-import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
 export async function GET(request) {
@@ -11,33 +10,10 @@ export async function GET(request) {
     return NextResponse.redirect(`${origin}/login?error=auth_failed`)
   }
 
+  // 把 code 转发给前端页面，让 Supabase JS SDK 完成 PKCE exchange
   if (code) {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    )
-    const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
-
-    if (!exchangeError && data.session) {
-      const response = NextResponse.redirect(`${origin}${next}`)
-      // 把 token 存到 cookie 让前端 SDK 能读取
-      response.cookies.set('sb-access-token', data.session.access_token, {
-        httpOnly: false,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 30,
-        path: '/',
-      })
-      response.cookies.set('sb-refresh-token', data.session.refresh_token, {
-        httpOnly: false,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 30,
-        path: '/',
-      })
-      return response
-    }
+    return NextResponse.redirect(`${origin}/auth/confirm?code=${code}&next=${encodeURIComponent(next)}`)
   }
 
-  return NextResponse.redirect(`${origin}/login?error=auth_failed`)
+  return NextResponse.redirect(`${origin}/login?error=no_code`)
 }

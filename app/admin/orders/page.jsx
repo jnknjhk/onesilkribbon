@@ -12,6 +12,8 @@ export default function OrdersPage() {
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState(null)
+  const [orderItems, setOrderItems] = useState([])
+  const [itemsLoading, setItemsLoading] = useState(false)
   const [updating, setUpdating] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -22,6 +24,19 @@ export default function OrdersPage() {
     const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false })
     setOrders(data || [])
     setLoading(false)
+  }
+
+  async function selectOrder(order) {
+    setSelected(order)
+    setOrderItems([])
+    setItemsLoading(true)
+    const { data } = await supabase
+      .from('order_items')
+      .select('*')
+      .eq('order_id', order.id)
+      .order('created_at', { ascending: true })
+    setOrderItems(data || [])
+    setItemsLoading(false)
   }
 
   async function updateStatus(id, status) {
@@ -42,7 +57,7 @@ export default function OrdersPage() {
     })
     if (res.ok) {
       setOrders(prev => prev.filter(o => o.id !== id))
-      if (selected?.id === id) setSelected(null)
+      if (selected?.id === id) { setSelected(null); setOrderItems([]) }
     }
     setDeleting(false)
   }
@@ -58,6 +73,7 @@ export default function OrdersPage() {
 
   return (
     <div style={{ display: 'flex', gap: 24, height: 'calc(100vh - 80px)' }}>
+      {/* 左侧订单列表 */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <div style={{ marginBottom: 24 }}>
           <h1 style={{ color: '#1C1714', fontSize: 24, fontWeight: 300, marginBottom: 20 }}>订单管理</h1>
@@ -84,7 +100,7 @@ export default function OrdersPage() {
               </thead>
               <tbody>
                 {filtered.map(o => (
-                  <tr key={o.id} onClick={() => setSelected(o)} style={{ borderBottom: '1px solid #F0EDE8', cursor: 'pointer', background: selected?.id === o.id ? '#FBF8F4' : 'transparent' }}>
+                  <tr key={o.id} onClick={() => selectOrder(o)} style={{ borderBottom: '1px solid #F0EDE8', cursor: 'pointer', background: selected?.id === o.id ? '#FBF8F4' : 'transparent' }}>
                     <td style={{ padding: '12px 16px', color: '#1C1714', fontSize: 12, fontFamily: 'monospace', fontWeight: 500 }}>{o.order_number || '-'}</td>
                     <td style={{ padding: '12px 16px', color: '#504C48', fontSize: 12 }}>{o.customer_email || '-'}</td>
                     <td style={{ padding: '12px 16px', color: '#B89B6A', fontSize: 13 }}>{fmt(o.total_gbp)}</td>
@@ -112,36 +128,79 @@ export default function OrdersPage() {
         </div>
       </div>
 
+      {/* 右侧详情面板 */}
       {selected && (
-        <div style={{ width: 320, background: '#FFFFFF', border: '1px solid #E8E4DF', borderRadius: 12, padding: 24, overflow: 'auto', flexShrink: 0 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
+        <div style={{ width: 360, background: '#FFFFFF', border: '1px solid #E8E4DF', borderRadius: 12, padding: 24, overflow: 'auto', flexShrink: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
             <h2 style={{ color: '#1C1714', fontSize: 15, fontWeight: 400 }}>订单详情</h2>
-            <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', color: '#A8A4A0', cursor: 'pointer', fontSize: 18 }}>×</button>
+            <button onClick={() => { setSelected(null); setOrderItems([]) }} style={{ background: 'none', border: 'none', color: '#A8A4A0', cursor: 'pointer', fontSize: 18 }}>×</button>
           </div>
-          {[
-            ['订单号', selected.order_number],
-            ['客户邮箱', selected.customer_email],
-            ['收件人', selected.shipping_name],
-            ['地址', selected.shipping_line1],
-            ['城市', selected.shipping_city],
-            ['邮编', selected.shipping_postcode],
-            ['国家', selected.shipping_country],
-            ['金额', fmt(selected.total_gbp)],
-            ['运费', fmt(selected.shipping_gbp)],
-            ['VAT', fmt(selected.vat_amount_gbp)],
-            ['状态', STATUS_LABEL[selected.status] || selected.status],
-            ['支付方式', selected.payment_method],
-            ['物流公司', selected.carrier],
-            ['追踪号', selected.tracking_number],
-            ['创建时间', fmtDate(selected.created_at)],
-            ['付款时间', fmtDate(selected.paid_at)],
-            ['发货时间', fmtDate(selected.shipped_at)],
-          ].map(([label, val]) => val ? (
-            <div key={label} style={{ marginBottom: 14 }}>
-              <p style={{ color: '#8A8480', fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 4 }}>{label}</p>
-              <p style={{ color: '#504C48', fontSize: 13, wordBreak: 'break-all' }}>{val}</p>
-            </div>
-          ) : null)}
+
+          {/* ── 商品明细 ── */}
+          <div style={{ marginBottom: 20, padding: 16, background: '#FBF8F4', borderRadius: 8, border: '1px solid #E8E4DF' }}>
+            <p style={{ color: '#8A8480', fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 12 }}>购买商品</p>
+            {itemsLoading ? (
+              <p style={{ color: '#A8A4A0', fontSize: 12 }}>加载中…</p>
+            ) : orderItems.length === 0 ? (
+              <p style={{ color: '#A8A4A0', fontSize: 12 }}>无商品记录</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {orderItems.map(item => (
+                  <div key={item.id} style={{ paddingBottom: 10, borderBottom: '1px solid #E8E4DF' }}>
+                    <p style={{ color: '#1C1714', fontSize: 13, fontWeight: 500, marginBottom: 3 }}>{item.product_name}</p>
+                    <p style={{ color: '#6B6460', fontSize: 12, marginBottom: 4 }}>{item.sku_description}</p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <p style={{ color: '#A8A4A0', fontSize: 12 }}>× {item.quantity}</p>
+                      <p style={{ color: '#B89B6A', fontSize: 13 }}>{fmt(item.line_total_gbp)}</p>
+                    </div>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 4 }}>
+                  <p style={{ color: '#8A8480', fontSize: 12 }}>合计</p>
+                  <p style={{ color: '#1C1714', fontSize: 13, fontWeight: 500 }}>{fmt(selected.total_gbp)}</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── 收货信息 ── */}
+          <div style={{ marginBottom: 20 }}>
+            <p style={{ color: '#8A8480', fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 10 }}>收货信息</p>
+            {[
+              ['收件人', selected.shipping_name],
+              ['地址', selected.shipping_line1],
+              ['城市', selected.shipping_city],
+              ['邮编', selected.shipping_postcode],
+              ['国家', selected.shipping_country],
+            ].map(([label, val]) => val ? (
+              <div key={label} style={{ marginBottom: 8 }}>
+                <span style={{ color: '#A8A4A0', fontSize: 11 }}>{label}：</span>
+                <span style={{ color: '#504C48', fontSize: 12 }}>{val}</span>
+              </div>
+            ) : null)}
+          </div>
+
+          {/* ── 订单信息 ── */}
+          <div style={{ marginBottom: 20 }}>
+            <p style={{ color: '#8A8480', fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 10 }}>订单信息</p>
+            {[
+              ['订单号', selected.order_number],
+              ['客户邮箱', selected.customer_email],
+              ['运费', fmt(selected.shipping_gbp)],
+              ['VAT', fmt(selected.vat_amount_gbp)],
+              ['支付方式', selected.payment_method],
+              ['创建时间', fmtDate(selected.created_at)],
+              ['付款时间', fmtDate(selected.paid_at)],
+              ['发货时间', fmtDate(selected.shipped_at)],
+            ].map(([label, val]) => val && val !== '£0.00' && val !== '-' ? (
+              <div key={label} style={{ marginBottom: 8 }}>
+                <span style={{ color: '#A8A4A0', fontSize: 11 }}>{label}：</span>
+                <span style={{ color: '#504C48', fontSize: 12 }}>{val}</span>
+              </div>
+            ) : null)}
+          </div>
+
+          {/* ── 更新状态 ── */}
           <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid #E8E4DF' }}>
             <p style={{ color: '#8A8480', fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 10 }}>更新状态</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

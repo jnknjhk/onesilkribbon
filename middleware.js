@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase())
@@ -9,38 +9,32 @@ export async function middleware(request) {
   // 只保护 /admin 路由
   if (!pathname.startsWith('/admin')) return NextResponse.next()
 
-  const cookieHeader = request.headers.get('cookie') || ''
+  // 创建响应对象（SSR 客户端需要能写 cookie）
+  let response = NextResponse.next({ request })
 
-  // 从 cookie 读取 access token（Supabase JS SDK 存储格式）
-  let accessToken = null
-
-  // 尝试读取 sb-access-token（我们自定义的 cookie）
-  const match = cookieHeader.match(/sb-access-token=([^;]+)/)
-  if (match) accessToken = decodeURIComponent(match[1])
-
-  // 也尝试读取 Supabase SDK 默认的 storage key
-  if (!accessToken) {
-    const sbMatch = cookieHeader.match(/sb-[a-z]+-auth-token=([^;]+)/)
-    if (sbMatch) {
-      try {
-        const decoded = decodeURIComponent(sbMatch[1])
-        const parsed = JSON.parse(decoded)
-        accessToken = Array.isArray(parsed) ? parsed[0] : parsed?.access_token
-      } catch {}
-    }
-  }
-
-  if (!accessToken) {
-    return NextResponse.redirect(new URL('/admin-login', request.url))
-  }
-
-  // 验证 token 并检查邮箱白名单
-  const supabase = createClient(
+  const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          )
+          response = NextResponse.next({ request })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          )
+        },
+      },
+    }
   )
 
-  const { data: { user }, error } = await supabase.auth.getUser(accessToken)
+  // 获取当前登录用户
+  const { data: { user }, error } = await supabase.auth.getUser()
 
   if (error || !user) {
     return NextResponse.redirect(new URL('/admin-login', request.url))
@@ -50,7 +44,7 @@ export async function middleware(request) {
     return NextResponse.redirect(new URL('/admin-login?error=forbidden', request.url))
   }
 
-  return NextResponse.next()
+  return response
 }
 
 export const config = {

@@ -1,7 +1,6 @@
 'use client'
-import { useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { createClient } from '@supabase/supabase-js'
+import { createSupabaseBrowserClient } from '@/lib/supabase'
 import { Suspense } from 'react'
 
 function AdminLoginContent() {
@@ -9,11 +8,7 @@ function AdminLoginContent() {
   const error = searchParams.get('error')
 
   const handleLogin = async () => {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      { auth: { flowType: 'pkce', persistSession: true } }
-    )
+    const supabase = createSupabaseBrowserClient()
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/api/auth/callback?next=/admin` },

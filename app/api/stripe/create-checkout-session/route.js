@@ -8,9 +8,7 @@ export async function POST(req) {
   try {
     const { items, form, totals, userId } = await req.json()
 
-    // 直接用实际应付总额（已含折扣+运费）作为单笔收款
     const totalAmount = gbpToPence(totals.total)
-
     const orderDesc = items.map(i => `${i.name}${i.skuDesc ? ' · ' + i.skuDesc : ''} ×${i.qty}`).join(', ')
 
     const lineItems = [{
@@ -43,7 +41,8 @@ export async function POST(req) {
       },
     })
 
-    await supabaseAdmin.from('orders').insert({
+    // 创建订单
+    const { data: order, error: orderError } = await supabaseAdmin.from('orders').insert({
       order_number: orderNumber,
       customer_email: form.email,
       user_id: userId || null,
@@ -60,7 +59,22 @@ export async function POST(req) {
       shipping_country: form.country,
       payment_method: 'stripe',
       payment_intent_id: session.id,
-    })
+    }).select('id').single()
+
+    // 写入商品明细
+    if (!orderError && order?.id && items?.length > 0) {
+      const orderItems = items.map(item => ({
+        order_id: order.id,
+        product_id: item.productId || null,
+        sku_id: item.skuId || null,
+        product_name: item.name || 'Unknown Product',
+        sku_description: item.skuDesc || '',
+        quantity: item.qty || 1,
+        unit_price_gbp: item.price || 0,
+        line_total_gbp: (item.price || 0) * (item.qty || 1),
+      }))
+      await supabaseAdmin.from('order_items').insert(orderItems)
+    }
 
     return Response.json({ url: session.url })
   } catch (err) {

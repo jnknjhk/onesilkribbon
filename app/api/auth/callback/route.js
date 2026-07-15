@@ -1,6 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 
 export async function GET(request) {
   const { searchParams, origin } = new URL(request.url)
@@ -16,19 +15,21 @@ export async function GET(request) {
     return NextResponse.redirect(`${origin}/login?error=no_code`)
   }
 
-  const cookieStore = await cookies()
+  // 先建一个指向目标页的 response
+  const response = NextResponse.redirect(`${origin}${next}`)
 
+  // 用 NextResponse 的 cookies 来读写，这样 cookie 才能真正写入浏览器
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
         getAll() {
-          return cookieStore.getAll()
+          return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
+            response.cookies.set(name, value, options)
           )
         },
       },
@@ -42,6 +43,6 @@ export async function GET(request) {
     return NextResponse.redirect(`${origin}/login?error=auth_failed`)
   }
 
-  // session 已存入 cookie，直接跳转目标页
-  return NextResponse.redirect(`${origin}${next}`)
+  // session 已通过 response.cookies 写入浏览器，直接跳转
+  return response
 }

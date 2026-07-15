@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { createClient } from '@supabase/supabase-js'
+import { createSupabaseBrowserClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
 const NAV = [
@@ -25,13 +25,8 @@ export default function AdminLayout({ children }) {
   const router = useRouter()
 
   const handleSignOut = async () => {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    )
+    const supabase = createSupabaseBrowserClient()
     await supabase.auth.signOut()
-    document.cookie = 'sb-access-token=; Max-Age=0; path=/'
-    document.cookie = 'sb-refresh-token=; Max-Age=0; path=/'
     router.push('/admin-login')
   }
 

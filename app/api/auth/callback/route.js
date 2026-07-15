@@ -1,4 +1,6 @@
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 
 export async function GET(request) {
   const { searchParams, origin } = new URL(request.url)
@@ -10,10 +12,36 @@ export async function GET(request) {
     return NextResponse.redirect(`${origin}/login?error=auth_failed`)
   }
 
-  // 把 code 转发给前端页面，让 Supabase JS SDK 完成 PKCE exchange
-  if (code) {
-    return NextResponse.redirect(`${origin}/auth/confirm?code=${code}&next=${encodeURIComponent(next)}`)
+  if (!code) {
+    return NextResponse.redirect(`${origin}/login?error=no_code`)
   }
 
-  return NextResponse.redirect(`${origin}/login?error=no_code`)
+  const cookieStore = await cookies()
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          )
+        },
+      },
+    }
+  )
+
+  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+
+  if (exchangeError) {
+    console.error('Exchange error:', exchangeError)
+    return NextResponse.redirect(`${origin}/login?error=auth_failed`)
+  }
+
+  // session 已存入 cookie，直接跳转目标页
+  return NextResponse.redirect(`${origin}${next}`)
 }

@@ -1,30 +1,16 @@
 'use client'
 import { useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { createSupabaseBrowserClient } from '@/lib/supabase'
 import { Suspense } from 'react'
 
+// 这个页面现在只是一个过渡页，session 已在服务端完成
 function ConfirmContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
   useEffect(() => {
-    const code = searchParams.get('code')
     const next = searchParams.get('next') || '/account'
-
-    if (!code) { router.replace('/login?error=no_code'); return }
-
-    // 使用 SSR 浏览器客户端，session 会自动存入 cookie
-    const supabase = createSupabaseBrowserClient()
-
-    supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
-      if (error) {
-        console.error('Exchange error:', error)
-        router.replace('/login?error=auth_failed')
-      } else {
-        router.replace(next)
-      }
-    })
+    router.replace(next)
   }, [])
 
   return (

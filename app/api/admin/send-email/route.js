@@ -61,7 +61,7 @@ export async function POST(req) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
       },
-      body: JSON.stringify({ from: FROM, to, subject, html }),
+      body: JSON.stringify({ from: FROM, to, cc: 'song@onesilkribbon.com', subject, html }),
     })
 
     const data = await res.json()

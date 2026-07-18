@@ -10,6 +10,34 @@ import dynamic from 'next/dynamic'
 
 const Navbar = dynamic(() => import('@/components/Navbar').then(m => ({ default: m.Navbar })), { ssr: false })
 
+
+const organizationSchema = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': 'https://onesilkribbon.com/#organization',
+      name: 'One Silk Ribbon',
+      url: 'https://onesilkribbon.com',
+      logo: 'https://onesilkribbon.com/images/logo.png',
+      contactPoint: { '@type': 'ContactPoint', email: 'song@onesilkribbon.com', contactType: 'customer service' },
+      sameAs: ['https://www.instagram.com/onesilkribbon', 'https://www.pinterest.com/onesilkribbon'],
+    },
+    {
+      '@type': 'WebSite',
+      '@id': 'https://onesilkribbon.com/#website',
+      url: 'https://onesilkribbon.com',
+      name: 'One Silk Ribbon',
+      publisher: { '@id': 'https://onesilkribbon.com/#organization' },
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: { '@type': 'EntryPoint', urlTemplate: 'https://onesilkribbon.com/collections?q={search_term_string}' },
+        'query-input': 'required name=search_term_string',
+      },
+    },
+  ],
+}
+
 export const metadata = {
   title: {
     default: 'One Silk Ribbon — 100% Mulberry Silk Ribbons',
@@ -37,6 +65,10 @@ export default function RootLayout({ children }) {
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+        />
         <CartProvider>
           <AuthProvider>
             <ShellWrapper navbar={<Navbar />} cartDrawer={<CartDrawer />} footer={<Footer />}>

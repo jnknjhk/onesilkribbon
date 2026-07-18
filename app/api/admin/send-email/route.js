@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase'
+import { verifyAdmin } from '@/lib/admin-auth'
 
 const RESEND_API = 'https://api.resend.com/emails'
 const FROM = 'One Silk Ribbon <song@onesilkribbon.com>'
@@ -47,6 +48,9 @@ function buildHtml(subject, body) {
 }
 
 export async function POST(req) {
+  const admin = await verifyAdmin()
+  if (!admin) return Response.json({ error: \'Unauthorized\' }, { status: 401 })
+
   try {
     const { to, subject, body } = await req.json()
     if (!to || !subject || !body) {

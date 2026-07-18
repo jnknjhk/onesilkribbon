@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCart } from '@/lib/cart'
+import { useAuth } from '@/lib/auth'
 import { formatGBP, calculateTotals } from '@/lib/pricing'
 
 // ─── Country Data ────────────────────────────────────────────────────────────
@@ -49,6 +50,7 @@ function Field({ id, label, type='text', half=false, autoComplete, value, error,
 export default function CheckoutPage() {
   const router = useRouter()
   const { items, getSubtotal, clearCart } = useCart()
+  const { user } = useAuth()
   const subtotalValue = getSubtotal ? getSubtotal() : 0
 
   const [shippingSettings, setShippingSettings] = useState(null)
@@ -149,7 +151,7 @@ export default function CheckoutPage() {
   const handlePayPalPayment = async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/paypal/create-order', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ items, form, totals, coupon }) })
+      const res = await fetch('/api/paypal/create-order', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ items, form, totals, coupon, userId: user?.id || null }) })
       const { approvalUrl } = await res.json()
       if (approvalUrl) window.location.href = approvalUrl
     } catch (err) { console.error(err); setLoading(false) }
@@ -158,7 +160,7 @@ export default function CheckoutPage() {
   const handleStripePayment = async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/stripe/create-checkout-session', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ items, form, totals, coupon }) })
+      const res = await fetch('/api/stripe/create-checkout-session', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ items, form, totals, coupon, userId: user?.id || null }) })
       const { url } = await res.json()
       if (url) window.location.href = url
     } catch (err) { console.error(err); setLoading(false) }
@@ -284,9 +286,9 @@ export default function CheckoutPage() {
             <div style={{ display:'flex', flexDirection:'column', gap:16, marginBottom:28, paddingBottom:28, borderBottom:'1px solid var(--warm)' }}>
               {items.map(item => (
                 <div key={item.skuId} style={{ display:'flex', gap:14 }}>
-                  <div style={{ width:52, height:52, background: item.colourHex || 'var(--warm)', flexShrink:0, position:'relative', overflow:'hidden' }}>
+                  <div className="cart-item-img" style={{ width:52, height:52, background: item.colourHex || 'var(--warm)' }}>
                     {item.image && <img src={item.image} style={{ width:'100%', height:'100%', objectFit:'cover' }} />}
-                    <span style={{ position:'absolute', top:-6, right:-6, background:'var(--deep)', color:'#fff', width:18, height:18, borderRadius:'50%', fontSize:10, display:'flex', alignItems:'center', justifyContent:'center' }}>{item.qty}</span>
+                    <span className="cart-badge">{item.qty}</span>
                   </div>
                   <div style={{ flex:1 }}>
                     <p style={{ fontSize:13, color:'var(--ink)', marginBottom:4, fontFamily:'var(--font-display)', fontWeight:400 }}>{item.name}</p>
@@ -336,7 +338,9 @@ export default function CheckoutPage() {
       </div>
       <style>{`
         @media(max-width:960px){ .checkout-grid{grid-template-columns:1fr !important;gap:40px !important} }
-        @media(max-width:600px){ .checkout-grid{padding:24px 24px 80px !important} }
+        @media(max-width:600px){ .checkout-grid{padding:24px 20px 80px !important} }
+        .cart-item-img { position:relative; overflow:hidden; flex-shrink:0; }
+        .cart-badge { position:absolute; top:-6px; right:-6px; background:var(--deep); color:#fff; width:18px; height:18px; border-radius:50%; font-size:10px; display:flex; align-items:center; justify-content:center; z-index:1; }
       `}</style>
     </div>
   )

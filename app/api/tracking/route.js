@@ -37,13 +37,18 @@ export async function GET(req) {
       })
     }
 
-    // Fetch from AfterShip
-    const aftershipRes = await fetch(
-      `https://api.aftership.com/v4/trackings/${order.tracking_carrier}/${order.tracking_number}`,
-      { headers: { 'aftership-api-key': process.env.AFTERSHIP_API_KEY } }
-    )
-    const aftershipData = await aftershipRes.json()
-    const tracking = aftershipData.data?.tracking
+    // Fetch from AfterShip (if API key is set)
+    let tracking = null
+    if (process.env.AFTERSHIP_API_KEY) {
+      try {
+        const aftershipRes = await fetch(
+          `https://api.aftership.com/v4/trackings/${order.tracking_carrier}/${order.tracking_number}`,
+          { headers: { 'aftership-api-key': process.env.AFTERSHIP_API_KEY } }
+        )
+        const aftershipData = await aftershipRes.json()
+        tracking = aftershipData.data?.tracking
+      } catch (e) { console.error('AfterShip error:', e) }
+    }
 
     // Map AfterShip status to our step index
     const statusMap = {
@@ -52,11 +57,15 @@ export async function GET(req) {
       'Exception': 3, 'Expired': 1,
     }
 
-    const events = (tracking?.checkpoints || []).map(cp => ({
+    const events = tracking ? (tracking.checkpoints || []).map(cp => ({
       date: new Date(cp.checkpoint_time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
       location: cp.location || cp.country_name || '',
       message: cp.message,
-    })).reverse()
+    })).reverse() : [{
+      date: new Date(order.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+      location: 'One Silk Ribbon',
+      message: 'Order dispatched',
+    }]
 
     return Response.json({
       orderNumber: order.order_number,

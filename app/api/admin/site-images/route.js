@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { verifyAdmin } from '@/lib/admin-auth'
 import { NextResponse } from 'next/server'
 
 const supabase = createClient(
@@ -8,6 +9,9 @@ const supabase = createClient(
 
 // 获取所有网站图片
 export async function GET() {
+  const admin = await verifyAdmin()
+  if (!admin) return Response.json({ error: \'Unauthorized\' }, { status: 401 })
+
   try {
     const { data, error } = await supabase
       .from('site_images')
@@ -22,6 +26,9 @@ export async function GET() {
 
 // 上传并更新图片
 export async function POST(req) {
+  const admin = await verifyAdmin()
+  if (!admin) return Response.json({ error: \'Unauthorized\' }, { status: 401 })
+
   try {
     const formData = await req.formData()
     const file = formData.get('file')
@@ -65,6 +72,9 @@ export async function POST(req) {
 
 // 删除图片（清空某个位置的图片）
 export async function DELETE(req) {
+  const admin = await verifyAdmin()
+  if (!admin) return Response.json({ error: \'Unauthorized\' }, { status: 401 })
+
   try {
     const { key, url } = await req.json()
     if (!key) return NextResponse.json({ error: 'Missing key' }, { status: 400 })

@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { verifyAdmin } from '@/lib/admin-auth'
 import { NextResponse } from 'next/server'
 
 const supabase = createClient(
@@ -7,6 +8,9 @@ const supabase = createClient(
 )
 
 export async function POST(req) {
+  const admin = await verifyAdmin()
+  if (!admin) return Response.json({ error: \'Unauthorized\' }, { status: 401 })
+
   try {
     const formData = await req.formData()
     const file = formData.get('file')
@@ -48,6 +52,9 @@ export async function POST(req) {
 
 // 删除图片
 export async function DELETE(req) {
+  const admin = await verifyAdmin()
+  if (!admin) return Response.json({ error: \'Unauthorized\' }, { status: 401 })
+
   try {
     const { url } = await req.json()
     if (!url) return NextResponse.json({ error: 'Missing url' }, { status: 400 })

@@ -10,7 +10,7 @@ const supabase = createClient(
 // 获取所有产品
 export async function GET() {
   const admin = await verifyAdmin()
-  if (!admin) return Response.json({ error: \'Unauthorized\' }, { status: 401 })
+  if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data, error } = await supabase
     .from('products')
@@ -23,7 +23,7 @@ export async function GET() {
 // 新建/更新/删除产品
 export async function POST(req) {
   const admin = await verifyAdmin()
-  if (!admin) return Response.json({ error: \'Unauthorized\' }, { status: 401 })
+  if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const body = await req.json()

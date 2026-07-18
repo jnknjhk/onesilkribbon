@@ -10,7 +10,7 @@ const supabase = createClient(
 // 获取所有网站图片
 export async function GET() {
   const admin = await verifyAdmin()
-  if (!admin) return Response.json({ error: \'Unauthorized\' }, { status: 401 })
+  if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const { data, error } = await supabase
@@ -27,7 +27,7 @@ export async function GET() {
 // 上传并更新图片
 export async function POST(req) {
   const admin = await verifyAdmin()
-  if (!admin) return Response.json({ error: \'Unauthorized\' }, { status: 401 })
+  if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const formData = await req.formData()
@@ -73,7 +73,7 @@ export async function POST(req) {
 // 删除图片（清空某个位置的图片）
 export async function DELETE(req) {
   const admin = await verifyAdmin()
-  if (!admin) return Response.json({ error: \'Unauthorized\' }, { status: 401 })
+  if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const { key, url } = await req.json()

@@ -9,7 +9,7 @@ const supabase = createClient(
 
 export async function POST(req) {
   const admin = await verifyAdmin()
-  if (!admin) return Response.json({ error: \'Unauthorized\' }, { status: 401 })
+  if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const formData = await req.formData()
@@ -53,7 +53,7 @@ export async function POST(req) {
 // 删除图片
 export async function DELETE(req) {
   const admin = await verifyAdmin()
-  if (!admin) return Response.json({ error: \'Unauthorized\' }, { status: 401 })
+  if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const { url } = await req.json()

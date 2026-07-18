@@ -3,7 +3,7 @@ import { verifyAdmin } from '@/lib/admin-auth'
 
 export async function DELETE(req) {
   const admin = await verifyAdmin()
-  if (!admin) return Response.json({ error: \'Unauthorized\' }, { status: 401 })
+  if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const { id } = await req.json()

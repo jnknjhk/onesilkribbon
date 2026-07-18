@@ -49,7 +49,7 @@ function buildHtml(subject, body) {
 
 export async function POST(req) {
   const admin = await verifyAdmin()
-  if (!admin) return Response.json({ error: \'Unauthorized\' }, { status: 401 })
+  if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const { to, subject, body } = await req.json()

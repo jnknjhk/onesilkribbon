@@ -75,6 +75,7 @@ export async function GET(req) {
         shipping_city:     form.city,
         shipping_postcode: form.postcode || '',
         shipping_country:  form.country,
+        phone:             form.phone ? `${form.dialCode || ''} ${form.phone}`.trim() : null,
         payment_method:    'paypal',
         payment_intent_id: data.id,
       }).select().single()
@@ -88,6 +89,7 @@ export async function GET(req) {
             sku_description: i.skuDesc || '',
             quantity:        i.qty,
             unit_price_gbp:  parseFloat(i.price).toFixed(2),
+            line_total_gbp:  (parseFloat(i.price) * i.qty).toFixed(2),
           }))
         )
       }

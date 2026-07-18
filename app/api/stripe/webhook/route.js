@@ -30,7 +30,6 @@ export async function POST(req) {
         const { data: order } = await supabaseAdmin.from('orders')
           .select('*').eq('order_number', orderNumber).single()
 
-        // 递增优惠券使用次数
         const couponCode = session.metadata?.couponCode
         if (couponCode) {
           const { data: cp } = await supabaseAdmin.from('coupons').select('uses_count').eq('code', couponCode).single()
@@ -40,6 +39,20 @@ export async function POST(req) {
         }
 
         if (order) {
+          // 从 order_items 读取真实商品数据
+          const { data: orderItems } = await supabaseAdmin
+            .from('order_items').select('*').eq('order_id', order.id)
+
+          const items = (orderItems && orderItems.length > 0)
+            ? orderItems.map(i => ({
+                name: i.product_name,
+                skuDesc: i.sku_description || '',
+                price: parseFloat(i.unit_price_gbp),
+                qty: i.quantity,
+              }))
+            : [{ name: 'One Silk Ribbon Order', skuDesc: '', price: parseFloat(order.subtotal_gbp), qty: 1 }]
+
+          const phone = order.phone || ''
           const form = {
             email:     order.customer_email,
             firstName: (order.shipping_name || '').split(' ')[0],
@@ -49,7 +62,7 @@ export async function POST(req) {
             city:      order.shipping_city,
             postcode:  order.shipping_postcode,
             country:   order.shipping_country,
-            phone:     '',
+            phone,
             dialCode:  '',
           }
           const totals = {
@@ -58,12 +71,6 @@ export async function POST(req) {
             total:       order.total_gbp,
             freeShipping: parseFloat(order.shipping_gbp) === 0,
           }
-          const items = [{
-            name:    'One Silk Ribbon Order',
-            skuDesc: '',
-            price:   parseFloat(order.subtotal_gbp),
-            qty:     1,
-          }]
 
           try {
             await sendOrderConfirmation({ order, items, form, totals })

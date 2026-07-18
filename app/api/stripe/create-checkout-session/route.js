@@ -14,10 +14,7 @@ export async function POST(req) {
     const lineItems = [{
       price_data: {
         currency: 'gbp',
-        product_data: {
-          name: 'One Silk Ribbon Order',
-          description: orderDesc,
-        },
+        product_data: { name: 'One Silk Ribbon Order', description: orderDesc },
         unit_amount: totalAmount,
       },
       quantity: 1,
@@ -38,10 +35,11 @@ export async function POST(req) {
         shippingName: `${form.firstName} ${form.lastName}`,
         couponCode: totals.couponCode || '',
         userId: userId || '',
+        phone: form.phone || '',
+        dialCode: form.dialCode || '',
       },
     })
 
-    // 创建订单
     const { data: order, error: orderError } = await supabaseAdmin.from('orders').insert({
       order_number: orderNumber,
       customer_email: form.email,
@@ -57,11 +55,11 @@ export async function POST(req) {
       shipping_city: form.city,
       shipping_postcode: form.postcode,
       shipping_country: form.country,
+      phone: form.phone ? `${form.dialCode || ''} ${form.phone}`.trim() : null,
       payment_method: 'stripe',
       payment_intent_id: session.id,
     }).select('id').single()
 
-    // 写入商品明细
     if (!orderError && order?.id && items?.length > 0) {
       const orderItems = items.map(item => ({
         order_id: order.id,

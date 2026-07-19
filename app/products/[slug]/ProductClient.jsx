@@ -91,34 +91,23 @@ export default function ProductClient({ initialProduct, initialSkus, slug: initi
   // 注意：直接用 selectedAttrs 计算，不依赖异步更新的 selectedSku
   let images = productImages
 
-  // 1. 先找当前选中属性对应的 SKU 图片
-  const currentSku = skus.find(s => {
-    const attrs = s.attributes || {}
-    return Object.keys(selectedAttrs).length > 0 &&
-      Object.keys(selectedAttrs).every(k => attrs[k] === selectedAttrs[k])
-  })
-  const skuImgs = currentSku && Array.isArray(currentSku.images)
-    ? currentSku.images.filter(Boolean)
-    : []
+  // 按顺序找 attribute_config 里当前选中值有图的属性
+  let attrImage = null
+  for (const attr of attrConfig) {
+    const selectedVal = selectedAttrs[attr.name]
+    if (!selectedVal) continue
+    const opt = (attr.options || []).find(o => {
+      const val = typeof o === 'object' ? o.value : o
+      return val === selectedVal
+    })
+    if (opt && typeof opt === 'object' && opt.image && opt.image.trim()) {
+      attrImage = opt.image
+      break
+    }
+  }
 
-  if (skuImgs.length > 0) {
-    images = [...skuImgs, ...productImages.filter(img => !skuImgs.includes(img))]
-  } else {
-    // 2. 按顺序找 attribute_config 里有图的属性，找到第一个就用
-    let attrImage = null
-    for (const attr of attrConfig) {
-      const selectedVal = selectedAttrs[attr.name]
-      if (!selectedVal) continue
-      const opt = (attr.options || []).find(o => (typeof o === 'object' ? o.value : o) === selectedVal)
-      if (opt && typeof opt === 'object' && opt.image && opt.image.trim()) {
-        attrImage = opt.image
-        break
-      }
-    }
-    if (attrImage) {
-      images = [attrImage, ...productImages.filter(img => img !== attrImage)]
-    }
-    // 3. 都没有就用产品主图
+  if (attrImage) {
+    images = [attrImage, ...productImages.filter(img => img !== attrImage)]
   }
   const collectionSlug = safe(product.collection)
   const collectionName = collectionSlug.replace(/-/g, ' ')

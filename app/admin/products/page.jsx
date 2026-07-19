@@ -243,7 +243,7 @@ export default function ProductsPage() {
           colour_hex: s.colour_hex || '#D4C5B0',
           width_mm: s.attributes?.['宽度'] ? parseInt(s.attributes['宽度']) : (s.attributes?.['Width'] ? parseInt(s.attributes['Width']) : s.width_mm || null),
           length_m: s.attributes?.['长度'] ? parseInt(s.attributes['长度']) : (s.attributes?.['Length'] ? parseInt(s.attributes['Length']) : s.length_m || null),
-          price_gbp: s.price_gbp, stock_qty: s.stock_qty, is_active: s.is_active,
+          price_gbp: s.price_gbp, stock_qty: s.stock_qty, is_active: s.is_active, images: s.images || [],
         })),
         deletedSkuIds,
       }

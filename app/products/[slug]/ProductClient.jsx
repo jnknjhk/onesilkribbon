@@ -85,32 +85,34 @@ export default function ProductClient({ initialProduct, initialSkus, slug: initi
   )
 
   const productImages = Array.isArray(product.images) ? product.images : []
-  // 从attribute_config里找当前选中属性对应的图片（只在用户主动选择后才切换）
   const attrConfig = product.attribute_config || []
-  let attrImage = null
-  if (userSelected && lastChangedAttr) {
-    const changedAttrCfg = attrConfig.find(a => a.name === lastChangedAttr)
-    if (changedAttrCfg) {
-      const selectedVal = selectedAttrs[lastChangedAttr]
-      const opt = (changedAttrCfg.options || []).find(o => (typeof o === 'object' ? o.value : o) === selectedVal)
-      if (opt && typeof opt === 'object' && opt.image) attrImage = opt.image
-    }
-    // 如果最后改动的属性没有图，往前找其他有图的属性
-    if (!attrImage) {
+
+  // ── 图片优先级：SKU图片 > 属性选项图片 > 产品主图 ──────────────────────
+  let images = productImages
+
+  if (selectedSku) {
+    // 1. SKU 自身图片
+    const skuImgs = Array.isArray(selectedSku.images) ? selectedSku.images.filter(Boolean) : []
+    if (skuImgs.length > 0) {
+      images = [...skuImgs, ...productImages.filter(img => !skuImgs.includes(img))]
+    } else {
+      // 2. attribute_config 里选项对应的图片
+      let attrImage = null
       for (const attr of attrConfig) {
-        if (attr.name === lastChangedAttr) continue
         const selectedVal = selectedAttrs[attr.name]
-        if (selectedVal) {
-          const opt = (attr.options || []).find(o => (typeof o === 'object' ? o.value : o) === selectedVal)
-          if (opt && typeof opt === 'object' && opt.image) { attrImage = opt.image; break }
+        if (!selectedVal) continue
+        const opt = (attr.options || []).find(o => (typeof o === 'object' ? o.value : o) === selectedVal)
+        if (opt && typeof opt === 'object' && opt.image) {
+          attrImage = opt.image
+          break
         }
       }
+      if (attrImage) {
+        images = [attrImage, ...productImages.filter(img => img !== attrImage)]
+      }
+      // 3. 没有以上图片就用产品主图（默认）
     }
   }
-  // 用户主动选择且有属性图：属性图排第一，主图跟后面；否则只显示主图
-  const images = attrImage
-    ? [attrImage, ...productImages.filter(img => img !== attrImage)]
-    : productImages
   const collectionSlug = safe(product.collection)
   const collectionName = collectionSlug.replace(/-/g, ' ')
   const price = selectedSku ? safeNum(selectedSku.price_gbp) : 0
@@ -137,7 +139,7 @@ export default function ProductClient({ initialProduct, initialSkus, slug: initi
     setSelectedAttrs(prev => ({ ...prev, [attrName]: value }))
     setUserSelected(true)
     setLastChangedAttr(attrName)
-    setImgIdx(0)
+    setImgIdx(0)  // 切换颜色时重置到第一张图
   }
 
   const buildCartItem = () => {

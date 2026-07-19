@@ -64,6 +64,33 @@ export default function CheckoutPage() {
     }).catch(() => {})
   }, [])
 
+  // 登录用户自动预填默认地址
+  useEffect(() => {
+    if (!user) return
+    const token = user.accessToken
+    if (!token) return
+    fetch('/api/user/addresses', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(data => {
+        const addrs = data.addresses || []
+        const def = addrs.find(a => a.is_default) || addrs[0]
+        if (!def) return
+        setForm(prev => ({
+          ...prev,
+          email:     user.email || prev.email,
+          firstName: def.first_name || prev.firstName,
+          lastName:  def.last_name  || prev.lastName,
+          line1:     def.line1      || prev.line1,
+          line2:     def.line2      || prev.line2,
+          city:      def.city       || prev.city,
+          postcode:  def.postcode   || prev.postcode,
+          country:   def.country    || prev.country,
+          phone:     def.phone      || prev.phone,
+        }))
+      })
+      .catch(() => {})
+  }, [user])
+
   const [step, setStep] = useState('details')
   const [loading, setLoading] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('paypal')

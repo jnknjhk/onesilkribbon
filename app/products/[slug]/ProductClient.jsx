@@ -96,13 +96,13 @@ export default function ProductClient({ initialProduct, initialSkus, slug: initi
     if (skuImgs.length > 0) {
       images = [...skuImgs, ...productImages.filter(img => !skuImgs.includes(img))]
     } else {
-      // 2. attribute_config 里选项对应的图片
+      // 2. 按顺序找 attribute_config 里有图的属性，找到第一个就用
       let attrImage = null
       for (const attr of attrConfig) {
         const selectedVal = selectedAttrs[attr.name]
         if (!selectedVal) continue
         const opt = (attr.options || []).find(o => (typeof o === 'object' ? o.value : o) === selectedVal)
-        if (opt && typeof opt === 'object' && opt.image) {
+        if (opt && typeof opt === 'object' && opt.image && opt.image.trim()) {
           attrImage = opt.image
           break
         }
@@ -110,7 +110,7 @@ export default function ProductClient({ initialProduct, initialSkus, slug: initi
       if (attrImage) {
         images = [attrImage, ...productImages.filter(img => img !== attrImage)]
       }
-      // 3. 没有以上图片就用产品主图（默认）
+      // 3. 都没有就用产品主图
     }
   }
   const collectionSlug = safe(product.collection)

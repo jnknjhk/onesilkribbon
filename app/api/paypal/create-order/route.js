@@ -20,18 +20,17 @@ async function getPayPalToken() {
 
 export async function POST(req) {
   try {
-    const { items, form, totals } = await req.json()
+    const { items, form, totals, userId } = await req.json()
     const token = await getPayPalToken()
     const now = new Date()
     const datePart = String(now.getFullYear()).slice(2) + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0')
     const randPart = String(Math.floor(1000 + Math.random() * 9000))
     const orderNumber = `OSR-${datePart}-${randPart}`
 
-    // 商品标价已含税，直接用
-    const itemsTotal = items.reduce((sum, i) => sum + (parseFloat(i.price) * i.qty), 0)
+    const itemsTotal     = items.reduce((sum, i) => sum + (parseFloat(i.price) * i.qty), 0)
     const discountAmount = parseFloat(totals.discount) || 0
     const shippingAmount = parseFloat(totals.shipping) || 0
-    const grandTotal = parseFloat((itemsTotal - discountAmount + shippingAmount).toFixed(2))
+    const grandTotal     = parseFloat((itemsTotal - discountAmount + shippingAmount).toFixed(2))
 
     const paypalOrder = await fetch(`${PAYPAL_BASE}/v2/checkout/orders`, {
       method: 'POST',
@@ -57,10 +56,7 @@ export async function POST(req) {
             name: i.name,
             description: i.skuDesc || '',
             quantity: String(i.qty),
-            unit_amount: {
-              currency_code: 'GBP',
-              value: parseFloat(i.price).toFixed(2),
-            },
+            unit_amount: { currency_code: 'GBP', value: parseFloat(i.price).toFixed(2) },
             category: 'PHYSICAL_GOODS',
           })),
           shipping: {
@@ -89,13 +85,20 @@ export async function POST(req) {
       return Response.json({ error: 'PayPal did not return approval URL', details: ppData }, { status: 500 })
     }
 
-    // 不在这里创建订单，先存临时session，支付成功后才创建正式订单
+    // 存临时 session，支付成功后才创建正式订单
     await supabaseAdmin.from('paypal_sessions').insert({
       order_number:    orderNumber,
       paypal_order_id: ppData.id,
       items:           JSON.stringify(items),
       form:            JSON.stringify(form),
-      totals:          JSON.stringify({ subtotal: itemsTotal.toFixed(2), shipping: shippingAmount.toFixed(2), total: grandTotal.toFixed(2) }),
+      totals:          JSON.stringify({
+        subtotal:    itemsTotal.toFixed(2),
+        shipping:    shippingAmount.toFixed(2),
+        discount:    discountAmount.toFixed(2),
+        total:       grandTotal.toFixed(2),
+        couponCode:  totals.couponCode || '',
+      }),
+      user_id:         userId || null,
       expires_at:      new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
     })
 

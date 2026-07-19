@@ -41,35 +41,36 @@ export async function POST(req) {
     })
 
     const { data: order, error: orderError } = await supabaseAdmin.from('orders').insert({
-      order_number: orderNumber,
-      customer_email: form.email,
-      user_id: userId || null,
-      status: 'pending',
-      subtotal_gbp: totals.subtotal,
-      vat_amount_gbp: '0.00',
-      shipping_gbp: totals.shipping,
-      total_gbp: totals.total,
-      shipping_name: `${form.firstName} ${form.lastName}`,
-      shipping_line1: form.line1,
-      shipping_line2: form.line2 || null,
-      shipping_city: form.city,
+      order_number:      orderNumber,
+      customer_email:    form.email,
+      user_id:           userId || null,
+      status:            'pending',
+      subtotal_gbp:      totals.subtotal,
+      vat_amount_gbp:    '0.00',
+      shipping_gbp:      totals.shipping,
+      discount_gbp:      totals.discount || '0.00',
+      total_gbp:         totals.total,
+      shipping_name:     `${form.firstName} ${form.lastName}`,
+      shipping_line1:    form.line1,
+      shipping_line2:    form.line2 || null,
+      shipping_city:     form.city,
       shipping_postcode: form.postcode,
-      shipping_country: form.country,
-      phone: form.phone ? `${form.dialCode || ''} ${form.phone}`.trim() : null,
-      payment_method: 'stripe',
-      payment_intent_id: session.id,
+      shipping_country:  form.country,
+      phone:             form.phone ? `${form.dialCode || ''} ${form.phone}`.trim() : null,
+      payment_method:    'stripe',
+      payment_intent_id: session.id, // webhook 收到后会更新为真正的 payment_intent
     }).select('id').single()
 
     if (!orderError && order?.id && items?.length > 0) {
       const orderItems = items.map(item => ({
-        order_id: order.id,
-        product_id: item.productId || null,
-        sku_id: item.skuId || null,
-        product_name: item.name || 'Unknown Product',
+        order_id:        order.id,
+        product_id:      item.productId || null,
+        sku_id:          item.skuId || null,
+        product_name:    item.name || 'Unknown Product',
         sku_description: item.skuDesc || '',
-        quantity: item.qty || 1,
-        unit_price_gbp: item.price || 0,
-        line_total_gbp: (item.price || 0) * (item.qty || 1),
+        quantity:        item.qty || 1,
+        unit_price_gbp:  item.price || 0,
+        line_total_gbp:  (item.price || 0) * (item.qty || 1),
       }))
       await supabaseAdmin.from('order_items').insert(orderItems)
     }

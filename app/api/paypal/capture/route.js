@@ -20,6 +20,17 @@ async function getPayPalToken() {
   return data.access_token
 }
 
+async function deductStock(items) {
+  for (const item of items) {
+    if (!item.skuId) continue
+    const { data: sku } = await supabaseAdmin
+      .from('product_skus').select('stock_qty').eq('id', item.skuId).single()
+    if (!sku) continue
+    const newQty = Math.max(0, (sku.stock_qty || 0) - (item.qty || 1))
+    await supabaseAdmin.from('product_skus').update({ stock_qty: newQty }).eq('id', item.skuId)
+  }
+}
+
 export async function GET(req) {
   const { searchParams } = new URL(req.url)
   const token       = searchParams.get('token')
@@ -40,7 +51,6 @@ export async function GET(req) {
     console.log('Capture status:', data.status)
 
     if (data.status === 'COMPLETED') {
-      // 从临时session读取购物车数据
       const { data: session } = await supabaseAdmin
         .from('paypal_sessions')
         .select('*')
@@ -50,14 +60,12 @@ export async function GET(req) {
       const items  = session ? JSON.parse(session.items)  : []
       const form   = session ? JSON.parse(session.form)   : {}
       const totals = session ? JSON.parse(session.totals) : {}
-
-      // 支付成功后才正式创建订单
-      const itemsTotal    = parseFloat(totals.subtotal || 0)
-      const shippingAmount = parseFloat(totals.shipping || 0)
-      const grandTotal    = parseFloat(totals.total    || 0)
-
-      // 尝试从 session 中读取 user_id（已登录用户下单时写入）
       const userId = session?.user_id || null
+
+      const itemsTotal     = parseFloat(totals.subtotal || 0)
+      const shippingAmount = parseFloat(totals.shipping || 0)
+      const discountAmount = parseFloat(totals.discount || 0)
+      const grandTotal     = parseFloat(totals.total    || 0)
 
       const { data: order } = await supabaseAdmin.from('orders').insert({
         order_number:      orderNumber,
@@ -68,6 +76,7 @@ export async function GET(req) {
         subtotal_gbp:      itemsTotal.toFixed(2),
         vat_amount_gbp:    '0.00',
         shipping_gbp:      shippingAmount.toFixed(2),
+        discount_gbp:      discountAmount.toFixed(2),
         total_gbp:         grandTotal.toFixed(2),
         shipping_name:     `${form.firstName} ${form.lastName}`,
         shipping_line1:    form.line1,
@@ -80,11 +89,13 @@ export async function GET(req) {
         payment_intent_id: data.id,
       }).select().single()
 
-      // 写入订单商品
+      // 写入订单商品（包含 sku_id 和 product_id）
       if (order && items.length > 0) {
         await supabaseAdmin.from('order_items').insert(
           items.map(i => ({
             order_id:        order.id,
+            product_id:      i.productId || null,
+            sku_id:          i.skuId || null,
             product_name:    i.name,
             sku_description: i.skuDesc || '',
             quantity:        i.qty,
@@ -92,9 +103,12 @@ export async function GET(req) {
             line_total_gbp:  (parseFloat(i.price) * i.qty).toFixed(2),
           }))
         )
+
+        // 扣减库存
+        await deductStock(items)
       }
 
-      // 递增优惠券使用次数
+      // 优惠码使用次数递增
       const couponCode = totals.couponCode
       if (couponCode) {
         const { data: cp } = await supabaseAdmin.from('coupons').select('uses_count').eq('code', couponCode).single()
@@ -103,27 +117,25 @@ export async function GET(req) {
         }
       }
 
-      // 删除临时session
+      // 删除临时 session
       await supabaseAdmin.from('paypal_sessions').delete().eq('order_number', orderNumber)
 
       if (order) {
         const emailTotals = {
-          subtotal:     itemsTotal.toFixed(2),
-          shipping:     shippingAmount.toFixed(2),
-          total:        grandTotal.toFixed(2),
+          subtotal:    itemsTotal.toFixed(2),
+          shipping:    shippingAmount.toFixed(2),
+          total:       grandTotal.toFixed(2),
           freeShipping: shippingAmount === 0,
         }
 
         try {
           await sendOrderConfirmation({ order, items, form, totals: emailTotals })
-          console.log('Order confirmation sent to:', form.email)
         } catch (e) {
           console.error('Order confirmation email error:', e.message)
         }
 
         try {
           await sendOwnerNotification({ order, items, form, totals: emailTotals })
-          console.log('Owner notification sent')
         } catch (e) {
           console.error('Owner notification email error:', e.message)
         }

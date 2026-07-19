@@ -53,7 +53,25 @@ export default function CheckoutPage() {
   const { user } = useAuth()
   const subtotalValue = getSubtotal ? getSubtotal() : 0
 
+  // ── 所有 state 必须在 useEffect 之前定义 ──────────────────────────────────
+  const [form, setForm] = useState({
+    email:'', firstName:'', lastName:'',
+    line1:'', line2:'', city:'', postcode:'', country:'GB',
+    dialCode:'+44', phone:'',
+  })
+  const [touched, setTouched] = useState({})
+  const [errors, setErrors] = useState({})
+  const [step, setStep] = useState('details')
+  const [loading, setLoading] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState('paypal')
+  const [couponCode, setCouponCode] = useState('')
+  const [coupon, setCoupon] = useState(null)
+  const [couponError, setCouponError] = useState('')
+  const [couponLoading, setCouponLoading] = useState(false)
   const [shippingSettings, setShippingSettings] = useState(null)
+  const [addressPrefilled, setAddressPrefilled] = useState(false)
+
+  // ── 加载运费设置 ──────────────────────────────────────────────────────────
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(data => {
       setShippingSettings({
@@ -64,49 +82,43 @@ export default function CheckoutPage() {
     }).catch(() => {})
   }, [])
 
-  // 登录用户自动预填默认地址
+  // ── 登录用户自动预填默认地址 ──────────────────────────────────────────────
   useEffect(() => {
-    if (!user) return
+    if (!user || addressPrefilled) return
     const token = user.accessToken
-    if (!token) return
+    if (!token) {
+      // 至少预填邮箱
+      setForm(prev => ({ ...prev, email: user.email || prev.email }))
+      return
+    }
     fetch('/api/user/addresses', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(data => {
         const addrs = data.addresses || []
         const def = addrs.find(a => a.is_default) || addrs[0]
-        if (!def) return
+        const country = def?.country || 'GB'
+        const countryData = getCountry(country)
         setForm(prev => ({
           ...prev,
-          email:     user.email || prev.email,
-          firstName: def.first_name || prev.firstName,
-          lastName:  def.last_name  || prev.lastName,
-          line1:     def.line1      || prev.line1,
-          line2:     def.line2      || prev.line2,
-          city:      def.city       || prev.city,
-          postcode:  def.postcode   || prev.postcode,
-          country:   def.country    || prev.country,
-          phone:     def.phone      || prev.phone,
+          email:     user.email        || prev.email,
+          firstName: def?.first_name   || prev.firstName,
+          lastName:  def?.last_name    || prev.lastName,
+          line1:     def?.line1        || prev.line1,
+          line2:     def?.line2        || prev.line2,
+          city:      def?.city         || prev.city,
+          postcode:  def?.postcode     || prev.postcode,
+          country:   country,
+          dialCode:  countryData.dialCode,
+          phone:     def?.phone        || prev.phone,
         }))
+        setAddressPrefilled(true)
       })
-      .catch(() => {})
+      .catch(() => {
+        // 没有地址也预填邮箱
+        setForm(prev => ({ ...prev, email: user.email || prev.email }))
+        setAddressPrefilled(true)
+      })
   }, [user])
-
-  const [step, setStep] = useState('details')
-  const [loading, setLoading] = useState(false)
-  const [paymentMethod, setPaymentMethod] = useState('paypal')
-
-  const [form, setForm] = useState({
-    email:'', firstName:'', lastName:'',
-    line1:'', line2:'', city:'', postcode:'', country:'GB',
-    dialCode:'+44', phone:'',
-  })
-  const [touched, setTouched] = useState({})
-  const [errors, setErrors] = useState({})
-
-  const [couponCode, setCouponCode] = useState('')
-  const [coupon, setCoupon] = useState(null)
-  const [couponError, setCouponError] = useState('')
-  const [couponLoading, setCouponLoading] = useState(false)
 
   if (items.length === 0) {
     return (
@@ -124,11 +136,13 @@ export default function CheckoutPage() {
     setForm(p => ({ ...p, country:code, dialCode:c.dialCode, postcode:'' }))
     setErrors(p => ({ ...p, postcode:'', phone:'' }))
   }
+
   const handleChange = (field, value) => {
     let v = value
     if (field === 'postcode') { const c = getCountry(form.country); if (['GB','IE'].includes(c.code)) v = value.toUpperCase() }
     setForm(p => ({ ...p, [field]: v }))
   }
+
   const handleBlur = (field) => { setTouched(p => ({ ...p, [field]: true })); validateField(field, form[field]) }
 
   const validateField = (field, value) => {
@@ -148,6 +162,7 @@ export default function CheckoutPage() {
     setErrors(p => ({ ...p, [field]: err }))
     return !err
   }
+
   const validate = () => {
     const fields = ['email','firstName','lastName','line1','city','postcode','phone']
     setTouched(Object.fromEntries(fields.map(f => [f, true])))
@@ -161,7 +176,7 @@ export default function CheckoutPage() {
       const res = await fetch('/api/coupon', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code:couponCode, subtotal:subtotalValue }) })
       const data = await res.json()
       if (data.valid) { setCoupon(data); setCouponError('') }
-      else setCouponError(data.error || 'Invalid promo code')
+      else { setCouponError(data.error || 'Invalid promo code'); setCoupon(null) }
     } catch { setCouponError('Could not verify code') }
     setCouponLoading(false)
   }
@@ -173,7 +188,16 @@ export default function CheckoutPage() {
     couponCode: coupon?.code || '',
   }
 
-  const handleContinue = () => { if (validate()) setStep('payment') }
+  const handleContinue = () => {
+    // 返回详情页时重新验证优惠码
+    if (coupon) {
+      fetch('/api/coupon', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code:coupon.code, subtotal:subtotalValue }) })
+        .then(r => r.json())
+        .then(data => { if (!data.valid) { setCoupon(null); setCouponError('Promo code is no longer valid') } })
+        .catch(() => {})
+    }
+    if (validate()) setStep('payment')
+  }
 
   const handlePayPalPayment = async () => {
     setLoading(true)
@@ -218,6 +242,15 @@ export default function CheckoutPage() {
           {step === 'details' && (
             <>
               <h2 style={{ fontFamily:'var(--font-display)', fontSize:28, fontWeight:300, marginBottom:32, color:'var(--ink)' }}>Contact & Delivery</h2>
+
+              {/* 未登录提示 */}
+              {!user && (
+                <div style={{ background:'var(--mist)', padding:'14px 18px', marginBottom:24, fontSize:12, color:'var(--taupe)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                  <span>Have an account? Sign in to auto-fill your details.</span>
+                  <Link href={`/login?next=/checkout`} style={{ color:'var(--gold)', fontSize:12, letterSpacing:'.06em' }}>Sign In</Link>
+                </div>
+              )}
+
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:40 }}>
                 <Field id="email" label="Email Address" type="email" autoComplete="email" value={form.email} error={errors.email} touch={touched.email} onChange={handleChange} onBlur={handleBlur} />
                 <Field id="firstName" label="First Name" half autoComplete="given-name" value={form.firstName} error={errors.firstName} touch={touched.firstName} onChange={handleChange} onBlur={handleBlur} />
@@ -345,9 +378,12 @@ export default function CheckoutPage() {
             <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
               <SummaryRow label="Subtotal (tax included)" value={formatGBP(totals.subtotal)} />
               {coupon && <SummaryRow label={`Promo: ${coupon.code}`} value={`-${formatGBP(discountAmount)}`} highlight />}
-              <SummaryRow label="Shipping" value={totals.freeShipping ? 'Free' : formatGBP(totals.shipping)} />
+              <SummaryRow
+                label="Shipping"
+                value={!shippingSettings ? '—' : totals.freeShipping ? 'Free' : formatGBP(totals.shipping)}
+              />
               <div style={{ height:1, background:'var(--warm)', margin:'8px 0' }} />
-              <SummaryRow label="Total" value={formatGBP(totals.total)} bold />
+              <SummaryRow label="Total" value={!shippingSettings ? 'Calculating…' : formatGBP(totals.total)} bold />
             </div>
 
             {!totals.freeShipping && shippingSettings?.freeShippingEnabled && (

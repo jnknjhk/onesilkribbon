@@ -42,11 +42,9 @@ export default function ProductClient({ initialProduct, initialSkus, slug: initi
         setProduct(prod)
         const list = skuData || []
         setSkus(list)
-        if (list.length > 0) {
-          const firstAttrs = list[0].attributes || {}
-          setSelectedAttrs(firstAttrs)
-          setSelectedSku(list[0])
-        }
+        // 不预选任何属性，让用户主动选择
+        setSelectedAttrs({})
+        setSelectedSku(null)
       } catch (e) { console.error(e) }
       setLoading(false)
     }
@@ -103,7 +101,9 @@ export default function ProductClient({ initialProduct, initialSkus, slug: initi
   const collectionSlug = safe(product.collection)
   const collectionName = collectionSlug.replace(/-/g, ' ')
   const price = selectedSku ? safeNum(selectedSku.price_gbp) : 0
+  const minPrice = skus.length > 0 ? Math.min(...skus.map(s => safeNum(s.price_gbp)).filter(p => p > 0)) : 0
   const inStock = selectedSku ? safeNum(selectedSku.stock_qty) > 0 : false
+  const hasSelected = Object.values(selectedAttrs).some(v => v && v !== '__placeholder__')
 
   let attributeOptions = []
 
@@ -231,7 +231,7 @@ export default function ProductClient({ initialProduct, initialSkus, slug: initi
             {/* Price — 改为含税说明 + 运费提示 */}
             <div style={{ padding: '20px 0', borderTop: '1px solid var(--sand)', borderBottom: '1px solid var(--sand)', marginBottom: 30 }}>
               <div style={{ fontFamily: 'var(--font-display)', fontSize: 38, fontWeight: 300, color: 'var(--ink)', lineHeight: 1 }}>
-                {price > 0 ? fmt(price) : '—'}
+                {hasSelected && price > 0 ? fmt(price) : minPrice > 0 ? <span style={{ fontSize: 24 }}>From {fmt(minPrice)}</span> : '—'}
               </div>
               <p style={{ fontSize: 10, color: 'var(--taupe)', letterSpacing: '.06em', marginTop: 6, lineHeight: 1.6 }}>
                 Tax included. Shipping calculated at checkout.
@@ -246,8 +246,8 @@ export default function ProductClient({ initialProduct, initialSkus, slug: initi
                 </label>
                 <div style={{ position: 'relative' }}>
                   <select
-                    value={selectedAttrs[attr.name] || ''}
-                    onChange={e => handleAttrChange(attr.name, e.target.value)}
+                    value={selectedAttrs[attr.name] || '__placeholder__'}
+                    onChange={e => handleAttrChange(attr.name, e.target.value === '__placeholder__' ? '' : e.target.value)}
                     style={{
                       width: '100%', padding: '14px 40px 14px 16px',
                       border: '1px solid var(--warm)', background: 'var(--cream)',
@@ -256,6 +256,7 @@ export default function ProductClient({ initialProduct, initialSkus, slug: initi
                       WebkitAppearance: 'none', borderRadius: 0,
                     }}
                   >
+                    <option value="__placeholder__">Please select</option>
                     {attr.options.map(opt => {
                       const val = typeof opt === 'object' ? opt.value : opt
                       return <option key={val} value={val}>{val}</option>
@@ -286,7 +287,7 @@ export default function ProductClient({ initialProduct, initialSkus, slug: initi
                 cursor: selectedSku && inStock ? 'pointer' : 'not-allowed',
                 opacity: !selectedSku || !inStock ? 0.5 : 1, transition: 'background .28s',
               }}>
-                {added ? '✓  Added to Basket' : !inStock ? 'Sold Out' : 'Add to Basket'}
+                {added ? '✓  Added to Basket' : !hasSelected ? 'Please Select Options' : !inStock ? 'Sold Out' : 'Add to Basket'}
               </button>
             </div>
 
@@ -298,7 +299,7 @@ export default function ProductClient({ initialProduct, initialSkus, slug: initi
               cursor: selectedSku && inStock && !buyingNow ? 'pointer' : 'not-allowed',
               opacity: !selectedSku || !inStock ? 0.5 : 1, transition: 'background .28s',
             }}>
-              {buyingNow ? 'Redirecting…' : 'Buy Now'}
+              {buyingNow ? 'Redirecting…' : !hasSelected ? 'Please Select Options' : 'Buy Now'}
             </button>
           </div>
         </div>

@@ -16,11 +16,12 @@ function Label({ children }) {
 }
 
 function InfoRow({ label, val }) {
-  if (!val || val === '—' || val === '£0.00') return null
   return (
     <div style={{ marginBottom:8 }}>
       <span style={{ color:C.muted, fontSize:11 }}>{label}：</span>
-      <span style={{ color:C.sub, fontSize:12 }}>{val}</span>
+      <span style={{ color: (!val || val === '—') ? C.muted : C.sub, fontSize:12, fontStyle: (!val || val === '—') ? 'italic' : 'normal' }}>
+        {(!val || val === '—') ? '无' : val}
+      </span>
     </div>
   )
 }

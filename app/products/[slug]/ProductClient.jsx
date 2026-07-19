@@ -32,16 +32,7 @@ export default function ProductClient({ initialProduct, initialSkus, slug: initi
 
   useEffect(() => {
     if (!slug) return
-    // Skip fetch if we already have server-side data
-    if (initialProduct && initialSkus?.length >= 0) {
-      if (initialSkus.length > 0) {
-        const firstAttrs = initialSkus[0].attributes || {}
-        setSelectedAttrs(firstAttrs)
-        setSelectedSku(initialSkus[0])
-      }
-      setLoading(false)
-      return
-    }
+    // 始终从客户端重新 fetch 完整数据（包含 attribute_config）
     async function load() {
       setLoading(true)
       try {

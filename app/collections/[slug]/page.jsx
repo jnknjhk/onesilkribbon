@@ -16,7 +16,7 @@ const supabaseServer = createClient(
 )
 
 export async function generateMetadata({ params }) {
-  const { slug } = await params
+  const { slug } = params
   const meta = COLLECTION_META[slug]
   if (!meta) return { title: 'Collection | One Silk Ribbon' }
 
@@ -33,7 +33,7 @@ export async function generateMetadata({ params }) {
 }
 
 export default async function CollectionPage({ params }) {
-  const { slug } = await params
+  const { slug } = params
   const meta = COLLECTION_META[slug]
 
   const { data: products } = await supabaseServer

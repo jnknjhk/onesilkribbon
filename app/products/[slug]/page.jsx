@@ -8,7 +8,7 @@ const supabaseServer = createClient(
 
 // ── 动态 Metadata ─────────────────────────────────────────────────────────────
 export async function generateMetadata({ params }) {
-  const { slug } = await params
+  const { slug } = params
   const { data: product } = await supabaseServer
     .from('products').select('name, description, images, collection').eq('slug', slug).single()
 
@@ -41,7 +41,7 @@ export async function generateMetadata({ params }) {
 
 // ── 服务端渲染：预取产品数据 ───────────────────────────────────────────────────
 export default async function ProductPage({ params }) {
-  const { slug } = await params
+  const { slug } = params
   const { data: product } = await supabaseServer
     .from('products').select('*').eq('slug', slug).single()
 

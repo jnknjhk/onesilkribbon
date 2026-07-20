@@ -1,34 +1,31 @@
-'use client'
-import { useState, useEffect } from 'react'
+import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+
+const supabaseServer = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+)
+
+export const metadata = {
+  title: 'Journal — One Silk Ribbon',
+  description: 'Stories, guides and inspiration from the One Silk Ribbon atelier.',
+}
 
 function formatDate(iso) {
   if (!iso) return ''
   return new Date(iso).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
 }
 
-export default function JournalPage() {
-  const [posts, setPosts] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    async function load() {
-      const { data } = await supabase
-        .from('journal_posts')
-        .select('slug, title, category, excerpt, cover_image, read_time, published_at')
-        .eq('is_published', true)
-        .order('published_at', { ascending: false })
-      setPosts(data || [])
-      setLoading(false)
-    }
-    load()
-  }, [])
+export default async function JournalPage() {
+  const { data: posts } = await supabaseServer
+    .from('journal_posts')
+    .select('slug, title, category, excerpt, cover_image, read_time, published_at')
+    .eq('is_published', true)
+    .order('published_at', { ascending: false })
 
   return (
     <>
       <div style={{ paddingTop: 68, background: 'var(--cream)', minHeight: '100vh' }}>
-
         <div style={{ borderBottom: '1px solid var(--sand)', padding: '80px 60px 72px', maxWidth: 1360, margin: '0 auto' }} className="journal-header-pad">
           <p style={{ fontSize: 9, letterSpacing: '.38em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 16 }}>Journal</p>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 56, fontWeight: 300, lineHeight: 1.08, color: 'var(--ink)' }} className="journal-h1">
@@ -37,9 +34,7 @@ export default function JournalPage() {
         </div>
 
         <div style={{ maxWidth: 1360, margin: '0 auto', padding: '0 60px' }} className="journal-pad">
-          {loading ? (
-            <p style={{ padding: '60px 0', color: 'var(--taupe)', fontSize: 13 }}>Loading…</p>
-          ) : posts.length === 0 ? (
+          {(!posts || posts.length === 0) ? (
             <p style={{ padding: '60px 0', color: 'var(--taupe)', fontSize: 13 }}>No articles yet.</p>
           ) : posts.map((post) => (
             <Link key={post.slug} href={`/journal/${post.slug}`} className="post-row" style={{ textDecoration: 'none', display: 'block' }}>

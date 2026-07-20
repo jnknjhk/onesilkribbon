@@ -20,6 +20,11 @@ export async function GET(req) {
       return Response.json({ error: 'Order not found' }, { status: 404 })
     }
 
+    // Mask sensitive address info for privacy
+    const maskedName = order.shipping_name
+      ? order.shipping_name.split(' ').map((w, i) => i === 0 ? w : w[0] + '***').join(' ')
+      : null
+
     // If no tracking number yet, return order status
     if (!order.tracking_number) {
       return Response.json({
@@ -29,6 +34,9 @@ export async function GET(req) {
         carrier: null,
         trackingNumber: null,
         estimatedDelivery: 'To be confirmed',
+        shippingName: maskedName,
+        shippingCity: order.shipping_city,
+        shippingCountry: order.shipping_country,
         events: [{
           date: new Date(order.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
           location: 'One Silk Ribbon Studio',
@@ -73,6 +81,9 @@ export async function GET(req) {
       statusStep: statusMap[tracking?.tag] ?? 2,
       carrier: order.tracking_carrier,
       trackingNumber: order.tracking_number,
+      shippingName: maskedName,
+      shippingCity: order.shipping_city,
+      shippingCountry: order.shipping_country,
       estimatedDelivery: tracking?.expected_delivery
         ? new Date(tracking.expected_delivery).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
         : '7–15 working days',

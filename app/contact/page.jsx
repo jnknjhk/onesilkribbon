@@ -11,10 +11,14 @@ export default function Contact() {
     if (!form.name || !form.email || !form.message) return
     setStatus('sending')
     try {
-      // Simple mailto fallback — replace with your email API (Resend / Formspree etc.) later
-      const mailtoLink = `mailto:hello@onesilkribbon.com?subject=${encodeURIComponent(form.subject || 'Website Enquiry — ' + form.name)}&body=${encodeURIComponent(`Name: ${form.name}\nEmail: ${form.email}\n\n${form.message}`)}`
-      window.location.href = mailtoLink
-      setStatus('sent')
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      const data = await res.json()
+      if (data.success) setStatus('sent')
+      else setStatus('error')
     } catch {
       setStatus('error')
     }

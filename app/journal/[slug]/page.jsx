@@ -1,46 +1,39 @@
-'use client'
-import { useState, useEffect } from 'react'
+import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { notFound } from 'next/navigation'
+
+const supabaseServer = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+)
 
 function formatDate(iso) {
   if (!iso) return ''
   return new Date(iso).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
 }
 
-export default function JournalPost() {
-  const [post, setPost] = useState(null)
-  const [loading, setLoading] = useState(true)
+export async function generateMetadata({ params }) {
+  const { slug } = params
+  const { data: post } = await supabaseServer
+    .from('journal_posts').select('title, excerpt, cover_image').eq('slug', slug).single()
+  if (!post) return { title: 'Journal — One Silk Ribbon' }
+  return {
+    title: `${post.title} — One Silk Ribbon`,
+    description: post.excerpt || '',
+    openGraph: {
+      title: post.title,
+      description: post.excerpt || '',
+      images: post.cover_image ? [post.cover_image] : [],
+    },
+  }
+}
 
-  useEffect(() => {
-    const parts = window.location.pathname.split('/')
-    const slug = parts[parts.length - 1]
-    if (!slug) return
-    async function load() {
-      const { data } = await supabase
-        .from('journal_posts')
-        .select('*')
-        .eq('slug', slug)
-        .eq('is_published', true)
-        .single()
-      setPost(data || null)
-      setLoading(false)
-    }
-    load()
-  }, [])
+export default async function JournalPost({ params }) {
+  const { slug } = params
+  const { data: post } = await supabaseServer
+    .from('journal_posts').select('*').eq('slug', slug).eq('is_published', true).single()
 
-  if (loading) return (
-    <div style={{ paddingTop: 68, minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <p style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontStyle: 'italic', color: 'var(--taupe)' }}>Loading…</p>
-    </div>
-  )
-
-  if (!post) return (
-    <div style={{ paddingTop: 68, minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24 }}>
-      <p style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontStyle: 'italic', color: 'var(--taupe)' }}>Article not found</p>
-      <Link href="/journal" style={{ fontSize: 9, letterSpacing: '.28em', textTransform: 'uppercase', color: 'var(--gold)', borderBottom: '1px solid var(--gold)', paddingBottom: 4 }}>← Back to Journal</Link>
-    </div>
-  )
+  if (!post) notFound()
 
   const sections = Array.isArray(post.sections) ? post.sections : []
 

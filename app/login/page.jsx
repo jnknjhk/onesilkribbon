@@ -18,10 +18,26 @@ function LoginContent() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(errorParam === 'auth_failed' ? 'Sign-in failed. Please try again.' : '')
   const [success, setSuccess] = useState('')
+  const [showForgot, setShowForgot] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotLoading, setForgotLoading] = useState(false)
+  const [forgotMsg, setForgotMsg] = useState('')
 
   useEffect(() => {
     if (!loading && user) router.replace(next)
   }, [user, loading])
+
+  const handleForgotPassword = async () => {
+    if (!forgotEmail.trim()) { setForgotMsg('Please enter your email'); return }
+    setForgotLoading(true)
+    const supabase = createSupabaseBrowserClient()
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+      redirectTo: `${window.location.origin}/account/reset-password`,
+    })
+    if (error) setForgotMsg('Something went wrong. Please try again.')
+    else setForgotMsg('Password reset email sent. Please check your inbox.')
+    setForgotLoading(false)
+  }
 
   const handleEmailSubmit = async () => {
     if (!email || !password) { setError('Please fill in all fields'); return }
@@ -76,6 +92,16 @@ function LoginContent() {
               <label style={{ fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: C.taupe, display: 'block', marginBottom: 6 }}>Password</label>
               <input type="password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleEmailSubmit()} placeholder="••••••••" className="input" style={{ width: '100%', boxSizing: 'border-box' }} />
             </div>
+
+            {mode === 'login' && (
+              <div style={{ textAlign: 'right', marginBottom: 16, marginTop: -8 }}>
+                <button onClick={() => { setShowForgot(true); setForgotMsg(''); setForgotEmail(email) }}
+                  style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 11, letterSpacing: '.04em' }}>
+                  Forgot password?
+                </button>
+              </div>
+            )}
+
             <button onClick={handleEmailSubmit} disabled={submitting} className="btn-primary" style={{ width: '100%' }}>
               {submitting ? 'Please wait…' : mode === 'login' ? 'Sign In' : 'Create Account'}
             </button>
@@ -99,6 +125,30 @@ function LoginContent() {
               </svg>
               Continue with Google
             </button>
+          </div>
+        )}
+
+        {showForgot && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+            <div style={{ background: '#fff', padding: 32, width: '100%', maxWidth: 380, borderRadius: 4 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+                <p style={{ fontSize: 15, color: C.ink }}>Reset Password</p>
+                <button onClick={() => { setShowForgot(false); setForgotMsg('') }} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: C.muted }}>×</button>
+              </div>
+              <p style={{ fontSize: 13, color: C.muted, marginBottom: 20, lineHeight: 1.7 }}>Enter your email address and we'll send you a link to reset your password.</p>
+              {forgotMsg ? (
+                <p style={{ fontSize: 13, color: forgotMsg.includes('sent') ? '#166534' : '#991b1b', lineHeight: 1.7 }}>{forgotMsg}</p>
+              ) : (
+                <>
+                  <input type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleForgotPassword()}
+                    placeholder="your@email.com" className="input" style={{ width: '100%', boxSizing: 'border-box', marginBottom: 16 }} />
+                  <button onClick={handleForgotPassword} disabled={forgotLoading} className="btn-primary" style={{ width: '100%' }}>
+                    {forgotLoading ? 'Sending…' : 'Send Reset Link'}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         )}
 

@@ -28,6 +28,8 @@ function InfoRow({ label, val }) {
 
 export default function OrdersPage() {
   const [orders, setOrders]           = useState([])
+  const [page, setPage]                = useState(1)
+  const PAGE_SIZE = 30
   const [loading, setLoading]         = useState(true)
   const [filter, setFilter]           = useState('all')
   const [search, setSearch]           = useState('')
@@ -178,6 +180,11 @@ export default function OrdersPage() {
     return matchStatus && matchSearch
   })
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const paginatedOrders = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  useEffect(() => { setPage(1) }, [filter, search])
+
   return (
     <div style={{ display:'flex', gap:24, height:'calc(100vh - 80px)' }}>
 
@@ -291,7 +298,7 @@ export default function OrdersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map(o => (
+                  {paginatedOrders.map(o => (
                     <tr key={o.id} onClick={() => selectOrder(o)}
                       style={{ borderBottom:'1px solid #F5F3F0', cursor:'pointer', background: selected?.id===o.id ? '#FBF8F4' : 'transparent' }}>
                       <td style={{ padding:'11px 14px', fontFamily:'monospace', fontSize:12, color:C.ink, fontWeight:500 }}>{o.order_number||'—'}</td>
@@ -311,6 +318,20 @@ export default function OrdersPage() {
               </table>
             )}
         </div>
+
+        {totalPages > 1 && (
+          <div style={{ display:'flex', justifyContent:'center', alignItems:'center', gap:12, marginTop:16 }}>
+            <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1}
+              style={{ padding:'6px 14px', background:'#fff', border:`1px solid ${C.border}`, borderRadius:6, fontSize:12, cursor: page===1 ? 'not-allowed' : 'pointer', opacity: page===1 ? 0.4 : 1 }}>
+              上一页
+            </button>
+            <span style={{ fontSize:12, color:C.muted }}>第 {page} / {totalPages} 页 · 共 {filtered.length} 条</span>
+            <button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page === totalPages}
+              style={{ padding:'6px 14px', background:'#fff', border:`1px solid ${C.border}`, borderRadius:6, fontSize:12, cursor: page===totalPages ? 'not-allowed' : 'pointer', opacity: page===totalPages ? 0.4 : 1 }}>
+              下一页
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── 右侧详情面板 ── */}

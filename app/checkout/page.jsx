@@ -199,21 +199,37 @@ export default function CheckoutPage() {
     if (validate()) setStep('payment')
   }
 
+  const [stockError, setStockError] = useState('')
+
   const handlePayPalPayment = async () => {
-    setLoading(true)
+    setLoading(true); setStockError('')
     try {
       const res = await fetch('/api/paypal/create-order', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ items, form, totals, coupon, userId: user?.id || null }) })
+      if (res.status === 409) {
+        const data = await res.json()
+        setStockError(data.error || 'Some items are no longer available.')
+        setLoading(false)
+        return
+      }
       const { approvalUrl } = await res.json()
       if (approvalUrl) window.location.href = approvalUrl
+      else setLoading(false)
     } catch (err) { console.error(err); setLoading(false) }
   }
 
   const handleStripePayment = async () => {
-    setLoading(true)
+    setLoading(true); setStockError('')
     try {
       const res = await fetch('/api/stripe/create-checkout-session', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ items, form, totals, coupon, userId: user?.id || null }) })
+      if (res.status === 409) {
+        const data = await res.json()
+        setStockError(data.error || 'Some items are no longer available.')
+        setLoading(false)
+        return
+      }
       const { url } = await res.json()
       if (url) window.location.href = url
+      else setLoading(false)
     } catch (err) { console.error(err); setLoading(false) }
   }
 
@@ -327,6 +343,11 @@ export default function CheckoutPage() {
                 ))}
               </div>
 
+              {stockError && (
+                <div style={{ background:'#FEF2F2', border:'1px solid #FCA5A5', padding:'14px 16px', marginBottom:20, fontSize:13, color:'#B91C1C', lineHeight:1.6 }}>
+                  {stockError} Please return to your basket and adjust before continuing.
+                </div>
+              )}
               <button className="btn-primary" onClick={handleSubmit} disabled={loading}>
                 {loading ? 'Processing…' : `Place Order · ${formatGBP(totals.total)}`}
               </button>

@@ -1,12 +1,19 @@
 import Stripe from 'stripe'
 import { supabaseAdmin } from '@/lib/supabase'
 import { gbpToPence } from '@/lib/pricing'
+import { checkStock } from '@/lib/stock-check'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
 export async function POST(req) {
   try {
     const { items, form, totals, userId } = await req.json()
+
+    // 下单前再次校验库存，防止超卖
+    const stockCheck = await checkStock(items)
+    if (!stockCheck.ok) {
+      return Response.json({ error: stockCheck.error, unavailable: stockCheck.unavailable }, { status: 409 })
+    }
 
     const totalAmount = gbpToPence(totals.total)
     const orderDesc = items.map(i => `${i.name}${i.skuDesc ? ' · ' + i.skuDesc : ''} ×${i.qty}`).join(', ')

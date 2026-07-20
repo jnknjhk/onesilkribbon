@@ -320,17 +320,73 @@ export default function ProductsPage() {
 
   async function deleteProduct(product) {
     if (!confirm(`确定删除「${product.name}」？`)) return
-    await fetch('/api/admin/products', {
+    const res = await fetch('/api/admin/products', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'delete', product: { id: product.id } }),
     })
-    if (product.images) {
+    const data = await res.json()
+
+    if (data.softDeleted) {
+      alert(data.message)
+    } else if (product.images) {
       for (const url of product.images) {
         await fetch('/api/admin/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }).catch(() => {})
       }
     }
     if (editing) setEditing(null)
     loadProducts()
+  }
+
+  async function duplicateProduct(product) {
+    if (!confirm(`复制「${product.name}」为新产品？`)) return
+    setSaving(true)
+    try {
+      const { createClient } = await import('@supabase/supabase-js')
+      const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+      // 加载完整产品数据和 SKU
+      const { data: fullProduct } = await sb.from('products').select('*').eq('id', product.id).single()
+      const { data: fullSkus } = await sb.from('product_skus').select('*').eq('product_id', product.id)
+
+      const newSlug = `${fullProduct.slug}-copy-${Date.now().toString().slice(-4)}`
+
+      const createRes = await fetch('/api/admin/products', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create',
+          product: {
+            name: `${fullProduct.name} (Copy)`,
+            slug: newSlug,
+            description: fullProduct.description,
+            collection: fullProduct.collection,
+            is_active: false, // 复制出来的默认下架，避免误上架
+            is_featured: false,
+            sort_order: fullProduct.sort_order || 0,
+            images: fullProduct.images || [],
+            attribute_config: fullProduct.attribute_config || [],
+            specifications: fullProduct.specifications || [],
+          },
+          skus: (fullSkus || []).map(s => ({
+            attributes:  s.attributes,
+            colour_hex:  s.colour_hex,
+            price_gbp:   s.price_gbp,
+            stock_qty:   s.stock_qty,
+            is_active:   s.is_active,
+            images:      s.images || [],
+          })),
+        }),
+      })
+      const data = await createRes.json()
+      if (data.id) {
+        setMsg('已复制产品，请修改名称/图片后重新上架')
+        loadProducts()
+      } else {
+        setMsg('复制失败：' + (data.error || '未知错误'))
+      }
+    } catch (e) {
+      setMsg('复制失败：' + e.message)
+    }
+    setSaving(false)
+    setTimeout(() => setMsg(''), 4000)
   }
 
   const filtered = products.filter(p => {
@@ -766,6 +822,7 @@ export default function ProductsPage() {
                     <td style={{ padding: '10px 16px' }} onClick={e => e.stopPropagation()}>
                       <div style={{ display: 'flex', gap: 8 }}>
                         <button onClick={() => startEdit(p)} style={{ background: C.light, border: 'none', borderRadius: 4, color: C.gold, fontSize: 11, padding: '5px 12px', cursor: 'pointer' }}>编辑</button>
+                        <button onClick={() => duplicateProduct(p)} style={{ background: C.light, border: 'none', borderRadius: 4, color: C.sub, fontSize: 11, padding: '5px 12px', cursor: 'pointer' }}>复制</button>
                         <button onClick={() => deleteProduct(p)} style={{ background: C.light, border: 'none', borderRadius: 4, color: C.red, fontSize: 11, padding: '5px 12px', cursor: 'pointer' }}>删除</button>
                       </div>
                     </td>

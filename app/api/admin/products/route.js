@@ -135,6 +135,23 @@ export async function POST(req) {
       return NextResponse.json({ ok: true })
 
     } else if (action === 'delete') {
+      // 检查是否有历史订单引用此产品
+      const { count: orderItemCount } = await supabase
+        .from('order_items')
+        .select('*', { count: 'exact', head: true })
+        .eq('product_id', product.id)
+
+      if (orderItemCount && orderItemCount > 0) {
+        // 有订单记录：不物理删除，改为下架 + 停用所有 SKU，保留历史订单数据完整性
+        await supabase.from('product_skus').update({ is_active: false }).eq('product_id', product.id)
+        await supabase.from('products').update({ is_active: false }).eq('id', product.id)
+        return NextResponse.json({
+          ok: true,
+          softDeleted: true,
+          message: `该产品有 ${orderItemCount} 条历史订单记录，已改为下架而非删除，以保留订单历史数据完整性。`,
+        })
+      }
+
       await supabase.from('product_skus').delete().eq('product_id', product.id)
       await supabase.from('products').delete().eq('id', product.id)
       return NextResponse.json({ ok: true })

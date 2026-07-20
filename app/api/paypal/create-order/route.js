@@ -1,5 +1,6 @@
 import * as Sentry from '@sentry/nextjs'
 import { supabaseAdmin } from '@/lib/supabase'
+import { checkStock } from '@/lib/stock-check'
 
 const PAYPAL_BASE = process.env.PAYPAL_MODE === 'live'
   ? 'https://api-m.paypal.com'
@@ -21,6 +22,13 @@ async function getPayPalToken() {
 export async function POST(req) {
   try {
     const { items, form, totals, userId } = await req.json()
+
+    // 下单前再次校验库存，防止超卖
+    const stockCheck = await checkStock(items)
+    if (!stockCheck.ok) {
+      return Response.json({ error: stockCheck.error, unavailable: stockCheck.unavailable }, { status: 409 })
+    }
+
     const token = await getPayPalToken()
     const now = new Date()
     const datePart = String(now.getFullYear()).slice(2) + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0')

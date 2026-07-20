@@ -106,7 +106,7 @@ export default function AddressesPage() {
   useEffect(() => { load() }, [user])
 
   const load = async () => {
-    if (!user?.accessToken) return
+    if (!user) return
     const res = await fetch('/api/user/addresses', { headers })
     const data = await res.json()
     setAddresses(data.addresses || [])

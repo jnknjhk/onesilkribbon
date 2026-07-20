@@ -167,3 +167,15 @@ create policy "Public read skus" on product_skus for select using (is_active = t
 -- Orders readable by matching email (for guest tracking)
 create policy "Own orders" on orders for select using (true);
 create policy "Own order items" on order_items for select using (true);
+
+create table if not exists paypal_sessions (
+  id              uuid primary key default gen_random_uuid(),
+  order_number    text not null unique,
+  paypal_order_id text not null,
+  items           text not null,
+  form            text not null,
+  totals          text not null,
+  user_id         uuid,
+  expires_at      timestamptz not null,
+  created_at      timestamptz default now()
+);

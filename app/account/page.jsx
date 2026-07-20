@@ -44,9 +44,9 @@ export default function AccountPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!user?.accessToken) return
+    if (!user) return
     fetch('/api/user/orders', {
-      headers: { Authorization: `Bearer ${user.accessToken}` },
+      headers: { Authorization: `Bearer ${user.accessToken || ''}` },
     })
       .then(r => r.json())
       .then(data => { setOrders(data.orders || []); setLoading(false) })

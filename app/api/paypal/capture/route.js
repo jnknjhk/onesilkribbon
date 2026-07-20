@@ -48,7 +48,7 @@ export async function GET(req) {
     })
 
     const data = await capture.json()
-    console.log('Capture status:', data.status)
+
 
     if (data.status === 'COMPLETED') {
       const { data: session } = await supabaseAdmin

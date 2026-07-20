@@ -8,17 +8,26 @@ export default function Bespoke() {
 
   const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.name || !form.email) return
+    setSent('loading')
     const subject = tab === 'bespoke'
       ? `Bespoke Enquiry — ${form.name}`
       : `Wholesale Enquiry — ${form.name}${form.company ? ' / ' + form.company : ''}`
-    const body = Object.entries(form)
+    const message = Object.entries(form)
       .filter(([, v]) => v)
-      .map(([k, v]) => `${k}: ${v}`)
+      .map(([k, v]) => `${k.charAt(0).toUpperCase() + k.slice(1).replace(/_/g, ' ')}: ${v}`)
       .join('\n')
-    window.location.href = `mailto:hello@onesilkribbon.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
-    setSent(true)
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: form.name, email: form.email, subject, message }),
+      })
+      const data = await res.json()
+      if (data.success) setSent('done')
+      else setSent('error')
+    } catch { setSent('error') }
   }
 
   const bespokeSpecs = [
@@ -26,7 +35,7 @@ export default function Bespoke() {
     { label: 'Lead Time', value: '2–4 weeks depending on specification' },
     { label: 'Colour Matching', value: 'Pantone references or fabric swatches welcome' },
     { label: 'Widths Available', value: '4mm, 7mm, 10mm, 15mm, 25mm, 38mm' },
-    { label: 'Enquiries', value: 'hello@onesilkribbon.com' },
+    { label: 'Enquiries', value: 'song@onesilkribbon.com' },
   ]
 
   const wholesaleSpecs = [
@@ -34,7 +43,7 @@ export default function Bespoke() {
     { label: 'Minimum Order', value: 'From £250 per order' },
     { label: 'Pricing', value: 'Trade pricing available on request' },
     { label: 'Lead Time', value: '1–2 weeks for stock items' },
-    { label: 'Enquiries', value: 'hello@onesilkribbon.com' },
+    { label: 'Enquiries', value: 'song@onesilkribbon.com' },
   ]
 
   const specs = tab === 'bespoke' ? bespokeSpecs : wholesaleSpecs
@@ -133,18 +142,18 @@ export default function Bespoke() {
 
             <button onClick={handleSubmit} style={{
               width: '100%', height: 50,
-              background: sent ? 'var(--gold)' : 'var(--ink)',
+              background: sent === 'done' ? 'var(--gold)' : 'var(--ink)',
               color: '#fff', border: 'none',
               fontFamily: 'var(--font-body)', fontSize: 9, letterSpacing: '.3em', textTransform: 'uppercase',
               cursor: 'pointer', transition: 'background .28s',
             }}>
-              {sent ? '✓  Enquiry Ready to Send' : 'Submit Enquiry'}
+              {sent === 'loading' ? 'Sending…' : sent === 'done' ? '✓  Enquiry Sent' : 'Submit Enquiry'}
             </button>
 
-            {sent && (
+            {sent === 'done' && (
               <p style={{ fontSize: 11, color: 'var(--taupe)', marginTop: 12, lineHeight: 1.8 }}>
                 Your email client should have opened. If not, email us directly at{' '}
-                <a href="mailto:hello@onesilkribbon.com" style={{ color: 'var(--gold)' }}>hello@onesilkribbon.com</a>.
+                <a href="mailto:song@onesilkribbon.com" style={{ color: 'var(--gold)' }}>song@onesilkribbon.com</a>.
               </p>
             )}
           </div>

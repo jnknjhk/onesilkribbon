@@ -12,8 +12,8 @@ export default function ProfilePage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (!user?.accessToken) return
-    fetch('/api/user/profile', { headers: { Authorization: `Bearer ${user.accessToken}` } })
+    if (!user) return
+    fetch('/api/user/profile', { headers: { Authorization: `Bearer ${user.accessToken || ''}` } })
       .then(r => r.json())
       .then(data => {
         if (data.profile) setForm({ first_name: data.profile.first_name || '', last_name: data.profile.last_name || '', phone: data.profile.phone || '' })

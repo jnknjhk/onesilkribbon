@@ -37,9 +37,9 @@ export default function OrdersPage() {
   const [filter, setFilter] = useState('all')
 
   useEffect(() => {
-    if (!user?.accessToken) return
+    if (!user) return
     fetch('/api/user/orders', {
-      headers: { Authorization: `Bearer ${user.accessToken}` },
+      headers: { Authorization: `Bearer ${user.accessToken || ''}` },
     })
       .then(r => r.json())
       .then(data => { setOrders(data.orders || []); setLoading(false) })

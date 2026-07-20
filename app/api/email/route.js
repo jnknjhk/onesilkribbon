@@ -19,11 +19,11 @@ export async function POST(req) {
     if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 })
 
     await supabaseAdmin.from('orders').update({
-      status:          'shipped',
-      tracking_number: trackingNumber,
-      carrier:         carrier,
-      tracking_url:    trackingUrl,
-      shipped_at:      new Date().toISOString(),
+      status:           'shipped',
+      tracking_number:  trackingNumber,
+      tracking_carrier: carrier,
+      tracking_url:     trackingUrl,
+      shipped_at:       new Date().toISOString(),
     }).eq('order_number', orderNumber)
 
     await sendShippingNotification({ order, trackingNumber, carrier, trackingUrl })

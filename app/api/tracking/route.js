@@ -75,7 +75,7 @@ export async function GET(req) {
       trackingNumber: order.tracking_number,
       estimatedDelivery: tracking?.expected_delivery
         ? new Date(tracking.expected_delivery).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-        : '3–5 working days',
+        : '7–15 working days',
       events,
     })
   } catch (err) {

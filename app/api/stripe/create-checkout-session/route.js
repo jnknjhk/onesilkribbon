@@ -20,7 +20,7 @@ export async function POST(req) {
       quantity: 1,
     }]
 
-    const orderNumber = `OSR-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`
+    const orderNumber = `OSR-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}-${String(Date.now()).slice(-3)}`
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],

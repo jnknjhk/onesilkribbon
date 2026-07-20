@@ -192,9 +192,13 @@ export default function ProductClient({ initialProduct, initialSkus, slug: initi
           <div>
             <div style={{ position: 'relative', width: '100%', aspectRatio: '1/1', overflow: 'hidden', background: 'var(--sand)', cursor: 'zoom-in' }} className="main-wrap">
               {(images.length > 0) ? (
-                <img src={images[imgIdx]} alt={safe(product.name)}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transition: 'transform .8s cubic-bezier(.25,.46,.45,.94)' }}
-                  className="main-img-hover" />
+                <NextImage
+                  src={images[imgIdx]} alt={safe(product.name)} fill
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  style={{ objectFit: 'cover', transition: 'transform .8s cubic-bezier(.25,.46,.45,.94)' }}
+                  className="main-img-hover"
+                  priority={true}
+                />
               ) : (
                 <div style={{ width: '100%', height: '100%', background: 'linear-gradient(160deg,#E8DDD0,#C4A882)' }} />
               )}
@@ -217,7 +221,7 @@ export default function ProductClient({ initialProduct, initialSkus, slug: initi
                     opacity: imgIdx === i ? 1 : 0.38, transition: 'opacity .3s',
                     outline: imgIdx === i ? '2px solid var(--gold)' : 'none', outlineOffset: -2,
                   }}>
-                    <img src={img} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    <NextImage src={img} alt={`view ${i + 1}`} fill sizes="80px" style={{ objectFit: 'cover' }} loading="lazy" />
                   </button>
                 ))}
               </div>
@@ -392,10 +396,11 @@ export default function ProductClient({ initialProduct, initialSkus, slug: initi
                 The result is something you feel before you see: a quiet luxury in the hands, a weight that speaks of care, and an edge that tells the story of how it was made.
               </p>
             </div>
-            <div style={{ aspectRatio: '1/1', overflow: 'hidden' }}>
+            <div style={{ aspectRatio: '1/1', overflow: 'hidden', position: 'relative' }}>
               {images.length > 0 && (
-                <img src={images[images.length > 1 ? 1 : 0]} alt={safe(product.name)}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                <NextImage src={images[images.length > 1 ? 1 : 0]} alt={safe(product.name)}
+                  fill sizes="(max-width: 600px) 50vw, 25vw"
+                  style={{ objectFit: 'cover' }} loading="lazy" />
               )}
             </div>
           </div>

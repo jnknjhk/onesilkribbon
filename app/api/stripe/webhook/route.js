@@ -33,8 +33,15 @@ export async function POST(req) {
       if (!orderNumber) break
 
       const userId = session.metadata?.userId || null
-      // 获取真正的 payment_intent_id
       const paymentIntentId = session.payment_intent || session.id
+
+      // 幂等性检查：如果已经是 paid 状态，跳过处理
+      const { data: existingOrder } = await supabaseAdmin.from('orders')
+        .select('id, status').eq('order_number', orderNumber).single()
+      if (existingOrder?.status === 'paid' || existingOrder?.status === 'shipped') {
+        console.error('Duplicate webhook event for order:', orderNumber)
+        break
+      }
 
       await supabaseAdmin.from('orders')
         .update({

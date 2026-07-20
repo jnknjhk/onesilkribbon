@@ -36,12 +36,37 @@ export default async function CollectionPage({ params }) {
   const { slug } = params
   const meta = COLLECTION_META[slug]
 
-  const { data: products } = await supabaseServer
+  const { data: rawProducts } = await supabaseServer
     .from('products')
     .select('id, name, slug, images, collection, description')
     .eq('collection', slug)
     .eq('is_active', true)
     .order('sort_order', { ascending: true })
+
+  // Fetch SKU prices server-side to avoid N+1 on client
+  let products = rawProducts || []
+  if (products.length > 0) {
+    const productIds = products.map(p => p.id)
+    const { data: allSkus } = await supabaseServer
+      .from('product_skus')
+      .select('product_id, price_gbp, colour_hex, id, stock_qty')
+      .in('product_id', productIds)
+      .eq('is_active', true)
+      .order('price_gbp', { ascending: true })
+
+    const skuMap = {}
+    if (allSkus) {
+      allSkus.forEach(s => {
+        if (!skuMap[s.product_id]) skuMap[s.product_id] = s
+      })
+    }
+
+    products = products.map(p => ({
+      ...p,
+      lowestPrice: parseFloat(skuMap[p.id]?.price_gbp || 0),
+      firstSku: skuMap[p.id] || null,
+    }))
+  }
 
   const jsonLd = {
     '@context': 'https://schema.org',

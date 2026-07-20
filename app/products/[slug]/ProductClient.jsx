@@ -20,6 +20,7 @@ export default function ProductClient({ initialProduct, initialSkus, slug: initi
   const [product, setProduct] = useState(initialProduct || null)
   const [skus, setSkus] = useState(initialSkus || [])
   const [loading, setLoading] = useState(!initialProduct)
+  const [shippingInfo, setShippingInfo] = useState({ rate: '3.95', threshold: '45', freeEnabled: true })
   const [selectedSku, setSelectedSku] = useState(null)
   const [imgIdx, setImgIdx] = useState(0)
   const [qty, setQty] = useState(1)
@@ -51,6 +52,17 @@ export default function ProductClient({ initialProduct, initialSkus, slug: initi
     }
     load()
   }, [slug])
+
+  useEffect(() => {
+    fetch('/api/settings')
+      .then(r => r.json())
+      .then(data => setShippingInfo({
+        rate: parseFloat(data.shipping_rate || 3.95).toFixed(2),
+        threshold: parseFloat(data.free_shipping_threshold || 45).toFixed(0),
+        freeEnabled: data.free_shipping_enabled !== 'false',
+      }))
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (skus.length === 0) return
@@ -368,7 +380,7 @@ export default function ProductClient({ initialProduct, initialSkus, slug: initi
             {tab === 'shipping' && (
               <div style={{ maxWidth: 560, margin: '0 auto' }}>
                 {[
-                  { title: 'UK Delivery', items: ['Standard — 3–5 working days · Free on orders over £45', 'Express — 1–2 working days · £5.95'] },
+                  { title: 'UK Delivery', items: [shippingInfo.freeEnabled ? `Standard — 3–5 working days · Free on orders over £${shippingInfo.threshold}, otherwise £${shippingInfo.rate}` : `Standard — 3–5 working days · £${shippingInfo.rate}`, 'Express — 1–2 working days · £5.95'] },
                   { title: 'International Delivery', items: ['Europe — 7–10 working days · £8.95', 'Rest of World — 10–14 working days · £12.95'] },
                   { title: 'Packaging & Dispatch', items: ['All orders are carefully wrapped in tissue paper and sealed with our wax stamp. Dispatched within 2–3 working days, Monday to Friday.'] },
                 ].map(({ title, items }) => (

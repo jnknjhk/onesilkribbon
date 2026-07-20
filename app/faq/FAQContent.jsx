@@ -1,12 +1,13 @@
 'use client'
 import { useState } from 'react'
 
-const faqs = [
+function getFaqs(shippingRate, freeThreshold, freeEnabled) {
+  return [
   {
     category: 'Orders & Delivery',
     items: [
       { q: 'How long will my order take to arrive?', a: 'UK standard delivery takes 3–5 working days. Express (1–2 days) is available at checkout. We dispatch within 2–3 working days of your order. International delivery takes 7–14 days depending on destination.' },
-      { q: 'Do you offer free shipping?', a: 'Yes — UK standard shipping is free on all orders over £45. Below that, it is £3.50. Express shipping is £5.95.' },
+      { q: 'Do you offer free shipping?', a: freeEnabled ? `Yes — UK standard shipping is free on all orders over £${freeThreshold}. Below that, it is £${shippingRate}. Express shipping is £5.95.` : `UK standard shipping is £${shippingRate} per order. Express shipping is £5.95.` },
       { q: 'Can I track my order?', a: 'Yes. Once your order is dispatched you will receive a confirmation email with tracking information where available. You can also check your order status at /track-order.' },
       { q: 'Do you ship internationally?', a: 'Yes, we ship to Europe (£8.95) and worldwide (£12.95). Please note that international orders may be subject to import duties and taxes, which are the responsibility of the recipient.' },
     ],
@@ -56,7 +57,7 @@ function FAQItem({ q, a }) {
   )
 }
 
-export default function FAQContent() {
+export default function FAQContent({ shippingRate = '3.95', freeThreshold = '45', freeEnabled = true }) {
   return (
     <>
       <div style={{ paddingTop: 68, background: 'var(--cream)', minHeight: '100vh' }}>

@@ -1,9 +1,30 @@
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseServer = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+)
+
 export const metadata = {
   title: 'Shipping & Returns — One Silk Ribbon',
   description: 'Delivery options, timescales and returns policy for One Silk Ribbon.',
 }
 
-export default function ShippingReturns() {
+export default async function ShippingReturns() {
+  const { data: settings } = await supabaseServer
+    .from('settings')
+    .select('key, value')
+    .in('key', ['shipping_rate', 'free_shipping_threshold', 'free_shipping_enabled'])
+
+  const map = Object.fromEntries((settings || []).map(r => [r.key, r.value]))
+  const shippingRate      = parseFloat(map.shipping_rate || '3.95').toFixed(2)
+  const freeThreshold     = parseFloat(map.free_shipping_threshold || '45').toFixed(0)
+  const freeEnabled       = map.free_shipping_enabled !== 'false'
+
+  const shippingDesc = freeEnabled
+    ? `Free on orders over £${freeThreshold}, otherwise £${shippingRate}`
+    : `£${shippingRate} per order`
+
   return (
     <>
       <div style={{ paddingTop: 68, background: 'var(--cream)', minHeight: '100vh' }}>
@@ -15,7 +36,7 @@ export default function ShippingReturns() {
 
           <h2>UK Delivery</h2>
           <ul>
-            <li><strong>Standard (Royal Mail 2nd Class)</strong> — 3–5 working days · Free on orders over £45, otherwise £3.50</li>
+            <li><strong>Standard (Royal Mail 2nd Class)</strong> — 3–5 working days · {shippingDesc}</li>
             <li><strong>Express (Royal Mail 1st Class / Tracked)</strong> — 1–2 working days · £5.95</li>
           </ul>
           <p>Orders are dispatched within 2–3 working days of purchase, Monday to Friday. You will receive a dispatch confirmation email with tracking information where available.</p>
@@ -35,17 +56,17 @@ export default function ShippingReturns() {
             <li>Items must be returned in their original packaging</li>
             <li>Bespoke or custom-cut orders are non-refundable unless faulty</li>
           </ul>
-          <p>To initiate a return, please email <a href="mailto:hello@onesilkribbon.com">hello@onesilkribbon.com</a> with your order number and reason for return. We will respond within 2 working days with return instructions.</p>
+          <p>To initiate a return, please email <a href="mailto:song@onesilkribbon.com">song@onesilkribbon.com</a> with your order number and reason for return. We will respond within 2 working days with return instructions.</p>
           <p>Return postage costs are at your expense unless the item is faulty or incorrectly sent. We recommend using a tracked service as we cannot be responsible for items lost in return transit.</p>
 
           <h2>Refunds</h2>
           <p>Once your return is received and inspected, we will process your refund within <strong>5–7 working days</strong>. Refunds are issued to the original payment method. Please note that original shipping costs are non-refundable.</p>
 
           <h2>Faulty or Incorrect Items</h2>
-          <p>If you receive a faulty or incorrect item, please contact us at <a href="mailto:hello@onesilkribbon.com">hello@onesilkribbon.com</a> within 7 days of receipt. We will arrange a free return and send a replacement or issue a full refund, including postage.</p>
+          <p>If you receive a faulty or incorrect item, please contact us at <a href="mailto:song@onesilkribbon.com">song@onesilkribbon.com</a> within 7 days of receipt. We will arrange a free return and send a replacement or issue a full refund, including postage.</p>
 
           <h2>Questions?</h2>
-          <p>Email us at <a href="mailto:hello@onesilkribbon.com">hello@onesilkribbon.com</a> and we will be happy to help.</p>
+          <p>Email us at <a href="mailto:song@onesilkribbon.com">song@onesilkribbon.com</a> and we will be happy to help.</p>
         </div>
       </div>
 

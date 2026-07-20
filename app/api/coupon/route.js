@@ -8,7 +8,7 @@ const supabase = createClient(
 export async function POST(req) {
   const { code, subtotal } = await req.json()
 
-  if (!code) return Response.json({ error: '请输入优惠码' }, { status: 400 })
+  if (!code) return Response.json({ error: 'Please enter a promo code' }, { status: 400 })
 
   const { data: coupon, error } = await supabase
     .from('coupons')
@@ -17,21 +17,21 @@ export async function POST(req) {
     .eq('active', true)
     .single()
 
-  if (error || !coupon) return Response.json({ error: '优惠码无效' }, { status: 404 })
+  if (error || !coupon) return Response.json({ error: 'Invalid promo code' }, { status: 404 })
 
   // 检查有效期
   if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) {
-    return Response.json({ error: '优惠码已过期' }, { status: 400 })
+    return Response.json({ error: 'This promo code has expired' }, { status: 400 })
   }
 
   // 检查使用次数
   if (coupon.max_uses !== null && coupon.uses_count >= coupon.max_uses) {
-    return Response.json({ error: '优惠码已达使用上限' }, { status: 400 })
+    return Response.json({ error: 'This promo code has reached its usage limit' }, { status: 400 })
   }
 
   // 检查最低订单金额
   if (subtotal < coupon.min_order_gbp) {
-    return Response.json({ error: `订单满£${coupon.min_order_gbp}才可使用` }, { status: 400 })
+    return Response.json({ error: `Minimum order value of £${coupon.min_order_gbp} required` }, { status: 400 })
   }
 
   // 计算折扣

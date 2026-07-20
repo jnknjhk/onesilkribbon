@@ -1,28 +1,34 @@
-import { createClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
 import { supabaseAdmin } from '@/lib/supabase'
+import { cookies } from 'next/headers'
 
-function getToken(request) {
+async function getUser(request) {
   const auth = request.headers.get('authorization') || ''
-  if (auth.startsWith('Bearer ')) return auth.slice(7)
-  const cookie = request.headers.get('cookie') || ''
-  const match = cookie.match(/sb-access-token=([^;]+)/)
-  return match ? decodeURIComponent(match[1]) : null
-}
-
-async function getUser(token) {
-  if (!token) return null
-  const client = createClient(
+  if (auth.startsWith('Bearer ')) {
+    const token = auth.slice(7)
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
+    if (!error && user) return user
+  }
+  const cookieStore = await cookies()
+  const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll() },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
+        },
+      },
+    }
   )
-  const { data: { user }, error } = await client.auth.getUser(token)
+  const { data: { user }, error } = await supabase.auth.getUser()
   return error ? null : user
 }
 
 // GET /api/user/profile
 export async function GET(request) {
-  const token = getToken(request)
-  const user = await getUser(token)
+  const user = await getUser(request)
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: profile, error } = await supabaseAdmin
@@ -37,8 +43,7 @@ export async function GET(request) {
 
 // PATCH /api/user/profile
 export async function PATCH(request) {
-  const token = getToken(request)
-  const user = await getUser(token)
+  const user = await getUser(request)
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()

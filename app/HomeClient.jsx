@@ -388,15 +388,46 @@ function JournalSection({ posts }) {
 
 /* ═══ NEWSLETTER ═══ */
 function NewsletterSection() {
+  const [email, setEmail] = useState('')
+  const [status, setStatus] = useState('')
+  const [msg, setMsg] = useState('')
+
+  const handleSubscribe = async () => {
+    if (!email.trim() || !email.includes('@')) { setMsg('Please enter a valid email'); setStatus('error'); return }
+    setStatus('loading')
+    try {
+      const res = await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      const data = await res.json()
+      if (res.ok) { setStatus('success'); setMsg('Thank you! Please check your inbox to confirm.'); setEmail('') }
+      else { setStatus('error'); setMsg(data.error || 'Something went wrong.') }
+    } catch { setStatus('error'); setMsg('Something went wrong. Please try again.') }
+  }
+
   return (
     <section className="newsletter-section">
       <div className="newsletter-inner reveal">
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(24px, 3vw, 32px)', fontWeight: 300, marginBottom: 20 }}>Join the Atelier</h2>
         <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 40, letterSpacing: '0.05em' }}>Receive seasonal palette updates and artisan stories.</p>
-        <div className="newsletter-form">
-          <input type="email" placeholder="Email Address" style={{ background: 'none', border: 'none', color: '#fff', flex: 1, outline: 'none', fontSize: 16, minWidth: 0 }} />
-          <button style={{ background: 'none', border: 'none', color: 'var(--gold)', textTransform: 'uppercase', fontSize: 10, letterSpacing: '0.2em', whiteSpace: 'nowrap', padding: '8px 0' }}>Subscribe</button>
-        </div>
+        {status === 'success' ? (
+          <p style={{ fontSize: 13, color: 'var(--gold)', letterSpacing: '0.05em' }}>{msg}</p>
+        ) : (
+          <>
+            <div className="newsletter-form">
+              <input type="email" value={email} onChange={e => { setEmail(e.target.value); setStatus(''); setMsg('') }}
+                onKeyDown={e => e.key === 'Enter' && handleSubscribe()}
+                placeholder="Email Address" style={{ background: 'none', border: 'none', color: '#fff', flex: 1, outline: 'none', fontSize: 16, minWidth: 0 }} />
+              <button onClick={handleSubscribe} disabled={status === 'loading'}
+                style={{ background: 'none', border: 'none', color: 'var(--gold)', textTransform: 'uppercase', fontSize: 10, letterSpacing: '0.2em', whiteSpace: 'nowrap', padding: '8px 0', cursor: 'pointer' }}>
+                {status === 'loading' ? '…' : 'Subscribe'}
+              </button>
+            </div>
+            {status === 'error' && <p style={{ fontSize: 11, color: '#f87171', marginTop: 8 }}>{msg}</p>}
+          </>
+        )}
       </div>
       <style>{`
         .newsletter-section { padding: var(--section-padding-y, 100px) var(--page-padding, 60px); background: var(--deep); color: #fff; text-align: center; }

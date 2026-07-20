@@ -14,7 +14,7 @@ function StatCard({ label, value, sub, color }) {
 }
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState({ orders: 0, revenue: 0, products: 14, customers: 0, pending: 0, recentOrders: [] })
+  const [stats, setStats] = useState({ orders: 0, revenue: 0, products: 0, customers: 0, pending: 0, recentOrders: [] })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -39,8 +39,8 @@ export default function AdminDashboard() {
 
   const fmt = n => `£${Number(n).toFixed(2)}`
   const fmtDate = s => s ? new Date(s).toLocaleDateString('zh-CN') : '-'
-  const statusColor = s => ({ paid: '#4ade80', pending: '#facc15', shipped: '#60a5fa', cancelled: '#f87171' }[s] || '#888')
-  const statusLabel = s => ({ paid: '已付款', pending: '待处理', shipped: '已发货', cancelled: '已取消' }[s] || s)
+  const statusColor = s => ({ paid: '#4ade80', pending: '#facc15', shipped: '#60a5fa', cancelled: '#f87171', refunded: '#c084fc' }[s] || '#888')
+  const statusLabel = s => ({ paid: '已付款', pending: '待处理', shipped: '已发货', cancelled: '已取消', refunded: '已退款' }[s] || s)
 
   return (
     <div>

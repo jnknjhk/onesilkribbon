@@ -188,15 +188,26 @@ export default function CheckoutPage() {
     couponCode: coupon?.code || '',
   }
 
-  const handleContinue = () => {
-    // 返回详情页时重新验证优惠码
+  const [continuing, setContinuing] = useState(false)
+
+  const handleContinue = async () => {
+    if (!validate()) return
+    setContinuing(true)
+    // 重新验证优惠码，等待结果后再跳转，避免价格闪变
     if (coupon) {
-      fetch('/api/coupon', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code:coupon.code, subtotal:subtotalValue }) })
-        .then(r => r.json())
-        .then(data => { if (!data.valid) { setCoupon(null); setCouponError('Promo code is no longer valid') } })
-        .catch(() => {})
+      try {
+        const res = await fetch('/api/coupon', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code:coupon.code, subtotal:subtotalValue }) })
+        const data = await res.json()
+        if (!data.valid) {
+          setCoupon(null)
+          setCouponError('Promo code is no longer valid')
+        } else {
+          setCoupon(data) // 用最新折扣金额更新
+        }
+      } catch {}
     }
-    if (validate()) setStep('payment')
+    setContinuing(false)
+    setStep('payment')
   }
 
   const [stockError, setStockError] = useState('')
@@ -311,7 +322,7 @@ export default function CheckoutPage() {
                   </div>
                 </div>
               </div>
-              <button className="btn-primary" onClick={handleContinue}>Continue to Payment</button>
+              <button className="btn-primary" onClick={handleContinue} disabled={continuing}>{continuing ? 'Verifying…' : 'Continue to Payment'}</button>
             </>
           )}
 

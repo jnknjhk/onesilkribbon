@@ -26,21 +26,6 @@ function TrackOrderContent() {
     setLoading(false)
   }
 
-  // Sample result for demo
-  const demo = {
-    orderNumber: 'OSR-2026-0001',
-    status: 'In Transit',
-    statusStep: 3,
-    carrier: 'Royal Mail',
-    trackingNumber: 'JD000000000GB',
-    estimatedDelivery: '14 March 2026',
-    events: [
-      { date: '12 Mar 2026, 09:14', location: 'Shenzhen, CN', message: 'Shipment collected by carrier' },
-      { date: '12 Mar 2026, 23:40', location: 'Hong Kong Hub', message: 'Departed international facility' },
-      { date: '13 Mar 2026, 14:22', location: 'London Heathrow, UK', message: 'Arrived in destination country' },
-      { date: '13 Mar 2026, 18:05', location: 'Royal Mail, UK', message: 'In transit to delivery office' },
-    ],
-  }
 
   return (
     <div style={{ paddingTop: 120, minHeight: '80vh', background: 'var(--cream)' }}>
@@ -75,9 +60,8 @@ function TrackOrderContent() {
           </div>
         )}
 
-        {/* Demo result */}
-        {(result || orderNum === 'OSR-2026-0001') && (() => {
-          const d = result || demo
+        {result && (() => {
+          const d = result
           return (
             <div>
               {/* Order header */}

@@ -140,12 +140,14 @@ export default function Bespoke() {
                 style={{ width: '100%', minHeight: 100, padding: '12px 14px', background: 'var(--cream)', border: '1px solid var(--warm)', fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 300, color: 'var(--ink)', outline: 'none', resize: 'vertical' }} className="form-input" />
             </div>
 
-            <button onClick={handleSubmit} style={{
+            <button onClick={handleSubmit} disabled={sent === 'loading' || sent === 'done'} style={{
               width: '100%', height: 50,
               background: sent === 'done' ? 'var(--gold)' : 'var(--ink)',
               color: '#fff', border: 'none',
               fontFamily: 'var(--font-body)', fontSize: 9, letterSpacing: '.3em', textTransform: 'uppercase',
-              cursor: 'pointer', transition: 'background .28s',
+              cursor: (sent === 'loading' || sent === 'done') ? 'not-allowed' : 'pointer',
+              opacity: sent === 'loading' ? 0.7 : 1,
+              transition: 'background .28s',
             }}>
               {sent === 'loading' ? 'Sending…' : sent === 'done' ? '✓  Enquiry Sent' : 'Submit Enquiry'}
             </button>

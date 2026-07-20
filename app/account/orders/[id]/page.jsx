@@ -19,9 +19,9 @@ const STATUS_COLOR = {
   refunded:   { bg: '#F5F3FF', text: '#6D28D9' },
 }
 
-// 订单状态进度条步骤
-const STEPS = ['paid', 'processing', 'shipped', 'delivered']
-const STEP_LABEL = { paid: 'Payment Confirmed', processing: 'Preparing', shipped: 'Shipped', delivered: 'Delivered' }
+// 订单状态进度条步骤（与系统实际使用的状态保持一致：pending/paid/shipped）
+const STEPS = ['pending', 'paid', 'shipped']
+const STEP_LABEL = { pending: 'Order Placed', paid: 'Payment Confirmed', shipped: 'Shipped' }
 
 function OrderProgress({ status }) {
   const currentIdx = STEPS.indexOf(status)
@@ -71,9 +71,9 @@ export default function OrderDetailPage() {
   const [notFound, setNotFound] = useState(false)
 
   useEffect(() => {
-    if (!user?.accessToken || !id) return
+    if (!user || !id) return
     fetch(`/api/user/orders?id=${id}`, {
-      headers: { Authorization: `Bearer ${user.accessToken}` },
+      headers: { Authorization: `Bearer ${user.accessToken || ''}` },
     })
       .then(r => {
         if (r.status === 404) { setNotFound(true); setLoading(false); return null }

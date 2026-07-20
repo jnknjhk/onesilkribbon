@@ -69,7 +69,7 @@ export default function Contact() {
               cursor: status === 'sending' ? 'wait' : 'pointer',
               transition: 'background .28s',
             }}>
-              {status === 'sending' ? 'Opening…' : status === 'sent' ? '✓  Message Ready' : 'Send Message'}
+              {status === 'sending' ? 'Sending…' : status === 'sent' ? '✓  Message Sent' : 'Send Message'}
             </button>
             {status === 'sent' && (
               <p style={{ fontSize: 11, color: 'var(--taupe)', marginTop: 12, lineHeight: 1.8 }}>

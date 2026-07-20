@@ -402,7 +402,8 @@ function NewsletterSection() {
         body: JSON.stringify({ email }),
       })
       const data = await res.json()
-      if (res.ok) { setStatus('success'); setMsg('Thank you! Please check your inbox to confirm.'); setEmail('') }
+      if (res.ok && data.already) { setStatus('success'); setMsg("You're already subscribed — thank you!"); setEmail('') }
+      else if (res.ok) { setStatus('success'); setMsg('Thank you! Please check your inbox to confirm.'); setEmail('') }
       else { setStatus('error'); setMsg(data.error || 'Something went wrong.') }
     } catch { setStatus('error'); setMsg('Something went wrong. Please try again.') }
   }

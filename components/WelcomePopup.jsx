@@ -30,6 +30,10 @@ export default function WelcomePopup() {
       setStep('expired')
       setShow(true)
       window.history.replaceState({}, '', '/')
+    } else if (verified === 'invalid' || verified === 'error') {
+      setStep('invalid')
+      setShow(true)
+      window.history.replaceState({}, '', '/')
     }
   }, [searchParams])
 
@@ -245,6 +249,20 @@ export default function WelcomePopup() {
             <p style={{fontFamily:'var(--font-display)',fontSize:22,fontWeight:300,color:'var(--ink)',marginBottom:12}}>Link expired</p>
             <p style={{fontSize:13,color:'var(--taupe)',lineHeight:1.8,marginBottom:28}}>
               Your verification link has expired. Please subscribe again to receive a new link.
+            </p>
+            <button onClick={() => { setStep('form'); setEmail('') }} style={{
+              background:'var(--ink)',border:'none',color:'var(--cream)',
+              padding:'14px 32px',fontFamily:'var(--font-body)',
+              fontSize:11,letterSpacing:'0.2em',textTransform:'uppercase',cursor:'pointer',
+              minHeight:48,
+            }}>Try Again</button>
+          </>}
+
+          {step === 'invalid' && <>
+            <p style={{fontSize:28,marginBottom:16}}>⚠️</p>
+            <p style={{fontFamily:'var(--font-display)',fontSize:22,fontWeight:300,color:'var(--ink)',marginBottom:12}}>Something went wrong</p>
+            <p style={{fontSize:13,color:'var(--taupe)',lineHeight:1.8,marginBottom:28}}>
+              We couldn't verify this link. It may have already been used, or the link may be broken. Please subscribe again or contact us if this keeps happening.
             </p>
             <button onClick={() => { setStep('form'); setEmail('') }} style={{
               background:'var(--ink)',border:'none',color:'var(--cream)',

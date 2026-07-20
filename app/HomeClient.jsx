@@ -38,7 +38,7 @@ export default function HomeClient({ heroImages, storyImage, collectionImages, f
   return (
     <>
       <Hero heroImages={heroImages} />
-      <Marquee />
+      <Marquee freeThreshold={freeThreshold} freeEnabled={freeEnabled} />
       <Collections collectionImages={collectionImages} />
       <StorySection storyImage={storyImage} />
       <FeaturedProducts products={featuredProducts} />
@@ -145,7 +145,7 @@ function Hero({ heroImages }) {
   )
 }
 
-function Marquee() {
+function Marquee({ freeThreshold = '45', freeEnabled = true }) {
   const items = ['Fine Silk Ribbons','Hand-Frayed Collection','Handcrafted Adornments','Patterned Ribbons','Studio Tools','Vintage-Inspired','200+ Colourways', freeEnabled ? `Free UK Shipping over £${freeThreshold}` : 'Worldwide Shipping Available']
   return (
     <div style={{ background: 'var(--deep)', padding: '14px 0', overflow: 'hidden', whiteSpace: 'nowrap' }}>

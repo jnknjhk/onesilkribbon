@@ -55,11 +55,13 @@ export async function POST(req) {
 
     const url = urlData.publicUrl
 
-    // 更新数据库
+    // 更新数据库（upsert 确保即使记录不存在也能插入）
     const { error: dbError } = await supabase
       .from('site_images')
-      .update({ url, updated_at: new Date().toISOString() })
-      .eq('key', key)
+      .upsert(
+        { key, url, updated_at: new Date().toISOString() },
+        { onConflict: 'key' }
+      )
 
     if (dbError) throw dbError
 

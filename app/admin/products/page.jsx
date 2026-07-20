@@ -206,6 +206,57 @@ export default function ProductsPage() {
     attrConfig.forEach(a => { if (a.name.trim()) attrs[a.name] = '' })
     setSkus(p => [...p, { _temp_id: Date.now(), attributes: attrs, colour_hex: '#D4C5B0', price_gbp: '', stock_qty: 0, is_active: true }])
   }
+  // ── 批量调整 SKU ─────────────────────────────────────────────────────────
+  const [batchOpen, setBatchOpen] = useState(false)
+  const [batchFilter, setBatchFilter] = useState({}) // attrName -> value ('' = all)
+  const [batchField, setBatchField] = useState('price_gbp') // field to update
+  const [batchMode, setBatchMode] = useState('set') // 'set' | 'add' | 'multiply'
+  const [batchValue, setBatchValue] = useState('')
+
+  function getBatchTargets() {
+    return skus.filter(sku => {
+      return Object.entries(batchFilter).every(([attr, val]) => {
+        if (!val) return true // empty = match all
+        return (sku.attributes?.[attr] || '') === val
+      })
+    })
+  }
+
+  function applyBatch() {
+    if (!batchValue && batchValue !== '0') return
+    const val = parseFloat(batchValue)
+    if (isNaN(val)) return
+    const targets = getBatchTargets()
+    const targetIndices = new Set(targets.map(t => skus.indexOf(t)))
+    setSkus(prev => prev.map((sku, i) => {
+      if (!targetIndices.has(i)) return sku
+      let newVal
+      const current = parseFloat(sku[batchField] || 0)
+      if (batchMode === 'set')      newVal = val
+      else if (batchMode === 'add') newVal = Math.max(0, current + val)
+      else if (batchMode === 'multiply') newVal = Math.max(0, parseFloat((current * val).toFixed(2)))
+      if (batchField === 'stock_qty') newVal = Math.max(0, Math.round(newVal))
+      if (batchField === 'price_gbp') newVal = parseFloat(newVal.toFixed(2))
+      return { ...sku, [batchField]: String(newVal) }
+    }))
+    setBatchOpen(false)
+    setBatchValue('')
+    setMsg(`已批量更新 ${targets.length} 个 SKU`)
+    setTimeout(() => setMsg(''), 3000)
+  }
+
+  function applyBatchToggle(value) {
+    const targets = getBatchTargets()
+    const targetIndices = new Set(targets.map(t => skus.indexOf(t)))
+    setSkus(prev => prev.map((sku, i) => {
+      if (!targetIndices.has(i)) return sku
+      return { ...sku, is_active: value }
+    }))
+    setBatchOpen(false)
+    setMsg(`已批量${value ? '启用' : '停用'} ${targets.length} 个 SKU`)
+    setTimeout(() => setMsg(''), 3000)
+  }
+
   function updateSku(i, field, value) {
     setSkus(p => p.map((s, j) => j === i ? { ...s, [field]: value } : s))
   }
@@ -466,8 +517,98 @@ export default function ProductsPage() {
           </div>
         </Section>
 
+        {/* SKU 批量调整弹窗 */}
+        {batchOpen && (
+          <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:100, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <div style={{ background:'#fff', borderRadius:12, padding:32, width:480, maxWidth:'90vw' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+                <h3 style={{ fontSize:16, color:C.ink, fontWeight:400 }}>批量调整 SKU</h3>
+                <button onClick={() => setBatchOpen(false)} style={{ background:'none', border:'none', fontSize:20, cursor:'pointer', color:C.muted }}>×</button>
+              </div>
+
+              {/* Filter by attribute */}
+              <div style={{ marginBottom:20 }}>
+                <p style={{ fontSize:11, color:C.muted, letterSpacing:'.1em', textTransform:'uppercase', marginBottom:10 }}>筛选范围（不选 = 全部 SKU）</p>
+                {attrNames.map(attrName => {
+                  const opts = [...new Set(skus.map(s => s.attributes?.[attrName] || '').filter(Boolean))]
+                  return (
+                    <div key={attrName} style={{ marginBottom:10 }}>
+                      <label style={{ fontSize:12, color:C.sub, display:'block', marginBottom:4 }}>{attrName}</label>
+                      <select value={batchFilter[attrName] || ''} onChange={e => setBatchFilter(p => ({...p, [attrName]: e.target.value}))}
+                        style={{ ...inp, padding:'7px 10px', fontSize:12 }}>
+                        <option value="">全部</option>
+                        {opts.map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    </div>
+                  )
+                })}
+                <p style={{ fontSize:11, color:C.gold, marginTop:6 }}>
+                  已匹配 {getBatchTargets().length} 个 SKU
+                </p>
+              </div>
+
+              {/* Field + mode + value */}
+              <div style={{ marginBottom:20 }}>
+                <p style={{ fontSize:11, color:C.muted, letterSpacing:'.1em', textTransform:'uppercase', marginBottom:10 }}>调整内容</p>
+                <div style={{ display:'flex', gap:8, marginBottom:10 }}>
+                  {[['price_gbp','价格(£)'],['stock_qty','库存数量']].map(([val,label]) => (
+                    <button key={val} onClick={() => setBatchField(val)} style={{
+                      flex:1, padding:'8px', borderRadius:6, border:`1px solid ${batchField===val ? C.gold : C.border}`,
+                      background: batchField===val ? C.gold+'22' : '#fff', color: batchField===val ? C.gold : C.sub,
+                      fontSize:12, cursor:'pointer'
+                    }}>{label}</button>
+                  ))}
+                </div>
+                <div style={{ display:'flex', gap:8, marginBottom:10 }}>
+                  {[['set','设为'],['add','增加/减少'],['multiply','乘以']].map(([val,label]) => (
+                    <button key={val} onClick={() => setBatchMode(val)} style={{
+                      flex:1, padding:'7px', borderRadius:6, border:`1px solid ${batchMode===val ? C.gold : C.border}`,
+                      background: batchMode===val ? C.gold+'22' : '#fff', color: batchMode===val ? C.gold : C.sub,
+                      fontSize:11, cursor:'pointer'
+                    }}>{label}</button>
+                  ))}
+                </div>
+                <input type="number" step={batchField==='price_gbp' ? '0.01' : '1'}
+                  value={batchValue} onChange={e => setBatchValue(e.target.value)}
+                  placeholder={batchMode==='set' ? '输入新值' : batchMode==='add' ? '正数增加，负数减少' : '倍数（如 1.1 = 涨价10%）'}
+                  style={{ ...inp }} />
+              </div>
+
+              {/* Toggle active */}
+              <div style={{ marginBottom:20, paddingTop:16, borderTop:`1px solid ${C.border}` }}>
+                <p style={{ fontSize:11, color:C.muted, letterSpacing:'.1em', textTransform:'uppercase', marginBottom:10 }}>批量启用/停用</p>
+                <div style={{ display:'flex', gap:8 }}>
+                  <button onClick={() => applyBatchToggle(true)} style={{ flex:1, padding:'9px', background:C.green+'22', border:`1px solid ${C.green}`, borderRadius:6, color:C.green, fontSize:12, cursor:'pointer' }}>
+                    启用所选 SKU
+                  </button>
+                  <button onClick={() => applyBatchToggle(false)} style={{ flex:1, padding:'9px', background:C.red+'22', border:`1px solid ${C.red}`, borderRadius:6, color:C.red, fontSize:12, cursor:'pointer' }}>
+                    停用所选 SKU
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display:'flex', gap:10 }}>
+                <button onClick={() => { setBatchOpen(false); setBatchValue(''); setBatchFilter({}) }}
+                  style={{ flex:1, padding:'10px', background:'#fff', border:`1px solid ${C.border}`, borderRadius:8, fontSize:12, cursor:'pointer' }}>取消</button>
+                <button onClick={applyBatch} disabled={!batchValue}
+                  style={{ flex:2, padding:'10px', background: batchValue ? C.gold : C.border, border:'none', borderRadius:8, color:'#fff', fontSize:12, cursor: batchValue ? 'pointer' : 'not-allowed' }}>
+                  应用到 {getBatchTargets().length} 个 SKU
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* SKU 列表 */}
         <Section title="SKU / 库存" sub={`共 ${skus.length} 个 SKU。可自动生成，也可手动添加`}>
+          {skus.length > 0 && (
+            <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:12 }}>
+              <button onClick={() => { setBatchOpen(true); setBatchFilter({}); setBatchValue(''); setBatchMode('set'); setBatchField('price_gbp') }}
+                style={{ padding:'8px 18px', background:C.gold+'22', border:`1px solid ${C.gold}`, borderRadius:6, color:C.gold, fontSize:12, cursor:'pointer' }}>
+                ⚡ 批量调整价格/库存
+              </button>
+            </div>
+          )}
           {skus.length === 0 ? (
             <p style={{ color: C.muted, fontSize: 13, marginBottom: 16 }}>暂无 SKU。请先添加属性后点击"自动生成 SKU 组合"，或手动添加</p>
           ) : (

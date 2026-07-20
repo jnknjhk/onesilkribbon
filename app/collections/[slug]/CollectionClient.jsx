@@ -51,6 +51,11 @@ export default function CollectionClient({ initialProducts, slug: initialSlug })
 
   useEffect(() => {
     if (!slug) return
+    // Skip client fetch if SSR already provided products
+    if (initialProducts && initialProducts.length > 0) {
+      setLoading(false)
+      return
+    }
     async function load() {
       setLoading(true)
       try {

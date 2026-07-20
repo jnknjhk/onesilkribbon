@@ -73,7 +73,7 @@ export default function Contact() {
             </button>
             {status === 'sent' && (
               <p style={{ fontSize: 11, color: 'var(--taupe)', marginTop: 12, lineHeight: 1.8 }}>
-                Your email client should have opened with your message pre-filled. If not, email us directly at <a href="mailto:hello@onesilkribbon.com" style={{ color: 'var(--gold)' }}>hello@onesilkribbon.com</a>.
+                Your email client should have opened with your message pre-filled. If not, email us directly at <a href="mailto:song@onesilkribbon.com" style={{ color: 'var(--gold)' }}>song@onesilkribbon.com</a>.
               </p>
             )}
           </div>
@@ -81,7 +81,7 @@ export default function Contact() {
           {/* Info panel */}
           <div style={{ paddingTop: 4 }}>
             {[
-              { label: 'Email', value: 'hello@onesilkribbon.com', href: 'mailto:hello@onesilkribbon.com' },
+              { label: 'Email', value: 'song@onesilkribbon.com', href: 'mailto:song@onesilkribbon.com' },
               { label: 'Response Time', value: 'Within 2 working days' },
               { label: 'Order Enquiries', value: 'Please have your order number ready' },
               { label: 'Bespoke & Wholesale', value: 'We welcome custom and trade enquiries' },

@@ -37,7 +37,17 @@ export default function WelcomePopup() {
     if (pathname !== '/') return
     const verified = searchParams.get('verified')
     if (verified) return
-    if (localStorage.getItem(STORAGE_KEY) === 'purchased') return
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      try {
+        const data = JSON.parse(stored)
+        if (data === 'purchased' || data?.purchased) return
+        if (data?.dismissed && data?.expires && Date.now() < data.expires) return
+      } catch {
+        // legacy string value
+        if (stored === 'purchased') return
+      }
+    }
     const fromInternal = sessionStorage.getItem('osr_internal')
     if (fromInternal) return
     const timer = setTimeout(() => setShow(true), 3000)
@@ -67,7 +77,12 @@ export default function WelcomePopup() {
     return () => { document.body.style.overflow = '' }
   }, [show])
 
-  const handleClose = () => setShow(false)
+  const handleClose = () => {
+    setShow(false)
+    // Remember dismissed for 7 days
+    const expires = Date.now() + 7 * 24 * 60 * 60 * 1000
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ dismissed: true, expires }))
+  }
 
   const handleSubmit = async () => {
     if (!email.includes('@') || !email.includes('.')) {

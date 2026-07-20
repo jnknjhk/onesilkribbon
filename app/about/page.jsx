@@ -1,26 +1,25 @@
-'use client'
-import { useState, useEffect } from 'react'
+import { createClient } from '@supabase/supabase-js'
 
-export default function About() {
-  const [aboutMain, setAboutMain]   = useState(null)
-  const [aboutCraft, setAboutCraft] = useState(null)
+const supabaseServer = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+)
 
-  useEffect(() => {
-    fetch('/api/admin/site-images')
-      .then(r => r.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setAboutMain(data.find(d => d.key === 'about_main')?.url || null)
-          setAboutCraft(data.find(d => d.key === 'about_craft')?.url || null)
-        }
-      }).catch(() => {})
-  }, [])
+export const metadata = {
+  title: 'Our Story — One Silk Ribbon',
+  description: 'One Silk Ribbon began with a simple frustration: the impossibility of finding a ribbon that felt truly beautiful. Made by hand, made with intention.',
+}
+
+export default async function About() {
+  const { data: images } = await supabaseServer.from('site_images').select('key, url').in('key', ['about_main', 'about_craft'])
+  const imgMap = Object.fromEntries((images || []).map(i => [i.key, i.url]))
+  const aboutMain = imgMap['about_main'] || null
+  const aboutCraft = imgMap['about_craft'] || null
 
   return (
     <>
       <div style={{ paddingTop: 68, background: 'var(--cream)', minHeight: '100vh' }}>
 
-        {/* Hero */}
         <div style={{ borderBottom: '1px solid var(--sand)', padding: '80px 60px 72px', maxWidth: 1360, margin: '0 auto' }}>
           <p style={{ fontSize: 9, letterSpacing: '.38em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 16 }}>Our Story</p>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 56, fontWeight: 300, lineHeight: 1.08, color: 'var(--ink)', maxWidth: 640 }}>
@@ -28,12 +27,9 @@ export default function About() {
           </h1>
         </div>
 
-        {/* Section 1 — text + image */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', maxWidth: 1360, margin: '0 auto', padding: '0 60px' }} className="about-grid">
           <div style={{ padding: '80px 80px 80px 0', borderRight: '1px solid var(--sand)' }}>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 300, color: 'var(--ink)', marginBottom: 28, lineHeight: 1.2 }}>
-              Where it began
-            </h2>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 300, color: 'var(--ink)', marginBottom: 28, lineHeight: 1.2 }}>Where it began</h2>
             <p style={{ fontSize: 13, lineHeight: 2.2, color: 'var(--taupe)', marginBottom: 18 }}>
               One Silk Ribbon began with a simple frustration: the impossibility of finding a ribbon that felt truly beautiful — one that looked as considered as the gifts it was meant to adorn.
             </p>
@@ -48,24 +44,19 @@ export default function About() {
             <div style={{ aspectRatio: '4/5', overflow: 'hidden', background: 'var(--sand)' }}>
               {aboutMain
                 ? <img src={aboutMain} alt="Our Story" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(160deg, #E8DDD0 0%, #C4A882 100%)' }} />
-              }
+                : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(160deg, #E8DDD0 0%, #C4A882 100%)' }} />}
             </div>
           </div>
         </div>
 
-        {/* Section 2 — full width pull quote */}
         <div style={{ background: 'var(--sand)', borderTop: '1px solid var(--warm)', borderBottom: '1px solid var(--warm)', padding: '72px 60px', textAlign: 'center' }}>
           <p style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 300, fontStyle: 'italic', color: 'var(--ink)', maxWidth: 700, margin: '0 auto', lineHeight: 1.5 }}>
             &ldquo;We believe the ribbon is not an afterthought. It is the first thing you feel.&rdquo;
           </p>
         </div>
 
-        {/* Section 3 — values + craft image */}
         <div style={{ maxWidth: 1360, margin: '0 auto', padding: '80px 60px 100px' }}>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 300, color: 'var(--ink)', marginBottom: 56, textAlign: 'center' }}>
-            What we stand for
-          </h2>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 300, color: 'var(--ink)', marginBottom: 56, textAlign: 'center' }}>What we stand for</h2>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 48, marginBottom: aboutCraft ? 72 : 0 }} className="values-grid">
             {[
               { title: 'Craft',     body: 'Every ribbon is hand-torn or hand-finished in our studio. We work slowly, because the details are everything.' },
@@ -78,15 +69,12 @@ export default function About() {
               </div>
             ))}
           </div>
-
-          {/* 工艺展示图（有图才显示） */}
           {aboutCraft && (
             <div style={{ aspectRatio: '21/9', overflow: 'hidden', borderRadius: 2 }}>
               <img src={aboutCraft} alt="Our Craft" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
             </div>
           )}
         </div>
-
       </div>
 
       <style>{`

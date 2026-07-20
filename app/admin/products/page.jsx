@@ -81,6 +81,8 @@ export default function ProductsPage() {
         description: product.description || '',
         collection: product.collection || 'fine-silk-ribbons',
         active: product.is_active !== false,
+        featured: product.is_featured || false,
+        sort_order: product.sort_order || 0,
       })
       setImages((product.images || []).map(url => ({ url, isNew: false })))
       setAttrConfig((product.attribute_config || []).map(a => ({
@@ -232,7 +234,7 @@ export default function ProductsPage() {
           ...(editing !== 'new' ? { id: editing.id } : {}),
           name: form.name.trim(), slug: form.slug.trim(),
           description: form.description.trim(), collection: form.collection,
-          is_active: form.active, images: images.map(img => img.url),
+          is_active: form.active, is_featured: form.featured || false, sort_order: parseInt(form.sort_order) || 0, images: images.map(img => img.url),
           attribute_config: cleanConfig,
           specifications: specifications.filter(s => s.key.trim() && s.value.trim()),
         },
@@ -342,6 +344,17 @@ export default function ProductsPage() {
                   }}>{l}</button>
                 ))}
               </div>
+              <label style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer', marginTop:10 }}>
+                <input type="checkbox" checked={form.featured || false} onChange={e => setForm(p=>({...p,featured:e.target.checked}))} />
+                <span style={{ fontSize:12, color:C.sub }}>首页精选（显示在首页推荐区域）</span>
+              </label>
+            </div>
+            <div>
+              <Label>排序权重</Label>
+              <input type="number" value={form.sort_order || 0}
+                onChange={e => setForm(p=>({...p,sort_order:e.target.value}))}
+                placeholder="0" style={{ ...inp, width:'100%' }} />
+              <p style={{ fontSize:11, color:C.muted, marginTop:4 }}>数字越小越靠前，0为默认</p>
             </div>
           </div>
           <div style={{ marginTop: 16 }}>

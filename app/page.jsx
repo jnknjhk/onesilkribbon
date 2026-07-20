@@ -54,11 +54,24 @@ export default async function HomePage() {
   }
 
   // ── Featured products + SKUs（两次查询代替 N+1）──────────────────────────
-  const { data: products } = await supabaseServer
+  // Prefer featured products, fall back to any active products
+  let { data: products } = await supabaseServer
     .from('products')
     .select('id, name, slug, images, collection')
     .eq('is_active', true)
+    .eq('is_featured', true)
+    .order('sort_order', { ascending: true, nullsFirst: false })
     .limit(4)
+
+  if (!products || products.length === 0) {
+    const { data: fallback } = await supabaseServer
+      .from('products')
+      .select('id, name, slug, images, collection')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true, nullsFirst: false })
+      .limit(4)
+    products = fallback
+  }
 
   let featuredProducts = []
   if (products && products.length > 0) {

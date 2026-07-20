@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
 function StatCard({ label, value, sub, color }) {
@@ -20,12 +21,17 @@ export default function AdminDashboard() {
     async function load() {
       const { data: orders } = await supabase.from('orders').select('id, total_gbp, status, created_at, customer_email').order('created_at', { ascending: false }).limit(5)
       const { count: orderCount } = await supabase.from('orders').select('*', { count: 'exact', head: true })
-      const { count: customerCount } = await supabase.from('orders').select('customer_email', { count: 'exact', head: true })
-      const { data: revenueData } = await supabase.from('orders').select('total_gbp').eq('status', 'paid')
-      const revenue = (revenueData || []).reduce((s, o) => s + (parseFloat(o.total_gbp) || 0), 0)
+      // Unique customer count by distinct email
+      const { data: allEmailData } = await supabase.from('orders').select('customer_email')
+      const customerCount = new Set((allEmailData || []).map(o => o.customer_email).filter(Boolean)).size
+      // Revenue includes paid + shipped orders
+      const { data: revenueData } = await supabase.from('orders').select('total_gbp, status').in('status', ['paid', 'shipped', 'refunded'])
+      const revenue = (revenueData || []).reduce((s, o) => o.status !== 'refunded' ? s + (parseFloat(o.total_gbp) || 0) : s, 0)
+      // Real product count
+      const { count: productCount } = await supabase.from('products').select('*', { count: 'exact', head: true }).eq('is_active', true)
       const { data: allOrders } = await supabase.from('orders').select('status')
       const pending = (allOrders || []).filter(o => o.status === 'pending').length
-      setStats({ orders: orderCount || 0, revenue, products: 14, customers: customerCount || 0, pending, recentOrders: orders || [] })
+      setStats({ orders: orderCount || 0, revenue, products: productCount || 0, customers: customerCount || 0, pending, recentOrders: orders || [] })
       setLoading(false)
     }
     load()
@@ -45,16 +51,16 @@ export default function AdminDashboard() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 40 }}>
         <StatCard label="总订单数" value={loading ? '…' : stats.orders} sub="全部时间" />
-        <StatCard label="总收入" value={loading ? '…' : fmt(stats.revenue)} sub="已付款订单" color="#B89B6A" />
+        <StatCard label="总收入" value={loading ? '…' : fmt(stats.revenue)} sub="已付款+已发货" color="#B89B6A" />
         <StatCard label="待处理订单" value={loading ? '…' : stats.pending} sub="需要跟进" color={stats.pending > 0 ? '#facc15' : '#fff'} />
-        <StatCard label="产品数量" value={stats.products} sub="14个产品，253个SKU" />
+        <StatCard label="产品数量" value={stats.products} sub="上架中的产品" />
       </div>
 
       {/* Recent orders */}
       <div style={{ background: '#FFFFFF', border: '1px solid #E8E4DF', borderRadius: 12, overflow: 'hidden' }}>
         <div style={{ padding: '20px 24px', borderBottom: '1px solid #E8E4DF', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ color: '#1C1714', fontSize: 16, fontWeight: 400 }}>最近订单</h2>
-          <a href="/admin/orders" style={{ color: '#B89B6A', fontSize: 12, textDecoration: 'none' }}>查看全部 →</a>
+          <Link href="/admin/orders" style={{ color: '#B89B6A', fontSize: 12, textDecoration: 'none' }}>查看全部 →</Link>
         </div>
         {loading ? (
           <p style={{ color: '#A8A4A0', padding: 24, fontSize: 13 }}>加载中…</p>

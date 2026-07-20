@@ -79,6 +79,15 @@ export default async function HomePage() {
     })
   }
 
+  // ── Shipping settings for marquee ────────────────────────────────────────
+  const { data: shippingSettings } = await supabaseServer
+    .from('settings')
+    .select('key, value')
+    .in('key', ['free_shipping_threshold', 'free_shipping_enabled'])
+  const settingsMap = Object.fromEntries((shippingSettings || []).map(r => [r.key, r.value]))
+  const freeThreshold = settingsMap['free_shipping_threshold'] || '45'
+  const freeEnabled   = settingsMap['free_shipping_enabled'] !== 'false'
+
   // ── Journal posts ─────────────────────────────────────────────────────────
   const { data: journalPosts } = await supabaseServer
     .from('journal_posts')
@@ -94,6 +103,8 @@ export default async function HomePage() {
       collectionImages={collectionImages}
       featuredProducts={featuredProducts}
       journalPosts={journalPosts || []}
+      freeThreshold={freeThreshold}
+      freeEnabled={freeEnabled}
     />
   )
 }

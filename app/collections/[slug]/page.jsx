@@ -36,12 +36,21 @@ export default async function CollectionPage({ params }) {
   const { slug } = params
   const meta = COLLECTION_META[slug]
 
+  // Fetch hero image server-side (avoid admin API call from client)
+  const { data: heroImageData } = await supabaseServer
+    .from('site_images')
+    .select('url')
+    .eq('key', `hero_${slug}`)
+    .single()
+  const heroImage = heroImageData?.url || null
+
   const { data: rawProducts } = await supabaseServer
     .from('products')
     .select('id, name, slug, images, collection, description')
     .eq('collection', slug)
     .eq('is_active', true)
-    .order('sort_order', { ascending: true })
+    .order('sort_order', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: true })
 
   // Fetch SKU prices server-side to avoid N+1 on client
   let products = rawProducts || []
@@ -89,7 +98,7 @@ export default async function CollectionPage({ params }) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <CollectionClient initialProducts={products || []} slug={slug} />
+      <CollectionClient initialProducts={products || []} slug={slug} initialHeroImage={heroImage} />
     </>
   )
 }

@@ -24,30 +24,16 @@ function safeNum(val) {
   return isNaN(n) ? 0 : n
 }
 
-export default function CollectionClient({ initialProducts, slug: initialSlug }) {
+export default function CollectionClient({ initialProducts, slug: initialSlug, initialHeroImage = null }) {
   const [slug, setSlug] = useState(initialSlug || '')
   const [products, setProducts] = useState(initialProducts || [])
   const [loading, setLoading] = useState(!initialProducts)
   const [sort, setSort] = useState('default')
   const [heroVisible, setHeroVisible] = useState(false)
-  const [heroImg, setHeroImg] = useState(null)
+  const [heroImg, setHeroImg] = useState(initialHeroImage)
   const { addItem } = useCart()
 
-  useEffect(() => {
-    const t = setTimeout(() => setHeroVisible(true), 80)
-    // 从数据库读取Hero图片
-    fetch('/api/admin/site-images')
-      .then(r => r.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          const parts2 = window.location.pathname.split('/')
-          const currentSlug = parts2[parts2.length - 1] || ''
-          const row = data.find(d => d.key === `hero_${currentSlug}`)
-          if (row?.url) setHeroImg(row.url)
-        }
-      }).catch(() => {})
-    return () => clearTimeout(t)
-  }, [])
+// Hero image loaded server-side via initialHeroImage prop
 
   useEffect(() => {
     if (!slug) return

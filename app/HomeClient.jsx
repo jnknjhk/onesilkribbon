@@ -22,7 +22,7 @@ const COLLECTION_FALLBACK_BG = {
   'vintage-inspired-ribbons': 'linear-gradient(160deg,#D4B8C0,#9A7A84,#5A3A44)',
 }
 
-export default function HomeClient({ heroImages, storyImage, collectionImages, featuredProducts, journalPosts }) {
+export default function HomeClient({ heroImages, storyImage, collectionImages, featuredProducts, journalPosts, freeThreshold = '45', freeEnabled = true }) {
   useEffect(() => {
     const timer = setTimeout(() => {
       const els = document.querySelectorAll('.reveal')
@@ -146,7 +146,7 @@ function Hero({ heroImages }) {
 }
 
 function Marquee() {
-  const items = ['Fine Silk Ribbons','Hand-Frayed Collection','Handcrafted Adornments','Patterned Ribbons','Studio Tools','Vintage-Inspired','200+ Colourways','Free UK Shipping over £45']
+  const items = ['Fine Silk Ribbons','Hand-Frayed Collection','Handcrafted Adornments','Patterned Ribbons','Studio Tools','Vintage-Inspired','200+ Colourways', freeEnabled ? `Free UK Shipping over £${freeThreshold}` : 'Worldwide Shipping Available']
   return (
     <div style={{ background: 'var(--deep)', padding: '14px 0', overflow: 'hidden', whiteSpace: 'nowrap' }}>
       <div style={{ display: 'inline-flex', animation: 'marquee 24s linear infinite' }}>

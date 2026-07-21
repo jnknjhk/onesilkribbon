@@ -12,18 +12,34 @@ function formatDate(iso) {
   return new Date(iso).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
 }
 
+// 站点默认分享图（相对路径，Next.js 会用 layout.jsx 里的 metadataBase 自动拼成绝对地址）
+const DEFAULT_OG_IMAGE = '/og-image.jpg'
+
 export async function generateMetadata({ params }) {
   const { slug } = params
   const { data: post } = await supabaseServer
     .from('journal_posts').select('title, excerpt, cover_image').eq('slug', slug).single()
   if (!post) return { title: 'Journal — One Silk Ribbon' }
+
+  const image = post.cover_image || DEFAULT_OG_IMAGE
+
   return {
     title: `${post.title} — One Silk Ribbon`,
     description: post.excerpt || '',
     openGraph: {
       title: post.title,
       description: post.excerpt || '',
-      images: post.cover_image ? [post.cover_image] : [],
+      url: `https://onesilkribbon.com/journal/${slug}`,
+      siteName: 'One Silk Ribbon',
+      locale: 'en_GB',
+      type: 'article',
+      images: [image],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: post.title,
+      description: post.excerpt || '',
+      images: [image],
     },
   }
 }

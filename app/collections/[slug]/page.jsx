@@ -20,14 +20,33 @@ export async function generateMetadata({ params }) {
   const meta = COLLECTION_META[slug]
   if (!meta) return { title: 'Collection | One Silk Ribbon' }
 
+  // generateMetadata 和页面组件是两次独立执行，拿不到组件里查好的 heroImage，这里单独查一次
+  const { data: heroImageData } = await supabaseServer
+    .from('site_images')
+    .select('url')
+    .eq('key', `hero_${slug}`)
+    .single()
+  const heroImage = heroImageData?.url || null
+
+  const title = `${meta.name} | One Silk Ribbon`
+
   return {
-    title: `${meta.name} | One Silk Ribbon`,
+    title,
     description: meta.desc,
     openGraph: {
-      title: `${meta.name} | One Silk Ribbon`,
+      title,
       description: meta.desc,
       url: `https://onesilkribbon.com/collections/${slug}`,
+      siteName: 'One Silk Ribbon',
+      locale: 'en_GB',
       type: 'website',
+      images: heroImage ? [{ url: heroImage, width: 1200, height: 630, alt: meta.name }] : [],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description: meta.desc,
+      images: heroImage ? [heroImage] : [],
     },
   }
 }

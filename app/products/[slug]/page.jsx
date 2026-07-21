@@ -10,9 +10,19 @@ const supabaseServer = createClient(
 export async function generateMetadata({ params }) {
   const { slug } = params
   const { data: product } = await supabaseServer
-    .from('products').select('name, description, images, collection').eq('slug', slug).single()
+    .from('products').select('id, name, description, images, collection').eq('slug', slug).single()
 
   if (!product) return { title: 'Product Not Found' }
+
+  // 起售价——给 Facebook/Pinterest 的 product:price 标签用
+  const { data: skus } = await supabaseServer
+    .from('product_skus')
+    .select('price_gbp')
+    .eq('product_id', product.id)
+    .eq('is_active', true)
+    .order('price_gbp', { ascending: true })
+    .limit(1)
+  const minPrice = skus && skus.length > 0 ? parseFloat(skus[0].price_gbp) : null
 
   const title = `${product.name} — One Silk Ribbon`
   const description = product.description
@@ -27,8 +37,10 @@ export async function generateMetadata({ params }) {
       title,
       description,
       url: `https://onesilkribbon.com/products/${slug}`,
+      siteName: 'One Silk Ribbon',
+      locale: 'en_GB',
       images: image ? [{ url: image, width: 1200, height: 1200, alt: product.name }] : [],
-      type: 'website',
+      type: 'product',
     },
     twitter: {
       card: 'summary_large_image',
@@ -36,6 +48,14 @@ export async function generateMetadata({ params }) {
       description,
       images: image ? [image] : [],
     },
+    // Next.js 的 openGraph 类型没有内置 product:price 这类字段，只能通过 other 塞原始 meta 标签，
+    // Facebook/Pinterest 的商品富预览（价格角标）就是靠这几个标签触发的。
+    other: minPrice !== null ? {
+      'product:price:amount': minPrice.toFixed(2),
+      'product:price:currency': 'GBP',
+      'og:price:amount': minPrice.toFixed(2),
+      'og:price:currency': 'GBP',
+    } : {},
   }
 }
 

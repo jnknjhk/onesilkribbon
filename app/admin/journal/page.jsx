@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog'
 import { Pagination } from '@/components/admin/Pagination'
+import { compressImage, friendlyUploadError } from '@/lib/client/compress-image'
 
 const PAGE_SIZE = 30
 const CATEGORIES = ['Guide', 'Behind the Scenes', 'Inspiration', 'News', 'Care & Tips']
@@ -90,15 +91,17 @@ export default function JournalAdminPage() {
     const file = e.target.files?.[0]
     if (!file) return
     setUploading(true)
-    const fd = new FormData()
-    fd.append('file', file)
-    fd.append('productId', 'journal-' + Date.now())
+    let res
     try {
-      const res = await fetch('/api/admin/upload', { method: 'POST', body: fd })
+      const compressed = await compressImage(file)
+      const fd = new FormData()
+      fd.append('file', compressed)
+      fd.append('productId', 'journal-' + Date.now())
+      res = await fetch('/api/admin/upload', { method: 'POST', body: fd })
       const data = await res.json()
       if (data.url) setForm(p => ({ ...p, cover_image: data.url }))
       else setMsg('上传失败：' + (data.error || ''))
-    } catch (err) { setMsg('上传失败：' + err.message) }
+    } catch (err) { setMsg(friendlyUploadError(err, res)) }
     setUploading(false)
     if (fileRef.current) fileRef.current.value = ''
   }

@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { ConfirmDialog, InfoDialog } from '@/components/admin/ConfirmDialog'
 import { Pagination } from '@/components/admin/Pagination'
+import { compressImage, friendlyUploadError } from '@/lib/client/compress-image'
 
 const PAGE_SIZE = 30
 
@@ -48,6 +49,7 @@ export default function ProductsPage() {
   const [images, setImages] = useState([])
   const [specifications, setSpecifications] = useState([{ key: '', value: '' }])
   const [uploading, setUploading] = useState(false)
+  const [imageError, setImageError] = useState('')
   const [attrConfig, setAttrConfig] = useState([])
   const [skus, setSkus] = useState([])
   const [deletedSkuIds, setDeletedSkuIds] = useState([])
@@ -119,15 +121,18 @@ export default function ProductsPage() {
     const files = Array.from(e.target.files)
     if (!files.length) return
     setUploading(true)
+    setImageError('')
     const pid = editing === 'new' ? 'temp-' + Date.now() : editing.id
     for (const file of files) {
-      const fd = new FormData(); fd.append('file', file); fd.append('productId', pid)
+      let res
       try {
-        const res = await fetch('/api/admin/upload', { method: 'POST', body: fd })
+        const compressed = await compressImage(file)
+        const fd = new FormData(); fd.append('file', compressed); fd.append('productId', pid)
+        res = await fetch('/api/admin/upload', { method: 'POST', body: fd })
         const data = await res.json()
         if (data.url) setImages(p => [...p, { url: data.url, isNew: true }])
-        else setMsg('上传失败：' + (data.error || ''))
-      } catch (err) { setMsg('上传失败：' + err.message) }
+        else setImageError('上传失败：' + (data.error || ''))
+      } catch (err) { setImageError(friendlyUploadError(err, res)) }
     }
     setUploading(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
@@ -539,6 +544,7 @@ export default function ProductsPage() {
             </button>
             <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleImageUpload} style={{ display: 'none' }} />
           </div>
+          {imageError && <p style={{ color: C.red, fontSize: 12, marginTop: -8, marginBottom: 8 }}>{imageError}</p>}
         </Section>
 
         {/* 属性配置 */}
@@ -898,21 +904,26 @@ function SmallBtn({ onClick, disabled, danger, children }) {
 /* ── SKU 图片上传组件 ── */
 function SkuImageUpload({ images, productId, onChange }) {
   const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState('')
 
   async function handleUpload(e) {
     const files = Array.from(e.target.files)
     if (!files.length || !productId || productId === 'new') return
     setUploading(true)
+    setError('')
     const newImgs = [...(images || [])]
     for (const file of files) {
-      const fd = new FormData()
-      fd.append('file', file)
-      fd.append('productId', productId)
+      let res
       try {
-        const res = await fetch('/api/admin/upload', { method: 'POST', body: fd })
+        const compressed = await compressImage(file)
+        const fd = new FormData()
+        fd.append('file', compressed)
+        fd.append('productId', productId)
+        res = await fetch('/api/admin/upload', { method: 'POST', body: fd })
         const data = await res.json()
         if (data.url) newImgs.push(data.url)
-      } catch {}
+        else setError(data.error || '上传失败')
+      } catch (err) { setError(friendlyUploadError(err, res)) }
     }
     onChange(newImgs)
     setUploading(false)
@@ -948,6 +959,7 @@ function SkuImageUpload({ images, productId, onChange }) {
       {(!productId || productId === 'new') && (
         <span style={{ fontSize: 10, color: '#C8B8A8' }}>先保存商品</span>
       )}
+      {error && <span style={{ fontSize: 10, color: '#ef4444', width: '100%' }}>{error}</span>}
     </div>
   )
 }
@@ -955,19 +967,24 @@ function SkuImageUpload({ images, productId, onChange }) {
 /* ── 属性选项图片上传组件 ── */
 function AttrOptionImage({ image, productId, onChange }) {
   const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState('')
 
   async function handleUpload(e) {
     const file = e.target.files?.[0]
     if (!file || !productId || productId === 'new') return
     setUploading(true)
-    const fd = new FormData()
-    fd.append('file', file)
-    fd.append('productId', productId)
+    setError('')
+    let res
     try {
-      const res = await fetch('/api/admin/upload', { method: 'POST', body: fd })
+      const compressed = await compressImage(file)
+      const fd = new FormData()
+      fd.append('file', compressed)
+      fd.append('productId', productId)
+      res = await fetch('/api/admin/upload', { method: 'POST', body: fd })
       const data = await res.json()
       if (data.url) onChange(data.url)
-    } catch {}
+      else setError(data.error || '上传失败')
+    } catch (err) { setError(friendlyUploadError(err, res)) }
     setUploading(false)
     e.target.value = ''
   }
@@ -993,12 +1010,12 @@ function AttrOptionImage({ image, productId, onChange }) {
 
   return (
     <label style={{
-      width: 36, height: 36, border: '1px dashed #C8C0B8', borderRadius: 3, flexShrink: 0,
+      width: 36, height: 36, border: `1px dashed ${error ? '#ef4444' : '#C8C0B8'}`, borderRadius: 3, flexShrink: 0,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       cursor: uploading || !productId || productId === 'new' ? 'default' : 'pointer',
       color: '#9A8878', fontSize: 16,
-    }} title={!productId || productId === 'new' ? '先保存商品再上传图片' : '上传此选项的图片'}>
-      {uploading ? '…' : '🖼'}
+    }} title={error || (!productId || productId === 'new' ? '先保存商品再上传图片' : '上传此选项的图片')}>
+      {uploading ? '…' : error ? '⚠' : '🖼'}
       <input type="file" accept="image/*" onChange={handleUpload} style={{ display: 'none' }}
         disabled={uploading || !productId || productId === 'new'} />
     </label>

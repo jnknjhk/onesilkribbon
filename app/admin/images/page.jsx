@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog'
+import { compressImage, friendlyUploadError } from '@/lib/client/compress-image'
 
 const C = {
   bg: '#F5F3F0', card: '#FFFFFF', border: '#E8E4DF',
@@ -95,11 +96,13 @@ export default function ImagesPage() {
   async function handleUpload(key, file) {
     if (!file) return
     setUploading(u => ({ ...u, [key]: true }))
+    let res
     try {
+      const compressed = await compressImage(file, { maxDimension: 2400 })
       const fd = new FormData()
-      fd.append('file', file)
+      fd.append('file', compressed)
       fd.append('key', key)
-      const res  = await fetch('/api/admin/site-images', { method: 'POST', body: fd })
+      res  = await fetch('/api/admin/site-images', { method: 'POST', body: fd })
       const data = await res.json()
       if (data.url) {
         setImages(prev => ({ ...prev, [key]: data.url }))
@@ -107,8 +110,8 @@ export default function ImagesPage() {
       } else {
         showToast(data.error || '上传失败', false)
       }
-    } catch {
-      showToast('上传失败', false)
+    } catch (err) {
+      showToast(friendlyUploadError(err, res), false)
     }
     setUploading(u => ({ ...u, [key]: false }))
   }

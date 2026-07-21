@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import NextImage from 'next/image'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
 import { useCart } from '@/lib/cart'
 
 function safe(val) {
@@ -14,12 +13,10 @@ function safe(val) {
 function safeNum(val) { const n = parseFloat(val); return isNaN(n) ? 0 : n }
 function fmt(amount) { return '£' + safeNum(amount).toFixed(2) }
 
-export default function ProductClient({ initialProduct, initialSkus, slug: initialSlug }) {
+export default function ProductClient({ initialProduct, initialSkus, slug }) {
   const router = useRouter()
-  const [slug, setSlug] = useState(initialSlug || '')
-  const [product, setProduct] = useState(initialProduct || null)
-  const [skus, setSkus] = useState(initialSkus || [])
-  const [loading, setLoading] = useState(!initialProduct)
+  const product = initialProduct || null
+  const skus = initialSkus || []
   const [shippingInfo, setShippingInfo] = useState({ rate: '3.95', threshold: '45', freeEnabled: true })
   const [selectedSku, setSelectedSku] = useState(null)
   const [imgIdx, setImgIdx] = useState(0)
@@ -32,26 +29,28 @@ export default function ProductClient({ initialProduct, initialSkus, slug: initi
   const [lastChangedAttr, setLastChangedAttr] = useState(null)
   const { addItem } = useCart()
 
+  // 切换到不同商品（slug 变化）时重置选择状态，不重新请求数据——SSR 已经把数据备好了
   useEffect(() => {
-    if (!slug) return
-    // 始终从客户端重新 fetch 完整数据（包含 attribute_config）
-    async function load() {
-      setLoading(true)
-      try {
-        const { data: prod } = await supabase.from('products').select('*').eq('slug', slug).single()
-        if (!prod) { setLoading(false); return }
-        const { data: skuData } = await supabase.from('product_skus').select('*').eq('product_id', prod.id).order('price_gbp', { ascending: true })
-        setProduct(prod)
-        const list = skuData || []
-        setSkus(list)
-        // 不预选任何属性，让用户主动选择
-        setSelectedAttrs({})
-        setSelectedSku(null)
-      } catch (e) { console.error(e) }
-      setLoading(false)
-    }
-    load()
+    setSelectedAttrs({})
+    setSelectedSku(null)
+    setImgIdx(0)
+    setQty(1)
   }, [slug])
+
+  // 无 attribute_config 时，按颜色/宽度自动预选默认项（放在 effect 里，避免渲染期间 setState）
+  useEffect(() => {
+    if (!product) return
+    const attrConfig = product.attribute_config || []
+    if (attrConfig.length > 0) return
+    if (skus.length === 0) return
+    if (Object.keys(selectedAttrs).length > 0) return
+    const colours = [...new Set(skus.map(s => safe(s.colour)).filter(Boolean))]
+    const widths = [...new Set(skus.map(s => s.width_mm).filter(Boolean))]
+    const init = {}
+    if (colours.length > 1) init['Colour'] = colours[0]
+    if (widths.length > 1) init['Width'] = `${widths[0]}mm`
+    if (Object.keys(init).length > 0) setSelectedAttrs(init)
+  }, [product, skus, selectedAttrs])
 
   useEffect(() => {
     fetch('/api/settings')
@@ -72,12 +71,6 @@ export default function ProductClient({ initialProduct, initialSkus, slug: initi
     })
     if (match) setSelectedSku(match)
   }, [selectedAttrs, skus])
-
-  if (loading) return (
-    <div style={{ minHeight: '100vh', background: 'var(--cream)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <p style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontStyle: 'italic', color: 'var(--taupe)' }}>Loading…</p>
-    </div>
-  )
 
   if (!product) return (
     <div style={{ minHeight: '100vh', background: 'var(--cream)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 32 }}>
@@ -127,12 +120,6 @@ export default function ProductClient({ initialProduct, initialSkus, slug: initi
     const widths = [...new Set(skus.map(s => s.width_mm).filter(Boolean))]
     if (colours.length > 1) attributeOptions.push({ name: 'Colour', options: colours })
     if (widths.length > 1) attributeOptions.push({ name: 'Width', options: widths.map(w => `${w}mm`) })
-    if (Object.keys(selectedAttrs).length === 0 && skus.length > 0) {
-      const init = {}
-      if (colours.length > 1) init['Colour'] = colours[0]
-      if (widths.length > 1) init['Width'] = `${widths[0]}mm`
-      if (Object.keys(init).length > 0) setSelectedAttrs(init)
-    }
   }
 
   const handleAttrChange = (attrName, value) => {
@@ -172,10 +159,7 @@ export default function ProductClient({ initialProduct, initialSkus, slug: initi
     if (!item) return
     setBuyingNow(true)
     addItem(item)
-    // 短暂延迟确保 cart state 更新后再跳转
-    setTimeout(() => {
-      router.push('/checkout')
-    }, 100)
+    router.push('/checkout')
   }
 
   const navImg = (d) => setImgIdx(i => (i + d + images.length) % images.length)
@@ -206,7 +190,7 @@ export default function ProductClient({ initialProduct, initialSkus, slug: initi
               {(images.length > 0) ? (
                 <NextImage
                   src={images[imgIdx]} alt={safe(product.name)} fill
-                  sizes="(max-width: 768px) 100vw, 50vw"
+                  sizes="(max-width: 960px) 100vw, 50vw"
                   style={{ objectFit: 'cover', transition: 'transform .8s cubic-bezier(.25,.46,.45,.94)' }}
                   className="main-img-hover"
                   priority={true}
@@ -215,8 +199,8 @@ export default function ProductClient({ initialProduct, initialSkus, slug: initi
                 <div style={{ width: '100%', height: '100%', background: 'linear-gradient(160deg,#E8DDD0,#C4A882)' }} />
               )}
               {images.length > 1 && <>
-                <button onClick={() => navImg(-1)} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 36, height: 36, background: 'rgba(247,243,238,0.88)', backdropFilter: 'blur(6px)', border: 'none', color: 'var(--ink)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>‹</button>
-                <button onClick={() => navImg(1)} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', width: 36, height: 36, background: 'rgba(247,243,238,0.88)', backdropFilter: 'blur(6px)', border: 'none', color: 'var(--ink)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>›</button>
+                <button onClick={() => navImg(-1)} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 44, height: 44, background: 'rgba(247,243,238,0.88)', backdropFilter: 'blur(6px)', border: 'none', color: 'var(--ink)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>‹</button>
+                <button onClick={() => navImg(1)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 44, height: 44, background: 'rgba(247,243,238,0.88)', backdropFilter: 'blur(6px)', border: 'none', color: 'var(--ink)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>›</button>
               </>}
               {images.length > 1 && (
                 <div style={{ position: 'absolute', bottom: 14, right: 14, background: 'rgba(247,243,238,0.88)', backdropFilter: 'blur(6px)', padding: '4px 11px', fontSize: 9, letterSpacing: '.14em', color: 'var(--taupe)' }}>
@@ -225,7 +209,7 @@ export default function ProductClient({ initialProduct, initialSkus, slug: initi
               )}
             </div>
             {images.length > 1 && (
-              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <div style={{ display: 'flex', gap: 8, marginTop: 12, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                 {images.slice(0, 8).map((img, i) => (
                   <button key={i} onClick={() => setImgIdx(i)} style={{
                     width: 60, height: 60, flexShrink: 0, padding: 0, border: 'none',

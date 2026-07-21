@@ -6,7 +6,7 @@ function StatCard({ label, value, sub, color }) {
   return (
     <div style={{ background: '#FFFFFF', border: '1px solid #E8E4DF', borderRadius: 12, padding: '24px 28px' }}>
       <p style={{ color: '#A8A4A0', fontSize: 11, letterSpacing: '.15em', textTransform: 'uppercase', marginBottom: 12 }}>{label}</p>
-      <p style={{ color: color || '#fff', fontSize: 32, fontWeight: 300, marginBottom: 4 }}>{value}</p>
+      <p style={{ color: color || '#1C1714', fontSize: 32, fontWeight: 300, marginBottom: 4 }}>{value}</p>
       {sub && <p style={{ color: '#8A8480', fontSize: 12 }}>{sub}</p>}
     </div>
   )
@@ -50,7 +50,7 @@ export default function AdminDashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 40 }}>
         <StatCard label="总订单数" value={loading ? '…' : stats.orders} sub="全部时间" />
         <StatCard label="总收入" value={loading ? '…' : fmt(stats.revenue)} sub="已付款+已发货" color="#B89B6A" />
-        <StatCard label="待处理订单" value={loading ? '…' : stats.pending} sub="需要跟进" color={stats.pending > 0 ? '#facc15' : '#fff'} />
+        <StatCard label="待处理订单" value={loading ? '…' : stats.pending} sub="需要跟进" color={stats.pending > 0 ? '#facc15' : '#1C1714'} />
         <StatCard label="产品数量" value={stats.products} sub="上架中的产品" />
       </div>
 

@@ -1,6 +1,6 @@
 import { cache } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { permanentRedirect } from 'next/navigation'
+import { permanentRedirect, notFound } from 'next/navigation'
 import ProductClient from './ProductClient'
 
 const supabaseServer = createClient(
@@ -67,9 +67,13 @@ export default async function ProductPage({ params }) {
   const { slug, productSlug } = params
   const product = await getProduct(productSlug)
 
+  // 商品不存在——之前这里不管 product 是不是 null 都照样往下渲染，只是 ProductClient
+  // 里显示一个"Product not found"的样子，HTTP 状态码还是 200，不是真的 404
+  if (!product) notFound()
+
   // URL 里的系列 slug 和商品实际所属系列对不上（后台改了商品分类、或者有人手改了 URL），
   // 301 到按商品真实 collection 算出来的正确 URL，而不是直接 404 或者忍受重复内容
-  if (product && product.collection !== slug) {
+  if (product.collection !== slug) {
     permanentRedirect(`/collections/${product.collection}/${productSlug}`)
   }
 

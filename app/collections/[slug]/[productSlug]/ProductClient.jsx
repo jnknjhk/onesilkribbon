@@ -13,10 +13,11 @@ function safe(val) {
 function safeNum(val) { const n = parseFloat(val); return isNaN(n) ? 0 : n }
 function fmt(amount) { return '£' + safeNum(amount).toFixed(2) }
 
-export default function ProductClient({ initialProduct, initialSkus, slug }) {
+export default function ProductClient({ initialProduct, initialSkus, slug, related }) {
   const router = useRouter()
   const product = initialProduct || null
   const skus = initialSkus || []
+  const relatedProducts = related || []
   const [shippingInfo, setShippingInfo] = useState({ rate: '3.95', threshold: '45', freeEnabled: true })
   const [selectedSku, setSelectedSku] = useState(null)
   const [imgIdx, setImgIdx] = useState(0)
@@ -302,6 +303,13 @@ export default function ProductClient({ initialProduct, initialSkus, slug }) {
             }}>
               {buyingNow ? 'Redirecting…' : !hasSelected ? 'Please Select Options' : 'Buy Now'}
             </button>
+
+            {/* Trust badges */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 28, marginTop: 24, flexWrap: 'wrap' }}>
+              {['🔒 Secure Checkout', '↩ 30-Day Returns', '📦 Dispatched in 2–3 Days'].map(t => (
+                <span key={t} style={{ fontSize: 10, color: 'var(--taupe)', letterSpacing: '0.06em' }}>{t}</span>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -401,6 +409,33 @@ export default function ProductClient({ initialProduct, initialSkus, slug }) {
             </div>
           </div>
         </div>
+
+        {/* More from this collection — 只在同系列真的还有别的商品时才渲染，避免空占位 */}
+        {relatedProducts.length > 0 && (
+          <div style={{ borderTop: '1px solid var(--sand)', padding: '80px 60px 100px' }} className="related-pad">
+            <div style={{ maxWidth: 1360, margin: '0 auto' }}>
+              <p style={{ fontSize: 9, letterSpacing: '.38em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 12, textAlign: 'center' }}>
+                {collectionName}
+              </p>
+              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 300, color: 'var(--ink)', textAlign: 'center', marginBottom: 48 }}>
+                More from this Collection
+              </h2>
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(relatedProducts.length, 4)}, 1fr)`, gap: 32 }} className="related-grid">
+                {relatedProducts.map(p => (
+                  <Link key={p.id} href={`/collections/${collectionSlug}/${p.slug}`} style={{ textDecoration: 'none' }}>
+                    <div style={{ aspectRatio: '1/1', background: 'var(--sand)', marginBottom: 14, overflow: 'hidden', position: 'relative' }}>
+                      {Array.isArray(p.images) && p.images[0] && (
+                        <NextImage src={p.images[0]} alt={safe(p.name)} fill sizes="(max-width: 768px) 50vw, 25vw" style={{ objectFit: 'cover' }} loading="lazy" />
+                      )}
+                    </div>
+                    <p style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 400, color: 'var(--ink)', marginBottom: 4 }}>{safe(p.name)}</p>
+                    <p style={{ fontSize: 12, color: 'var(--taupe)' }}>{p.price > 0 ? fmt(p.price) : ''}</p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <style>{`
@@ -411,6 +446,8 @@ export default function ProductClient({ initialProduct, initialSkus, slug }) {
           .story-grid { grid-template-columns: 1fr !important; gap: 48px !important; padding: 60px 24px !important; }
           .bc-pad { padding-left: 24px !important; padding-right: 24px !important; }
           .zone2-pad { padding-left: 24px !important; padding-right: 24px !important; }
+          .related-pad { padding-left: 24px !important; padding-right: 24px !important; }
+          .related-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 20px !important; }
         }
         .first-section-title { margin-top: 0 !important; }
       `}</style>

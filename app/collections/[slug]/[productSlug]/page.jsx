@@ -81,6 +81,34 @@ export default async function ProductPage({ params }) {
     ? await supabaseServer.from('product_skus').select('*').eq('product_id', product.id).order('price_gbp', { ascending: true })
     : { data: [] }
 
+  // 同系列其他商品，给底部"More from this collection"用——只在真的有其他商品时才查/传，
+  // 页面侧再判断一次是否为空来决定要不要渲染整个区块
+  const { data: relatedRaw } = await supabaseServer
+    .from('products')
+    .select('id, name, slug, images')
+    .eq('collection', product.collection)
+    .eq('is_active', true)
+    .neq('id', product.id)
+    .order('sort_order', { ascending: true, nullsFirst: false })
+    .limit(4)
+
+  let related = []
+  if (relatedRaw && relatedRaw.length > 0) {
+    const relatedIds = relatedRaw.map(p => p.id)
+    const { data: relatedSkus } = await supabaseServer
+      .from('product_skus')
+      .select('product_id, price_gbp')
+      .in('product_id', relatedIds)
+      .eq('is_active', true)
+      .order('price_gbp', { ascending: true })
+
+    const priceMap = {}
+    for (const s of (relatedSkus || [])) {
+      if (!(s.product_id in priceMap)) priceMap[s.product_id] = s.price_gbp
+    }
+    related = relatedRaw.map(p => ({ ...p, price: priceMap[p.id] || 0 }))
+  }
+
   // Product Structured Data (JSON-LD)
   const minPrice = skus && skus.length > 0
     ? Math.min(...skus.map(s => parseFloat(s.price_gbp) || 0))
@@ -142,7 +170,7 @@ export default async function ProductPage({ params }) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       )}
-      <ProductClient initialProduct={product} initialSkus={skus || []} slug={productSlug} />
+      <ProductClient initialProduct={product} initialSkus={skus || []} slug={productSlug} related={related} />
     </>
   )
 }

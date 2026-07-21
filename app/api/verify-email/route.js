@@ -2,7 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { redirect } from 'next/navigation'
 
 const RESEND_API = 'https://api.resend.com/emails'
-const FROM       = 'One Silk Ribbon <song@onesilkribbon.com>'
+const FROM       = `One Silk Ribbon <${process.env.EMAIL_FROM || 'song@onesilkribbon.com'}>`
 
 const styles = `
   body{margin:0;padding:0;background:#F7F3EE;font-family:'Georgia',serif}

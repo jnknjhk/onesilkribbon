@@ -1,7 +1,7 @@
 import Link from 'next/link'
 
 export const metadata = {
-  title: 'Page Not Found — One Silk Ribbon',
+  title: 'Page Not Found',
 }
 
 export default function NotFound() {

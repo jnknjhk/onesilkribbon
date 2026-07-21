@@ -7,8 +7,9 @@ const supabaseServer = createClient(
 )
 
 export const metadata = {
-  title: 'FAQ — One Silk Ribbon',
+  title: 'FAQ',
   description: 'Answers to common questions about orders, delivery, products, and care.',
+  alternates: { canonical: '/faq' },
 }
 
 export default async function FAQPage() {

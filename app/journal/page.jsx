@@ -7,8 +7,9 @@ const supabaseServer = createClient(
 )
 
 export const metadata = {
-  title: 'Journal — One Silk Ribbon',
+  title: 'Journal',
   description: 'Stories, guides and inspiration from the One Silk Ribbon atelier.',
+  alternates: { canonical: '/journal' },
 }
 
 function formatDate(iso) {

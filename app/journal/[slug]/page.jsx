@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -15,17 +16,25 @@ function formatDate(iso) {
 // 站点默认分享图（相对路径，Next.js 会用 layout.jsx 里的 metadataBase 自动拼成绝对地址）
 const DEFAULT_OG_IMAGE = '/og-image.jpg'
 
+// generateMetadata 和页面组件共用同一条查询（也顺便让未发布的文章不会在 metadata 里提前泄露标题）
+const getPost = cache(async (slug) => {
+  const { data } = await supabaseServer
+    .from('journal_posts').select('*').eq('slug', slug).eq('is_published', true).single()
+  return data
+})
+
 export async function generateMetadata({ params }) {
   const { slug } = params
-  const { data: post } = await supabaseServer
-    .from('journal_posts').select('title, excerpt, cover_image').eq('slug', slug).single()
-  if (!post) return { title: 'Journal — One Silk Ribbon' }
+  const post = await getPost(slug)
+  if (!post) return { title: 'Journal' }
 
   const image = post.cover_image || DEFAULT_OG_IMAGE
 
   return {
-    title: `${post.title} — One Silk Ribbon`,
+    // 根布局的 title.template 会自动拼上 "| One Silk Ribbon"，这里不用再带一遍
+    title: post.title,
     description: post.excerpt || '',
+    alternates: { canonical: `/journal/${slug}` },
     openGraph: {
       title: post.title,
       description: post.excerpt || '',
@@ -46,8 +55,7 @@ export async function generateMetadata({ params }) {
 
 export default async function JournalPost({ params }) {
   const { slug } = params
-  const { data: post } = await supabaseServer
-    .from('journal_posts').select('*').eq('slug', slug).eq('is_published', true).single()
+  const post = await getPost(slug)
 
   if (!post) notFound()
 

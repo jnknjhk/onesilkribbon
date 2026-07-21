@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/nextjs'
 import { supabaseAdmin } from '@/lib/supabase'
 import { computeAuthoritativeOrder } from '@/lib/order-pricing'
+import { getAuthUser } from '@/lib/get-auth-user'
 
 const PAYPAL_BASE = process.env.PAYPAL_MODE === 'live'
   ? 'https://api-m.paypal.com'
@@ -21,7 +22,10 @@ async function getPayPalToken() {
 
 export async function POST(req) {
   try {
-    const { items, form, coupon, userId } = await req.json()
+    const { items, form, coupon } = await req.json()
+    // userId 绝不信任客户端传的值，从 token/cookie 里解析出真正登录的用户
+    const authUser = await getAuthUser(req)
+    const userId = authUser?.id || null
 
     // 服务端重新核算价格与库存，绝不信任客户端传来的 totals/price
     const priced = await computeAuthoritativeOrder({ items, couponCode: coupon?.code })

@@ -1,6 +1,7 @@
 export const metadata = {
-  title: 'Cookie Policy — One Silk Ribbon',
+  title: 'Cookie Policy',
   description: 'How One Silk Ribbon uses cookies on its website.',
+  alternates: { canonical: '/cookies' },
 }
 
 export default function CookiePolicy() {

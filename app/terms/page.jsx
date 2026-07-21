@@ -1,6 +1,7 @@
 export const metadata = {
-  title: 'Terms & Conditions — One Silk Ribbon',
+  title: 'Terms & Conditions',
   description: 'Terms and conditions for purchasing from One Silk Ribbon.',
+  alternates: { canonical: '/terms' },
 }
 
 export default function Terms() {

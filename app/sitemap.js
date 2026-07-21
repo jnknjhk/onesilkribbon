@@ -1,9 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-)
+import { supabaseAdmin } from '@/lib/supabase'
 
 export default async function sitemap() {
   const baseUrl = 'https://onesilkribbon.com'
@@ -34,7 +29,7 @@ export default async function sitemap() {
   }))
 
   // Product pages
-  const { data: products } = await supabase
+  const { data: products } = await supabaseAdmin
     .from('products')
     .select('slug, updated_at')
     .eq('is_active', true)
@@ -46,11 +41,12 @@ export default async function sitemap() {
     priority: 0.8,
   }))
 
-  // Journal/blog pages
-  const { data: posts } = await supabase
+  // Journal/blog pages — 字段是 is_published，不是 published（之前打错字段名，
+  // 查询会报错、悄悄退化成空数组，导致 Journal 文章从未真正进过 sitemap）
+  const { data: posts } = await supabaseAdmin
     .from('journal_posts')
     .select('slug, updated_at')
-    .eq('published', true)
+    .eq('is_published', true)
 
   const journalPages = (posts || []).map(p => ({
     url: `${baseUrl}/journal/${p.slug}`,

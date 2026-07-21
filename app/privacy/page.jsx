@@ -1,6 +1,7 @@
 export const metadata = {
-  title: 'Privacy Policy — One Silk Ribbon',
+  title: 'Privacy Policy',
   description: 'How One Silk Ribbon collects, uses and protects your personal data.',
+  alternates: { canonical: '/privacy' },
 }
 
 export default function PrivacyPolicy() {

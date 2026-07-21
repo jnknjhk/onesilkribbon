@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
 
 const RESEND_API = 'https://api.resend.com/emails'
-const FROM       = 'One Silk Ribbon <song@onesilkribbon.com>'
+const FROM       = `One Silk Ribbon <${process.env.EMAIL_FROM || 'song@onesilkribbon.com'}>`
 
 // 拦截明显假域名
 const BLOCKED_DOMAINS = ['test.com','fake.com','example.com','mailinator.com','guerrillamail.com','tempmail.com','throwaway.email','yopmail.com','sharklasers.com','trashmail.com']

@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import ProductClient from './ProductClient'
 
@@ -6,15 +7,25 @@ const supabaseServer = createClient(
   process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 )
 
+// generateMetadata 和页面组件是两次独立执行，用 React cache() 包一层——
+// 同一次请求内两边都调用时，实际只会真正打一次数据库
+const getProduct = cache(async (slug) => {
+  const { data } = await supabaseServer.from('products').select('*').eq('slug', slug).single()
+  return data
+})
+
 // ── 动态 Metadata ─────────────────────────────────────────────────────────────
 export async function generateMetadata({ params }) {
   const { slug } = params
-  const { data: product } = await supabaseServer
-    .from('products').select('name, description, images, collection').eq('slug', slug).single()
+  const product = await getProduct(slug)
 
   if (!product) return { title: 'Product Not Found' }
 
-  const title = `${product.name} — One Silk Ribbon`
+  // 根布局的 title.template 会自动在 <title> 后面拼上 "| One Silk Ribbon"，
+  // 这里给 <title> 用的是不带品牌后缀的短标题；openGraph/twitter 不走 template，
+  // 单独给一个带完整品牌的版本，社交平台分享卡片上才不会显得没头没尾。
+  const title = product.name
+  const socialTitle = `${product.name} — One Silk Ribbon`
   const description = product.description
     ? product.description.replace(/<[^>]+>/g, '').slice(0, 160)
     : `Handcrafted 100% mulberry silk ribbon. Shop ${product.name} at One Silk Ribbon.`
@@ -23,8 +34,9 @@ export async function generateMetadata({ params }) {
   return {
     title,
     description,
+    alternates: { canonical: `/products/${slug}` },
     openGraph: {
-      title,
+      title: socialTitle,
       description,
       url: `https://onesilkribbon.com/products/${slug}`,
       siteName: 'One Silk Ribbon',
@@ -37,7 +49,7 @@ export async function generateMetadata({ params }) {
     },
     twitter: {
       card: 'summary_large_image',
-      title,
+      title: socialTitle,
       description,
       images: image ? [image] : [],
     },
@@ -47,8 +59,7 @@ export async function generateMetadata({ params }) {
 // ── 服务端渲染：预取产品数据 ───────────────────────────────────────────────────
 export default async function ProductPage({ params }) {
   const { slug } = params
-  const { data: product } = await supabaseServer
-    .from('products').select('*').eq('slug', slug).single()
+  const product = await getProduct(slug)
 
   const { data: skus } = product
     ? await supabaseServer.from('product_skus').select('*').eq('product_id', product.id).order('price_gbp', { ascending: true })

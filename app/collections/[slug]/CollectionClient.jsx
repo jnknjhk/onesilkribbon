@@ -27,7 +27,7 @@ function safeNum(val) {
 export default function CollectionClient({ initialProducts, slug: initialSlug, initialHeroImage = null }) {
   const [slug, setSlug] = useState(initialSlug || '')
   const [products, setProducts] = useState(initialProducts || [])
-  const [loading, setLoading] = useState(!initialProducts)
+  const [loading, setLoading] = useState(initialProducts === undefined)
   const [sort, setSort] = useState('default')
   const [heroVisible, setHeroVisible] = useState(false)
   const [heroImg, setHeroImg] = useState(initialHeroImage)
@@ -37,8 +37,9 @@ export default function CollectionClient({ initialProducts, slug: initialSlug, i
 
   useEffect(() => {
     if (!slug) return
-    // Skip client fetch if SSR already provided products
-    if (initialProducts && initialProducts.length > 0) {
+    // Skip client fetch if SSR already provided products — checking the prop was passed at all,
+    // not its length, so a genuinely empty collection doesn't trigger a pointless refetch
+    if (initialProducts !== undefined) {
       setLoading(false)
       return
     }

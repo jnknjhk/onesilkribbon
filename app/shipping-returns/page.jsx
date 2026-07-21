@@ -6,8 +6,9 @@ const supabaseServer = createClient(
 )
 
 export const metadata = {
-  title: 'Shipping & Returns — One Silk Ribbon',
+  title: 'Shipping & Returns',
   description: 'Delivery options, timescales and returns policy for One Silk Ribbon.',
+  alternates: { canonical: '/shipping-returns' },
 }
 
 export default async function ShippingReturns() {

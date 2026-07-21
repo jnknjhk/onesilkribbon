@@ -225,7 +225,9 @@ function CheckoutContent() {
   const handlePayPalPayment = async () => {
     setLoading(true); setStockError('')
     try {
-      const res = await fetch('/api/paypal/create-order', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ items, form, totals, coupon, userId: user?.id || null }) })
+      const headers = { 'Content-Type':'application/json' }
+      if (user?.accessToken) headers.Authorization = `Bearer ${user.accessToken}`
+      const res = await fetch('/api/paypal/create-order', { method:'POST', headers, body: JSON.stringify({ items, form, totals, coupon }) })
       if (res.status === 409) {
         const data = await res.json()
         setStockError(data.error || 'Some items are no longer available.')
@@ -241,7 +243,9 @@ function CheckoutContent() {
   const handleStripePayment = async () => {
     setLoading(true); setStockError('')
     try {
-      const res = await fetch('/api/stripe/create-checkout-session', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ items, form, totals, coupon, userId: user?.id || null }) })
+      const headers = { 'Content-Type':'application/json' }
+      if (user?.accessToken) headers.Authorization = `Bearer ${user.accessToken}`
+      const res = await fetch('/api/stripe/create-checkout-session', { method:'POST', headers, body: JSON.stringify({ items, form, totals, coupon }) })
       if (res.status === 409) {
         const data = await res.json()
         setStockError(data.error || 'Some items are no longer available.')

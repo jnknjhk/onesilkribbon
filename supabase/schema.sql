@@ -197,3 +197,45 @@ create table if not exists paypal_sessions (
   expires_at      timestamptz not null,
   created_at      timestamptz default now()
 );
+
+-- paypal_sessions 之前完全没开 RLS——存的是完整客户表单（姓名/地址/电话/邮箱）+ 商品明细，
+-- 任何人凭公开 anon key 都能直接读写整张表。这里补上，读写都只走 supabaseAdmin（service role），
+-- 不需要放行任何匿名/管理员策略。
+alter table paypal_sessions enable row level security;
+
+-- ── 其余几张表：settings / coupons / user_profiles / journal_posts / site_images /
+--    subscribers / tracking_events ────────────────────────────────────────
+-- 这几张表不在本文件的 create table 语句里（是后台手动建的，schema.sql 没跟上），
+-- 但都已经在线上库存在。审计过全部代码后确认：这些表的所有正常读写路径
+-- （下单流程、后台管理、session 校验、订阅确认）现在都已经改成走 supabaseAdmin
+-- （service role，天然绕过 RLS），不存在任何合法的匿名读写场景，所以直接锁到只放行后台管理员。
+alter table settings         enable row level security;
+alter table coupons          enable row level security;
+alter table user_profiles    enable row level security;
+alter table journal_posts    enable row level security;
+alter table site_images      enable row level security;
+alter table subscribers      enable row level security;
+alter table tracking_events  enable row level security;
+
+drop policy if exists "Admin manage settings"        on settings;
+drop policy if exists "Admin manage coupons"          on coupons;
+drop policy if exists "Admin manage user_profiles"    on user_profiles;
+drop policy if exists "Admin manage journal_posts"    on journal_posts;
+drop policy if exists "Admin manage site_images"      on site_images;
+drop policy if exists "Admin manage subscribers"      on subscribers;
+drop policy if exists "Admin manage tracking_events"  on tracking_events;
+
+create policy "Admin manage settings" on settings
+  for all using (is_admin_user()) with check (is_admin_user());
+create policy "Admin manage coupons" on coupons
+  for all using (is_admin_user()) with check (is_admin_user());
+create policy "Admin manage user_profiles" on user_profiles
+  for all using (is_admin_user()) with check (is_admin_user());
+create policy "Admin manage journal_posts" on journal_posts
+  for all using (is_admin_user()) with check (is_admin_user());
+create policy "Admin manage site_images" on site_images
+  for all using (is_admin_user()) with check (is_admin_user());
+create policy "Admin manage subscribers" on subscribers
+  for all using (is_admin_user()) with check (is_admin_user());
+create policy "Admin manage tracking_events" on tracking_events
+  for all using (is_admin_user()) with check (is_admin_user());

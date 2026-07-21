@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import CollectionClient from './CollectionClient'
 
@@ -15,26 +16,29 @@ const supabaseServer = createClient(
   process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 )
 
+// generateMetadata 和页面组件都要用同一张 hero 图，用 cache() 包一层避免同一次请求打两次库
+const getHeroImage = cache(async (slug) => {
+  const { data } = await supabaseServer.from('site_images').select('url').eq('key', `hero_${slug}`).single()
+  return data?.url || null
+})
+
 export async function generateMetadata({ params }) {
   const { slug } = params
   const meta = COLLECTION_META[slug]
-  if (!meta) return { title: 'Collection | One Silk Ribbon' }
+  if (!meta) return { title: 'Collection' }
 
-  // generateMetadata 和页面组件是两次独立执行，拿不到组件里查好的 heroImage，这里单独查一次
-  const { data: heroImageData } = await supabaseServer
-    .from('site_images')
-    .select('url')
-    .eq('key', `hero_${slug}`)
-    .single()
-  const heroImage = heroImageData?.url || null
-
-  const title = `${meta.name} | One Silk Ribbon`
+  const heroImage = await getHeroImage(slug)
+  // 根布局的 title.template 会自动拼上 "| One Silk Ribbon"，<title> 用短标题；
+  // openGraph/twitter 不走 template，单独给带完整品牌的版本
+  const title = meta.name
+  const socialTitle = `${meta.name} | One Silk Ribbon`
 
   return {
     title,
     description: meta.desc,
+    alternates: { canonical: `/collections/${slug}` },
     openGraph: {
-      title,
+      title: socialTitle,
       description: meta.desc,
       url: `https://onesilkribbon.com/collections/${slug}`,
       siteName: 'One Silk Ribbon',
@@ -44,7 +48,7 @@ export async function generateMetadata({ params }) {
     },
     twitter: {
       card: 'summary_large_image',
-      title,
+      title: socialTitle,
       description: meta.desc,
       images: heroImage ? [heroImage] : [],
     },
@@ -55,13 +59,7 @@ export default async function CollectionPage({ params }) {
   const { slug } = params
   const meta = COLLECTION_META[slug]
 
-  // Fetch hero image server-side (avoid admin API call from client)
-  const { data: heroImageData } = await supabaseServer
-    .from('site_images')
-    .select('url')
-    .eq('key', `hero_${slug}`)
-    .single()
-  const heroImage = heroImageData?.url || null
+  const heroImage = await getHeroImage(slug)
 
   const { data: rawProducts } = await supabaseServer
     .from('products')

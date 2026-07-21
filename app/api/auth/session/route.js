@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
@@ -52,8 +53,10 @@ export async function GET(request) {
       return NextResponse.json({ user: null })
     }
 
-    // 同时拉取 profile 补充信息
-    const { data: profile } = await supabase
+    // 同时拉取 profile 补充信息——注意 supabase.auth.getUser(token) 只是校验了 token，
+    // 并不会让后续 .from() 查询带上这个用户的身份（anon client 不会自动 setSession），
+    // 所以这里必须用 service role 查，不能指望 user_profiles 的 RLS 替它做权限校验。
+    const { data: profile } = await supabaseAdmin
       .from('user_profiles')
       .select('first_name, last_name, avatar_url')
       .eq('id', user.id)

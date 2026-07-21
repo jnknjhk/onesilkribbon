@@ -1,6 +1,5 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
 
 const C = {
   bg: '#F5F3F0', white: '#FFFFFF', border: '#E8E4DF',
@@ -70,8 +69,11 @@ export default function MarketingPage() {
 
   // ── 优惠码 ───────────────────────────────────────────────
   async function loadCoupons() {
-    const { data } = await supabase.from('coupons').select('*').order('created_at', { ascending: false })
-    setCoupons(data || [])
+    try {
+      const res = await fetch('/api/admin/coupons')
+      const data = await res.json()
+      setCoupons(data.coupons || [])
+    } catch { setCoupons([]) }
     setLoading(false)
   }
 
@@ -88,31 +90,36 @@ export default function MarketingPage() {
       expires_at: form.expires_at || null,
       active: form.active,
     }
-    let error
-    if (editing) {
-      ({ error } = await supabase.from('coupons').update(payload).eq('id', editing))
-    } else {
-      ({ error } = await supabase.from('coupons').insert(payload))
-    }
+    const res = await fetch('/api/admin/coupons', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(editing ? { action: 'update', id: editing, payload } : { action: 'create', payload }),
+    })
+    const data = await res.json()
     setSaving(false)
-    if (!error) {
+    if (data.success) {
       setMsg(editing ? '已更新 ✓' : '已创建 ✓')
       setForm(EMPTY); setEditing(null); setShowForm(false)
       loadCoupons()
       setTimeout(() => setMsg(''), 3000)
     } else {
-      setMsg('错误：' + (error.message.includes('unique') ? '优惠码已存在' : error.message))
+      setMsg('错误：' + ((data.error || '').includes('unique') ? '优惠码已存在' : data.error))
     }
   }
 
   async function toggleActive(id, active) {
-    await supabase.from('coupons').update({ active: !active }).eq('id', id)
+    await fetch('/api/admin/coupons', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, active: !active }),
+    })
     loadCoupons()
   }
 
   async function deleteCoupon(id) {
     if (!confirm('确定删除这个优惠码？')) return
-    await supabase.from('coupons').delete().eq('id', id)
+    await fetch('/api/admin/coupons', {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
     loadCoupons()
   }
 

@@ -2,12 +2,17 @@ import Stripe from 'stripe'
 import { supabaseAdmin } from '@/lib/supabase'
 import { gbpToPence } from '@/lib/pricing'
 import { computeAuthoritativeOrder } from '@/lib/order-pricing'
+import { getAuthUser } from '@/lib/get-auth-user'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
 export async function POST(req) {
   try {
-    const { items, form, coupon, userId } = await req.json()
+    const { items, form, coupon } = await req.json()
+    // userId 绝不信任客户端传的值——否则任何人都能把订单挂到别人账号下。
+    // 从请求本身的 token/cookie 里解析出真正登录的用户，没登录就是 null（访客下单）。
+    const authUser = await getAuthUser(req)
+    const userId = authUser?.id || null
 
     // 服务端重新核算价格与库存，绝不信任客户端传来的 totals/price
     const priced = await computeAuthoritativeOrder({ items, couponCode: coupon?.code })

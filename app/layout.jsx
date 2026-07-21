@@ -45,6 +45,7 @@ export const metadata = {
   },
   description: 'Handcrafted 100% pure mulberry silk ribbons. Six collections, 200+ colourways. Ethically made, shipped across the UK and Europe.',
   keywords: ['silk ribbon', 'mulberry silk', 'hand frayed ribbon', 'wedding ribbon', 'silk ribbon UK'],
+  alternates: { canonical: '/' },
   openGraph: {
     title: 'One Silk Ribbon',
     description: 'Handcrafted 100% pure mulberry silk ribbons.',

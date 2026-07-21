@@ -6,8 +6,9 @@ const supabaseServer = createClient(
 )
 
 export const metadata = {
-  title: 'Our Story — One Silk Ribbon',
+  title: 'Our Story',
   description: 'One Silk Ribbon began with a simple frustration: the impossibility of finding a ribbon that felt truly beautiful. Made by hand, made with intention.',
+  alternates: { canonical: '/about' },
 }
 
 export default async function About() {

@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { useCart } from '@/lib/cart'
 
 const COLLECTION_META = {
   'fine-silk-ribbons':        { name: 'Fine Silk Ribbons',        desc: 'Our signature ultra-fine 100% mulberry silk ribbons, in widths from 2mm to 10mm and 30 hand-selected colourways.', bg: 'linear-gradient(135deg,#D4C5B0,#9A8878)' },
@@ -31,7 +30,6 @@ export default function CollectionClient({ initialProducts, slug: initialSlug, i
   const [sort, setSort] = useState('default')
   const [heroVisible, setHeroVisible] = useState(false)
   const [heroImg, setHeroImg] = useState(initialHeroImage)
-  const { addItem } = useCart()
 
 // Hero image loaded server-side via initialHeroImage prop
 
@@ -190,27 +188,7 @@ export default function CollectionClient({ initialProducts, slug: initialSlug, i
         ) : (
           <div className="prod-grid">
             {sorted.map((p) => (
-              <ProductCard
-                key={safe(p.id)}
-                product={p}
-                onAdd={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  if (p.firstSku) {
-                    addItem({
-                      skuId:     safe(p.firstSku.id),
-                      productId: safe(p.id),
-                      name:      safe(p.name),
-                      skuDesc:   safe(p.firstSku.colour),
-                      colour:    safe(p.firstSku.colour),
-                      colourHex: safe(p.firstSku.colour_hex),
-                      price:     safeNum(p.firstSku.price_gbp),
-                      qty:       1,
-                      image:     Array.isArray(p.images) ? (p.images[0] || null) : null,
-                    })
-                  }
-                }}
-              />
+              <ProductCard key={safe(p.id)} product={p} />
             ))}
           </div>
         )}
@@ -251,7 +229,7 @@ export default function CollectionClient({ initialProducts, slug: initialSlug, i
   )
 }
 
-function ProductCard({ product: p, onAdd }) {
+function ProductCard({ product: p }) {
   const [hovered, setHovered] = useState(false)
   const img   = Array.isArray(p.images) ? p.images[0] : null
   const price = safeNum(p.lowestPrice)
@@ -298,22 +276,6 @@ function ProductCard({ product: p, onAdd }) {
             transition: 'opacity 0.6s ease',
             pointerEvents: 'none',
           }} />
-
-          {/* Add to Basket */}
-          <button onClick={onAdd} style={{
-            position: 'absolute', bottom: 0, left: 0, right: 0,
-            background: 'rgba(28,23,20,0.88)',
-            backdropFilter: 'blur(4px)',
-            color: '#F7F3EE', border: 'none',
-            padding: '15px 0', fontSize: 10,
-            letterSpacing: '0.28em', textTransform: 'uppercase',
-            cursor: 'pointer', minHeight: 46,
-            opacity: hovered ? 1 : 0,
-            transform: hovered ? 'translateY(0)' : 'translateY(6px)',
-            transition: 'opacity 0.4s ease, transform 0.4s ease',
-          }}>
-            Add to Basket
-          </button>
         </div>
 
         {/* 文字 */}

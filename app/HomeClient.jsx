@@ -274,7 +274,7 @@ function FeaturedProducts({ products }) {
       </div>
       <div className="featured-grid">
         {products.map(p => (
-          <Link key={p.id} href={`/products/${p.slug}`} style={{ textDecoration: 'none' }} className="prod-card reveal">
+          <Link key={p.id} href={`/collections/${p.collection}/${p.slug}`} style={{ textDecoration: 'none' }} className="prod-card reveal">
             <div style={{ aspectRatio: '1/1', background: 'var(--sand)', marginBottom: 16, overflow: 'hidden', position: 'relative' }}>
               {p.images?.[0] && (
                 <Image

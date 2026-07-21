@@ -70,9 +70,9 @@ export function Navbar() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const handleSearchClick = (slug) => {
+  const handleSearchClick = (collection, slug) => {
     setSearchOpen(false)
-    router.push(`/products/${slug}`)
+    router.push(`/collections/${collection}/${slug}`)
   }
 
   const handleSignOut = async () => {
@@ -260,7 +260,7 @@ export function Navbar() {
                 {searchResults.map(p => {
                   const img = Array.isArray(p.images) ? p.images[0] : null
                   return (
-                    <button key={p.id} onClick={() => handleSearchClick(p.slug)} className="search-result-item">
+                    <button key={p.id} onClick={() => handleSearchClick(p.collection, p.slug)} className="search-result-item">
                       <div className="search-result-img">
                         {img ? <img src={img} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : null}
                       </div>

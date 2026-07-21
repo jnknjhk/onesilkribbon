@@ -31,11 +31,11 @@ export default async function sitemap() {
   // Product pages
   const { data: products } = await supabaseAdmin
     .from('products')
-    .select('slug, updated_at')
+    .select('slug, collection, updated_at')
     .eq('is_active', true)
 
   const productPages = (products || []).map(p => ({
-    url: `${baseUrl}/products/${p.slug}`,
+    url: `${baseUrl}/collections/${p.collection}/${p.slug}`,
     lastModified: p.updated_at ? new Date(p.updated_at) : new Date(),
     changeFrequency: 'weekly',
     priority: 0.8,

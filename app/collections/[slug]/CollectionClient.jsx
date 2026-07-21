@@ -260,7 +260,7 @@ function ProductCard({ product: p, onAdd }) {
 
   return (
     <Link
-      href={`/products/${slug}`}
+      href={`/collections/${safe(p.collection)}/${slug}`}
       style={{ textDecoration: 'none', display: 'block' }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}

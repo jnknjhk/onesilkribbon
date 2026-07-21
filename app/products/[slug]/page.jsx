@@ -10,19 +10,9 @@ const supabaseServer = createClient(
 export async function generateMetadata({ params }) {
   const { slug } = params
   const { data: product } = await supabaseServer
-    .from('products').select('id, name, description, images, collection').eq('slug', slug).single()
+    .from('products').select('name, description, images, collection').eq('slug', slug).single()
 
   if (!product) return { title: 'Product Not Found' }
-
-  // 起售价——给 Facebook/Pinterest 的 product:price 标签用
-  const { data: skus } = await supabaseServer
-    .from('product_skus')
-    .select('price_gbp')
-    .eq('product_id', product.id)
-    .eq('is_active', true)
-    .order('price_gbp', { ascending: true })
-    .limit(1)
-  const minPrice = skus && skus.length > 0 ? parseFloat(skus[0].price_gbp) : null
 
   const title = `${product.name} — One Silk Ribbon`
   const description = product.description
@@ -40,7 +30,10 @@ export async function generateMetadata({ params }) {
       siteName: 'One Silk Ribbon',
       locale: 'en_GB',
       images: image ? [{ url: image, width: 1200, height: 1200, alt: product.name }] : [],
-      type: 'product',
+      // 注意：Next.js 的 openGraph.type 只接受一个固定枚举（website/article/book/profile/...），
+      // 'product' 不在其中，写进这里会在请求时直接抛异常（Invalid OpenGraph type）。
+      // og:type=product 和 product:price:* 这几个标签改在下面页面组件里用 <meta property=.../> 手写，
+      // 因为 Metadata API 的 other 字段只会渲染成 <meta name=...>，Facebook 官方爬虫按 og 规范只认 property。
     },
     twitter: {
       card: 'summary_large_image',
@@ -48,14 +41,6 @@ export async function generateMetadata({ params }) {
       description,
       images: image ? [image] : [],
     },
-    // Next.js 的 openGraph 类型没有内置 product:price 这类字段，只能通过 other 塞原始 meta 标签，
-    // Facebook/Pinterest 的商品富预览（价格角标）就是靠这几个标签触发的。
-    other: minPrice !== null ? {
-      'product:price:amount': minPrice.toFixed(2),
-      'product:price:currency': 'GBP',
-      'og:price:amount': minPrice.toFixed(2),
-      'og:price:currency': 'GBP',
-    } : {},
   }
 }
 
@@ -78,6 +63,7 @@ export default async function ProductPage({ params }) {
     : 0
   const inStock = skus && skus.some(s => (s.stock_qty || 0) > 0)
   const image = product && Array.isArray(product.images) ? product.images[0] : null
+  const hasPrice = skus && skus.length > 0
 
   const jsonLd = product ? {
     '@context': 'https://schema.org',
@@ -110,6 +96,19 @@ export default async function ProductPage({ params }) {
 
   return (
     <>
+      {product && (
+        <>
+          {/* generateMetadata 里的 openGraph.type 不能设成 'product'（Next.js 会校验报错），
+              这几个标签只能在这里手写 property=，Facebook/Pinterest 的商品富预览靠它们触发 */}
+          <meta property="og:type" content="product" />
+          {hasPrice && <>
+            <meta property="product:price:amount" content={minPrice.toFixed(2)} />
+            <meta property="product:price:currency" content="GBP" />
+            <meta property="og:price:amount" content={minPrice.toFixed(2)} />
+            <meta property="og:price:currency" content="GBP" />
+          </>}
+        </>
+      )}
       {jsonLd && (
         <script
           type="application/ld+json"

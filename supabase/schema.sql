@@ -164,9 +164,27 @@ alter table customers enable row level security;
 create policy "Public read products" on products for select using (is_active = true);
 create policy "Public read skus" on product_skus for select using (is_active = true);
 
--- Orders readable by matching email (for guest tracking)
-create policy "Own orders" on orders for select using (true);
-create policy "Own order items" on order_items for select using (true);
+-- ── orders / order_items 访问控制 ─────────────────────────────────────────
+-- 之前的 "using (true)" 策略会让任何持有公开 anon key 的人读出全表订单
+-- （客户姓名/地址/电话/邮箱），必须收紧。
+--
+-- 业务上所有正常读写路径都不依赖这里的策略：
+--   · 结账下单 / Webhook / 客服操作都用 supabaseAdmin（service role，天然绕过 RLS）
+--   · 客户端"我的订单"/物流查询都是服务端 API 校验完 auth token 后用 service role 查询
+-- 这里的策略只用来兜底：把 orders/order_items 的匿名公开可读堵死，只放行后台管理员。
+-- 如需增加管理员邮箱，请同步更新这里和 .env 中的 ADMIN_EMAILS。
+create or replace function is_admin_user()
+returns boolean as $$
+  select coalesce(auth.jwt() ->> 'email', '') = any (array['jnknjhk@gmail.com'])
+$$ language sql stable;
+
+drop policy if exists "Own orders" on orders;
+drop policy if exists "Own order items" on order_items;
+
+create policy "Admin manage orders" on orders
+  for all using (is_admin_user()) with check (is_admin_user());
+create policy "Admin manage order items" on order_items
+  for all using (is_admin_user()) with check (is_admin_user());
 
 create table if not exists paypal_sessions (
   id              uuid primary key default gen_random_uuid(),

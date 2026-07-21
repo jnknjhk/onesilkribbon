@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/nextjs'
 import { supabaseAdmin } from '@/lib/supabase'
-import { checkStock } from '@/lib/stock-check'
+import { computeAuthoritativeOrder } from '@/lib/order-pricing'
 
 const PAYPAL_BASE = process.env.PAYPAL_MODE === 'live'
   ? 'https://api-m.paypal.com'
@@ -21,13 +21,14 @@ async function getPayPalToken() {
 
 export async function POST(req) {
   try {
-    const { items, form, totals, userId } = await req.json()
+    const { items, form, coupon, userId } = await req.json()
 
-    // 下单前再次校验库存，防止超卖
-    const stockCheck = await checkStock(items)
-    if (!stockCheck.ok) {
-      return Response.json({ error: stockCheck.error, unavailable: stockCheck.unavailable }, { status: 409 })
+    // 服务端重新核算价格与库存，绝不信任客户端传来的 totals/price
+    const priced = await computeAuthoritativeOrder({ items, couponCode: coupon?.code })
+    if (!priced.ok) {
+      return Response.json({ error: priced.error, unavailable: priced.unavailable }, { status: 409 })
     }
+    const { lineItems: orderLineItems, totals } = priced
 
     const token = await getPayPalToken()
     const now = new Date()
@@ -35,10 +36,10 @@ export async function POST(req) {
     const randPart = String(Math.floor(1000 + Math.random() * 9000))
     const orderNumber = `OSR-${datePart}-${randPart}`
 
-    const itemsTotal     = items.reduce((sum, i) => sum + (parseFloat(i.price) * i.qty), 0)
+    const itemsTotal     = orderLineItems.reduce((sum, i) => sum + i.price * i.qty, 0)
     const discountAmount = parseFloat(totals.discount) || 0
     const shippingAmount = parseFloat(totals.shipping) || 0
-    const grandTotal     = parseFloat((itemsTotal - discountAmount + shippingAmount).toFixed(2))
+    const grandTotal     = parseFloat(totals.total)
 
     const paypalOrder = await fetch(`${PAYPAL_BASE}/v2/checkout/orders`, {
       method: 'POST',
@@ -60,7 +61,7 @@ export async function POST(req) {
               discount:   { currency_code: 'GBP', value: discountAmount.toFixed(2) },
             },
           },
-          items: items.map(i => ({
+          items: orderLineItems.map(i => ({
             name: i.name,
             description: i.skuDesc || '',
             quantity: String(i.qty),
@@ -93,11 +94,11 @@ export async function POST(req) {
       return Response.json({ error: 'PayPal did not return approval URL', details: ppData }, { status: 500 })
     }
 
-    // 存临时 session，支付成功后才创建正式订单
+    // 存临时 session（服务端权威价格），支付成功后才创建正式订单
     await supabaseAdmin.from('paypal_sessions').insert({
       order_number:    orderNumber,
       paypal_order_id: ppData.id,
-      items:           JSON.stringify(items),
+      items:           JSON.stringify(orderLineItems),
       form:            JSON.stringify(form),
       totals:          JSON.stringify({
         subtotal:    itemsTotal.toFixed(2),

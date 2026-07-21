@@ -1,10 +1,18 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useCart } from '@/lib/cart'
 import { useAuth } from '@/lib/auth'
 import { formatGBP, calculateTotals } from '@/lib/pricing'
+
+const PAYMENT_ERROR_MESSAGES = {
+  not_completed: 'Your PayPal payment was not completed. You have not been charged — please try again.',
+  session_missing: 'We could not find your order session. If you were charged, please contact us with your PayPal receipt.',
+  order_save_failed: 'Your payment may have gone through, but we could not save your order. Please contact us before trying again.',
+  exception: 'Something went wrong while confirming your PayPal payment. Please try again or contact us.',
+  missing_params: 'We could not confirm your PayPal payment. Please try again.',
+}
 
 // ─── Country Data ────────────────────────────────────────────────────────────
 const COUNTRIES = [
@@ -47,8 +55,10 @@ function Field({ id, label, type='text', half=false, autoComplete, value, error,
   )
 }
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const paymentError = searchParams.get('payment_error')
   const { items, getSubtotal, clearCart } = useCart()
   const { user } = useAuth()
   const subtotalValue = getSubtotal ? getSubtotal() : 0
@@ -257,6 +267,11 @@ export default function CheckoutPage() {
 
         {/* Left */}
         <div>
+          {paymentError && (
+            <div style={{ background:'#FEF2F2', border:'1px solid #FCA5A5', padding:'14px 16px', marginBottom:24, fontSize:13, color:'#B91C1C', lineHeight:1.6 }}>
+              {PAYMENT_ERROR_MESSAGES[paymentError] || PAYMENT_ERROR_MESSAGES.exception}
+            </div>
+          )}
           <div style={{ display:'flex', gap:32, marginBottom:48, borderBottom:'1px solid var(--sand)', paddingBottom:24 }}>
             {[['details','1. Your Details'],['payment','2. Payment']].map(([id, label]) => (
               <span key={id} onClick={() => { if (step==='payment' && id==='details') setStep('details') }}
@@ -438,6 +453,14 @@ export default function CheckoutPage() {
         .cart-badge { position:absolute; top:-6px; right:-6px; background:var(--deep); color:#fff; width:18px; height:18px; border-radius:50%; font-size:10px; display:flex; align-items:center; justify-content:center; z-index:1; }
       `}</style>
     </div>
+  )
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={<div style={{ paddingTop:160, textAlign:'center', minHeight:'70vh' }} />}>
+      <CheckoutContent />
+    </Suspense>
   )
 }
 

@@ -1,22 +1,23 @@
 import Stripe from 'stripe'
 import { supabaseAdmin } from '@/lib/supabase'
 import { gbpToPence } from '@/lib/pricing'
-import { checkStock } from '@/lib/stock-check'
+import { computeAuthoritativeOrder } from '@/lib/order-pricing'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
 export async function POST(req) {
   try {
-    const { items, form, totals, userId } = await req.json()
+    const { items, form, coupon, userId } = await req.json()
 
-    // 下单前再次校验库存，防止超卖
-    const stockCheck = await checkStock(items)
-    if (!stockCheck.ok) {
-      return Response.json({ error: stockCheck.error, unavailable: stockCheck.unavailable }, { status: 409 })
+    // 服务端重新核算价格与库存，绝不信任客户端传来的 totals/price
+    const priced = await computeAuthoritativeOrder({ items, couponCode: coupon?.code })
+    if (!priced.ok) {
+      return Response.json({ error: priced.error, unavailable: priced.unavailable }, { status: 409 })
     }
+    const { lineItems: orderLineItems, totals } = priced
 
     const totalAmount = gbpToPence(totals.total)
-    const orderDesc = items.map(i => `${i.name}${i.skuDesc ? ' · ' + i.skuDesc : ''} ×${i.qty}`).join(', ')
+    const orderDesc = orderLineItems.map(i => `${i.name}${i.skuDesc ? ' · ' + i.skuDesc : ''} ×${i.qty}`).join(', ')
 
     const lineItems = [{
       price_data: {
@@ -68,16 +69,16 @@ export async function POST(req) {
       payment_intent_id: session.id, // webhook 收到后会更新为真正的 payment_intent
     }).select('id').single()
 
-    if (!orderError && order?.id && items?.length > 0) {
-      const orderItems = items.map(item => ({
+    if (!orderError && order?.id && orderLineItems.length > 0) {
+      const orderItems = orderLineItems.map(item => ({
         order_id:        order.id,
         product_id:      item.productId || null,
         sku_id:          item.skuId || null,
         product_name:    item.name || 'Unknown Product',
         sku_description: item.skuDesc || '',
-        quantity:        item.qty || 1,
-        unit_price_gbp:  item.price || 0,
-        line_total_gbp:  (item.price || 0) * (item.qty || 1),
+        quantity:        item.qty,
+        unit_price_gbp:  item.price,
+        line_total_gbp:  item.price * item.qty,
       }))
       await supabaseAdmin.from('order_items').insert(orderItems)
     }

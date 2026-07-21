@@ -90,14 +90,9 @@ export default function OrdersPage() {
         }),
       })
       if (res.ok) {
-        await supabase.from('orders').update({
-          status:'shipped',
-          shipped_at: new Date().toISOString(),
-          tracking_number: shipForm.trackingNumber,
-          tracking_carrier: shipForm.carrier,
-          tracking_url: shipForm.trackingUrl || null,
-        }).eq('id', selected.id)
-        const updated = { ...selected, status:'shipped', tracking_number:shipForm.trackingNumber, tracking_carrier:shipForm.carrier }
+        // /api/email 已经用 service-role 权限把 status/tracking 字段写库并发送了通知邮件，
+        // 这里只需要把本地状态同步一下，不需要（也不应该）再用匿名端 supabase 客户端写一次库。
+        const updated = { ...selected, status:'shipped', tracking_number:shipForm.trackingNumber, tracking_carrier:shipForm.carrier, tracking_url:shipForm.trackingUrl || null, shipped_at:new Date().toISOString() }
         setOrders(prev => prev.map(o => o.id === selected.id ? updated : o))
         setSelected(updated)
         setShowShipModal(false)

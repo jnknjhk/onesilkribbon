@@ -1,7 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
 
 function StatCard({ label, value, sub, color }) {
   return (
@@ -19,19 +18,18 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     async function load() {
-      const { data: orders } = await supabase.from('orders').select('id, total_gbp, status, created_at, customer_email').order('created_at', { ascending: false }).limit(5)
-      const { count: orderCount } = await supabase.from('orders').select('*', { count: 'exact', head: true })
-      // Unique customer count by distinct email
-      const { data: allEmailData } = await supabase.from('orders').select('customer_email')
-      const customerCount = new Set((allEmailData || []).map(o => o.customer_email).filter(Boolean)).size
-      // Revenue includes paid + shipped orders
-      const { data: revenueData } = await supabase.from('orders').select('total_gbp, status').in('status', ['paid', 'shipped', 'refunded'])
-      const revenue = (revenueData || []).reduce((s, o) => o.status !== 'refunded' ? s + (parseFloat(o.total_gbp) || 0) : s, 0)
-      // Real product count
-      const { count: productCount } = await supabase.from('products').select('*', { count: 'exact', head: true }).eq('is_active', true)
-      const { data: allOrders } = await supabase.from('orders').select('status')
-      const pending = (allOrders || []).filter(o => o.status === 'pending').length
-      setStats({ orders: orderCount || 0, revenue, products: productCount || 0, customers: customerCount || 0, pending, recentOrders: orders || [] })
+      try {
+        const res = await fetch('/api/admin/dashboard')
+        const data = await res.json()
+        setStats({
+          orders: data.orders || 0,
+          revenue: data.revenue || 0,
+          products: data.products || 0,
+          customers: data.customers || 0,
+          pending: data.pending || 0,
+          recentOrders: data.recentOrders || [],
+        })
+      } catch {}
       setLoading(false)
     }
     load()

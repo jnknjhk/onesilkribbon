@@ -1,6 +1,5 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
 
 const C = {
   border: '#E8E4DF', gold: '#B89B6A', ink: '#1C1714',
@@ -18,49 +17,11 @@ export default function CustomersPage() {
 
   async function load() {
     setLoading(true)
-
-    // 拉取订单（含 user_id）
-    const { data: orders } = await supabase
-      .from('orders')
-      .select('customer_email, shipping_name, shipping_city, shipping_country, total_gbp, created_at, status, user_id')
-      .order('created_at', { ascending: false })
-
-    // 拉取已注册用户的 profile
-    const { data: profiles } = await supabase
-      .from('user_profiles')
-      .select('id, email, first_name, last_name, avatar_url, created_at')
-
-    const profileMap = {}
-    if (profiles) profiles.forEach(p => { profileMap[p.id] = p })
-
-    if (!orders) { setLoading(false); return }
-
-    const map = {}
-    orders.forEach(o => {
-      const email = o.customer_email || 'unknown'
-      if (!map[email]) {
-        map[email] = {
-          email,
-          name: o.shipping_name,
-          city: o.shipping_city,
-          country: o.shipping_country,
-          orders: 0,
-          spent: 0,
-          lastOrder: o.created_at,
-          user_id: o.user_id || null,
-          profile: o.user_id ? profileMap[o.user_id] : null,
-        }
-      }
-      map[email].orders++
-      map[email].spent += parseFloat(o.total_gbp || 0)
-      if (o.created_at > map[email].lastOrder) map[email].lastOrder = o.created_at
-      if (o.user_id && !map[email].user_id) {
-        map[email].user_id = o.user_id
-        map[email].profile = profileMap[o.user_id] || null
-      }
-    })
-
-    setCustomers(Object.values(map).sort((a, b) => b.spent - a.spent))
+    try {
+      const res = await fetch('/api/admin/customers')
+      const data = await res.json()
+      setCustomers(data.customers || [])
+    } catch { setCustomers([]) }
     setLoading(false)
   }
 

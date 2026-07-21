@@ -1,6 +1,5 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
 
 const C = { bg: '#F5F3F0', border: '#E8E4DF', gold: '#B89B6A', ink: '#1C1714', muted: '#A8A4A0', sub: '#6B6460' }
 
@@ -71,17 +70,10 @@ export default function EmailPage() {
   const [selectedTemplate, setSelectedTemplate] = useState(null)
 
   useEffect(() => {
-    supabase.from('orders').select('customer_email, shipping_name').order('created_at', { ascending: false })
-      .then(({ data }) => {
-        if (!data) return
-        const seen = new Set()
-        const unique = data.filter(o => {
-          if (seen.has(o.customer_email)) return false
-          seen.add(o.customer_email)
-          return true
-        })
-        setCustomers(unique)
-      })
+    fetch('/api/admin/customers')
+      .then(r => r.json())
+      .then(data => setCustomers(data.customers || []))
+      .catch(() => {})
   }, [])
 
   const applyTemplate = (t) => {
@@ -135,10 +127,10 @@ export default function EmailPage() {
           <p style={{ fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', color: C.muted, marginBottom: 10 }}>历史客户</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 280, overflow: 'auto' }}>
             {customers.map(c => (
-              <button key={c.customer_email} onClick={() => setTo(c.customer_email)}
-                style={{ padding: '8px 12px', background: to === c.customer_email ? `rgba(184,155,106,0.12)` : '#fff', border: `1px solid ${to === c.customer_email ? C.gold : C.border}`, borderRadius: 8, cursor: 'pointer', textAlign: 'left', transition: 'all .15s' }}>
-                <p style={{ fontSize: 12, color: C.ink, margin: 0 }}>{c.shipping_name || '—'}</p>
-                <p style={{ fontSize: 11, color: C.muted, margin: '2px 0 0' }}>{c.customer_email}</p>
+              <button key={c.email} onClick={() => setTo(c.email)}
+                style={{ padding: '8px 12px', background: to === c.email ? `rgba(184,155,106,0.12)` : '#fff', border: `1px solid ${to === c.email ? C.gold : C.border}`, borderRadius: 8, cursor: 'pointer', textAlign: 'left', transition: 'all .15s' }}>
+                <p style={{ fontSize: 12, color: C.ink, margin: 0 }}>{c.name || '—'}</p>
+                <p style={{ fontSize: 11, color: C.muted, margin: '2px 0 0' }}>{c.email}</p>
               </button>
             ))}
           </div>

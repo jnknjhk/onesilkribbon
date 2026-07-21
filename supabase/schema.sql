@@ -175,7 +175,7 @@ create policy "Public read skus" on product_skus for select using (is_active = t
 -- 如需增加管理员邮箱，请同步更新这里和 .env 中的 ADMIN_EMAILS。
 create or replace function is_admin_user()
 returns boolean as $$
-  select coalesce(auth.jwt() ->> 'email', '') = any (array['jnknjhk@gmail.com'])
+  select coalesce(auth.jwt() ->> 'email', '') = any (array['song@onesilkribbon.com'])
 $$ language sql stable;
 
 drop policy if exists "Own orders" on orders;

@@ -29,7 +29,16 @@ export async function POST(req) {
           payment_intent: paymentIntentId,
           reason: 'requested_by_customer',
         })
-        return Response.json({ success: true })
+        const { data: updatedOrder, error: updateError } = await supabaseAdmin
+          .from('orders')
+          .update({ status: 'refunded', refund_reason: reason || null })
+          .eq('id', orderId)
+          .select()
+          .single()
+        if (updateError) {
+          console.error('Refund succeeded but order update failed:', updateError)
+        }
+        return Response.json({ success: true, order: updatedOrder || null })
       }
     }
 

@@ -1,6 +1,5 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
 
 const STATUS_OPTIONS = ['all','pending','paid','shipped','cancelled','refunded']
 const STATUS_LABEL   = { all:'全部', pending:'待处理', paid:'已付款', shipped:'已发货', cancelled:'已取消', refunded:'已退款' }
@@ -54,8 +53,11 @@ export default function OrdersPage() {
 
   async function loadOrders() {
     setLoading(true)
-    const { data } = await supabase.from('orders').select('*').order('created_at', { ascending:false })
-    setOrders(data || [])
+    try {
+      const res = await fetch('/api/admin/orders')
+      const data = await res.json()
+      setOrders(data.orders || [])
+    } catch { setOrders([]) }
     setLoading(false)
   }
 
@@ -64,15 +66,12 @@ export default function OrdersPage() {
     setOrderItems([])
     setActionMsg('')
     setItemsLoading(true)
-    const { data } = await supabase.from('order_items').select('*').eq('order_id', order.id)
-    setOrderItems(data || [])
+    try {
+      const res = await fetch(`/api/admin/orders?itemsFor=${order.id}`)
+      const data = await res.json()
+      setOrderItems(data.items || [])
+    } catch { setOrderItems([]) }
     setItemsLoading(false)
-  }
-
-  async function updateStatus(id, status) {
-    await supabase.from('orders').update({ status }).eq('id', id)
-    setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o))
-    if (selected?.id === id) setSelected(prev => ({ ...prev, status }))
   }
 
   // ── 发货 ──────────────────────────────────────────────────────────────────
@@ -115,8 +114,8 @@ export default function OrdersPage() {
       })
       const data = await res.json()
       if (data.success) {
-        await supabase.from('orders').update({ status:'refunded', refund_reason: refundReason }).eq('id', selected.id)
-        const updated = { ...selected, status:'refunded' }
+        // /api/admin/refund 已经用 service role 权限把订单状态写库了，这里只需要同步本地 UI
+        const updated = { ...selected, status:'refunded', refund_reason: refundReason }
         setOrders(prev => prev.map(o => o.id === selected.id ? updated : o))
         setSelected(updated)
         setShowRefundModal(false)
@@ -133,17 +132,21 @@ export default function OrdersPage() {
   async function handleCancel() {
     setActionLoading(true)
     try {
-      await supabase.from('orders').update({
-        status:'cancelled',
-        cancel_reason: cancelReason || null,
-        cancelled_at: new Date().toISOString(),
-      }).eq('id', selected.id)
-      const updated = { ...selected, status:'cancelled' }
-      setOrders(prev => prev.map(o => o.id === selected.id ? updated : o))
-      setSelected(updated)
-      setShowCancelModal(false)
-      setCancelReason('')
-      setActionMsg('✅ 订单已取消')
+      const res = await fetch('/api/admin/orders', {
+        method:'PATCH', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ id: selected.id, action:'cancel', reason: cancelReason }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        const updated = { ...selected, status:'cancelled', cancel_reason: cancelReason }
+        setOrders(prev => prev.map(o => o.id === selected.id ? updated : o))
+        setSelected(updated)
+        setShowCancelModal(false)
+        setCancelReason('')
+        setActionMsg('✅ 订单已取消')
+      } else {
+        setActionMsg('❌ 取消失败：' + (data.error || ''))
+      }
     } catch (e) { setActionMsg('❌ 操作失败：' + e.message) }
     setActionLoading(false)
   }

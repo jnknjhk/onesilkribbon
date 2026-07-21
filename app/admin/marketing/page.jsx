@@ -1,6 +1,9 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { ConfirmDialog } from '@/components/admin/ConfirmDialog'
+import { Pagination } from '@/components/admin/Pagination'
 
+const PAGE_SIZE = 30
 const C = {
   bg: '#F5F3F0', white: '#FFFFFF', border: '#E8E4DF',
   gold: '#B89B6A', ink: '#1C1714', sub: '#6B6460',
@@ -31,6 +34,9 @@ export default function MarketingPage() {
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
   const [showForm, setShowForm] = useState(false)
+  const [page, setPage] = useState(1)
+  const [confirmCoupon, setConfirmCoupon] = useState(null)
+  const [confirmLoading, setConfirmLoading] = useState(false)
 
   useEffect(() => {
     loadShipping()
@@ -115,11 +121,13 @@ export default function MarketingPage() {
   }
 
   async function deleteCoupon(id) {
-    if (!confirm('确定删除这个优惠码？')) return
+    setConfirmLoading(true)
     await fetch('/api/admin/coupons', {
       method: 'DELETE', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id }),
     })
+    setConfirmLoading(false)
+    setConfirmCoupon(null)
     loadCoupons()
   }
 
@@ -131,6 +139,8 @@ export default function MarketingPage() {
   const fmtDiscount = c => c.discount_type === 'percentage' ? `${c.discount_value}% 折扣` : `£${c.discount_value} 减免`
   const fmtDate = s => s ? new Date(s).toLocaleDateString('zh-CN') : '无限期'
   const isExpired = c => c.expires_at && new Date(c.expires_at) < new Date()
+  const totalPages = Math.max(1, Math.ceil(coupons.length / PAGE_SIZE))
+  const paginatedCoupons = coupons.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
     <div>
@@ -222,6 +232,16 @@ export default function MarketingPage() {
         </div>
       </div>
 
+      <ConfirmDialog
+        open={!!confirmCoupon}
+        title="删除优惠码"
+        message={confirmCoupon ? `确定删除优惠码「${confirmCoupon.code}」？` : ''}
+        danger
+        loading={confirmLoading}
+        onConfirm={() => deleteCoupon(confirmCoupon.id)}
+        onCancel={() => setConfirmCoupon(null)}
+      />
+
       {/* ── 优惠码区块 ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
@@ -263,7 +283,7 @@ export default function MarketingPage() {
                 </tr>
               </thead>
               <tbody>
-                {coupons.map(c => {
+                {paginatedCoupons.map(c => {
                   const expired = isExpired(c)
                   return (
                     <tr key={c.id} style={{ borderBottom: `1px solid #F0EDE8`, opacity: expired ? 0.5 : 1 }}>
@@ -286,7 +306,7 @@ export default function MarketingPage() {
                       <td style={{ padding: '13px 16px' }}>
                         <div style={{ display: 'flex', gap: 8 }}>
                           <button onClick={() => startEdit(c)} style={{ background: C.light, border: 'none', borderRadius: 4, color: C.gold, fontSize: 11, padding: '5px 10px', cursor: 'pointer' }}>编辑</button>
-                          <button onClick={() => deleteCoupon(c.id)} style={{ background: C.light, border: 'none', borderRadius: 4, color: C.red, fontSize: 11, padding: '5px 10px', cursor: 'pointer' }}>删除</button>
+                          <button onClick={() => setConfirmCoupon(c)} style={{ background: C.light, border: 'none', borderRadius: 4, color: C.red, fontSize: 11, padding: '5px 10px', cursor: 'pointer' }}>删除</button>
                         </div>
                       </td>
                     </tr>
@@ -295,6 +315,7 @@ export default function MarketingPage() {
               </tbody>
             </table>
           )}
+          <Pagination page={page} totalPages={totalPages} totalCount={coupons.length} onChange={setPage} />
         </div>
 
         {/* Form panel */}

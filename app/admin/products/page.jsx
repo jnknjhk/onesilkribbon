@@ -1,5 +1,9 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import { ConfirmDialog, InfoDialog } from '@/components/admin/ConfirmDialog'
+import { Pagination } from '@/components/admin/Pagination'
+
+const PAGE_SIZE = 30
 
 const COLLECTIONS = [
   { value: 'fine-silk-ribbons',        label: '精品丝带 Fine Silk Ribbons' },
@@ -35,6 +39,10 @@ export default function ProductsPage() {
   const [search, setSearch] = useState('')
   const [filterCol, setFilterCol] = useState('all')
   const [skuMap, setSkuMap] = useState({})
+  const [page, setPage] = useState(1)
+  const [confirmState, setConfirmState] = useState(null) // { type: 'delete'|'duplicate', product }
+  const [confirmLoading, setConfirmLoading] = useState(false)
+  const [infoState, setInfoState] = useState(null) // { title, message }
 
   const [form, setForm] = useState({ name: '', slug: '', description: '', collection: 'fine-silk-ribbons', active: true })
   const [images, setImages] = useState([])
@@ -51,15 +59,14 @@ export default function ProductsPage() {
   async function loadProducts() {
     setLoading(true)
     try {
+      // 走 /api/admin/products（service role），不再用匿名 client 直查 product_skus——
+      // 匿名 key 受 "is_active=true 才公开可见" 的 RLS 限制，之前会看不到已下架 SKU 的库存/价格
       const res = await fetch('/api/admin/products')
       const data = await res.json()
-      setProducts(Array.isArray(data) ? data : [])
+      setProducts(Array.isArray(data.products) ? data.products : [])
 
-      const { createClient } = await import('@supabase/supabase-js')
-      const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-      const { data: skuData } = await sb.from('product_skus').select('id, product_id, colour, colour_hex, attributes, stock_qty, price_gbp').order('product_id')
       const map = {}
-      for (const sku of (skuData || [])) {
+      for (const sku of (data.skus || [])) {
         if (!map[sku.product_id]) map[sku.product_id] = []
         map[sku.product_id].push(sku)
       }
@@ -318,8 +325,19 @@ export default function ProductsPage() {
     setSaving(false)
   }
 
+  function requestDelete(product) { setConfirmState({ type: 'delete', product }) }
+  function requestDuplicate(product) { setConfirmState({ type: 'duplicate', product }) }
+
+  async function handleConfirm() {
+    if (!confirmState) return
+    setConfirmLoading(true)
+    if (confirmState.type === 'delete') await deleteProduct(confirmState.product)
+    else await duplicateProduct(confirmState.product)
+    setConfirmLoading(false)
+    setConfirmState(null)
+  }
+
   async function deleteProduct(product) {
-    if (!confirm(`确定删除「${product.name}」？`)) return
     const res = await fetch('/api/admin/products', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'delete', product: { id: product.id } }),
@@ -327,7 +345,7 @@ export default function ProductsPage() {
     const data = await res.json()
 
     if (data.softDeleted) {
-      alert(data.message)
+      setInfoState({ title: '已下架', message: data.message })
     } else if (product.images) {
       for (const url of product.images) {
         await fetch('/api/admin/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }).catch(() => {})
@@ -338,14 +356,12 @@ export default function ProductsPage() {
   }
 
   async function duplicateProduct(product) {
-    if (!confirm(`复制「${product.name}」为新产品？`)) return
     setSaving(true)
     try {
-      const { createClient } = await import('@supabase/supabase-js')
-      const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-      // 加载完整产品数据和 SKU
-      const { data: fullProduct } = await sb.from('products').select('*').eq('id', product.id).single()
-      const { data: fullSkus } = await sb.from('product_skus').select('*').eq('product_id', product.id)
+      // 走 /api/admin/products?id=（service role），不再用匿名 client 直查——
+      // 之前如果产品下有已下架的 SKU，匿名 key 的 RLS 会看不到，复制出来的新产品会悄悄漏掉那些 SKU
+      const res = await fetch(`/api/admin/products?id=${product.id}`)
+      const { product: fullProduct, skus: fullSkus } = await res.json()
 
       const newSlug = `${fullProduct.slug}-copy-${Date.now().toString().slice(-4)}`
 
@@ -394,6 +410,10 @@ export default function ProductsPage() {
     const mc = filterCol === 'all' || p.collection === filterCol
     return ms && mc
   })
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  useEffect(() => { setPage(1) }, [search, filterCol])
 
   const collectionLabel = v => COLLECTIONS.find(c => c.value === v)?.label || v
 
@@ -750,6 +770,17 @@ export default function ProductsPage() {
   // ═══════════════════════════════
   return (
     <div>
+      <ConfirmDialog
+        open={!!confirmState}
+        title={confirmState?.type === 'delete' ? '删除产品' : '复制产品'}
+        message={confirmState ? (confirmState.type === 'delete' ? `确定删除「${confirmState.product.name}」？` : `复制「${confirmState.product.name}」为新产品？`) : ''}
+        danger={confirmState?.type === 'delete'}
+        loading={confirmLoading}
+        onConfirm={handleConfirm}
+        onCancel={() => setConfirmState(null)}
+      />
+      <InfoDialog open={!!infoState} title={infoState?.title} message={infoState?.message} onClose={() => setInfoState(null)} />
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24 }}>
         <div>
           <h1 style={{ color: C.ink, fontSize: 24, fontWeight: 300, marginBottom: 8 }}>产品管理</h1>
@@ -767,7 +798,7 @@ export default function ProductsPage() {
       </div>
 
       <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
-        {loading ? <p style={{ color: C.muted, padding: 24, fontSize: 13 }}>加载中…</p> : filtered.length === 0 ? (
+        {loading ? <p style={{ color: C.muted, padding: 24, fontSize: 13 }}>加载中…</p> : paginated.length === 0 ? (
           <p style={{ color: C.muted, padding: 24, fontSize: 13 }}>暂无产品</p>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
@@ -789,7 +820,7 @@ export default function ProductsPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(p => {
+              {paginated.map(p => {
                 const imgs = Array.isArray(p.images) ? p.images : []
                 const isActive = p.is_active !== false
                 const attrs = p.attribute_config || []
@@ -822,8 +853,8 @@ export default function ProductsPage() {
                     <td style={{ padding: '10px 16px' }} onClick={e => e.stopPropagation()}>
                       <div style={{ display: 'flex', gap: 8 }}>
                         <button onClick={() => startEdit(p)} style={{ background: C.light, border: 'none', borderRadius: 4, color: C.gold, fontSize: 11, padding: '5px 12px', cursor: 'pointer' }}>编辑</button>
-                        <button onClick={() => duplicateProduct(p)} style={{ background: C.light, border: 'none', borderRadius: 4, color: C.sub, fontSize: 11, padding: '5px 12px', cursor: 'pointer' }}>复制</button>
-                        <button onClick={() => deleteProduct(p)} style={{ background: C.light, border: 'none', borderRadius: 4, color: C.red, fontSize: 11, padding: '5px 12px', cursor: 'pointer' }}>删除</button>
+                        <button onClick={() => requestDuplicate(p)} style={{ background: C.light, border: 'none', borderRadius: 4, color: C.sub, fontSize: 11, padding: '5px 12px', cursor: 'pointer' }}>复制</button>
+                        <button onClick={() => requestDelete(p)} style={{ background: C.light, border: 'none', borderRadius: 4, color: C.red, fontSize: 11, padding: '5px 12px', cursor: 'pointer' }}>删除</button>
                       </div>
                     </td>
                   </tr>
@@ -833,6 +864,7 @@ export default function ProductsPage() {
           </table>
         )}
       </div>
+      <Pagination page={page} totalPages={totalPages} totalCount={filtered.length} onChange={setPage} />
     </div>
   )
 }

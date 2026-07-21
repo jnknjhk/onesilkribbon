@@ -2,17 +2,35 @@ import { supabaseAdmin as supabase } from '@/lib/supabase'
 import { verifyAdmin } from '@/lib/admin-auth'
 import { NextResponse } from 'next/server'
 
-// 获取所有产品
-export async function GET() {
+// 获取产品（?id=xxx 拿单个产品+其全部 SKU，否则拿产品列表+全部 SKU）
+// 全部用 service role 查，不受 product_skus 的 "is_active=true 才公开可见" 这条 RLS 限制——
+// 之前前端直接用 anon key 查 product_skus，后台会看不到已下架 SKU 的库存/价格
+export async function GET(req) {
   const admin = await verifyAdmin()
   if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data, error } = await supabase
+  const { searchParams } = new URL(req.url)
+  const id = searchParams.get('id')
+
+  if (id) {
+    const { data: product, error } = await supabase.from('products').select('*').eq('id', id).single()
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    const { data: skus } = await supabase.from('product_skus').select('*').eq('product_id', id)
+    return NextResponse.json({ product, skus: skus || [] })
+  }
+
+  const { data: products, error } = await supabase
     .from('products')
     .select('*')
     .order('created_at', { ascending: false })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data)
+
+  const { data: skus } = await supabase
+    .from('product_skus')
+    .select('id, product_id, colour, colour_hex, attributes, stock_qty, price_gbp')
+    .order('product_id')
+
+  return NextResponse.json({ products: products || [], skus: skus || [] })
 }
 
 // 新建/更新/删除产品

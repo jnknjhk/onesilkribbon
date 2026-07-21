@@ -1,6 +1,9 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import { ConfirmDialog } from '@/components/admin/ConfirmDialog'
+import { Pagination } from '@/components/admin/Pagination'
 
+const PAGE_SIZE = 30
 const CATEGORIES = ['Guide', 'Behind the Scenes', 'Inspiration', 'News', 'Care & Tips']
 
 const C = {
@@ -33,6 +36,9 @@ export default function JournalAdminPage() {
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [page, setPage] = useState(1)
+  const [confirmPost, setConfirmPost] = useState(null)
+  const [confirmLoading, setConfirmLoading] = useState(false)
   const fileRef = useRef(null)
 
   const emptyForm = () => ({
@@ -144,11 +150,13 @@ export default function JournalAdminPage() {
   }
 
   async function deletePost(post) {
-    if (!confirm(`确定删除「${post.title}」？`)) return
+    setConfirmLoading(true)
     await fetch('/api/admin/journal', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'delete', post: { id: post.id } }),
     })
+    setConfirmLoading(false)
+    setConfirmPost(null)
     if (editing) setEditing(null)
     loadPosts()
   }
@@ -313,9 +321,21 @@ export default function JournalAdminPage() {
   // ═══════════════════════════════
   const published = posts.filter(p => p.is_published).length
   const drafts = posts.length - published
+  const totalPages = Math.max(1, Math.ceil(posts.length / PAGE_SIZE))
+  const paginated = posts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
     <div>
+      <ConfirmDialog
+        open={!!confirmPost}
+        title="删除文章"
+        message={confirmPost ? `确定删除「${confirmPost.title}」？` : ''}
+        danger
+        loading={confirmLoading}
+        onConfirm={() => deletePost(confirmPost)}
+        onCancel={() => setConfirmPost(null)}
+      />
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24 }}>
         <div>
           <h1 style={{ color: C.ink, fontSize: 24, fontWeight: 300, marginBottom: 8 }}>文章管理</h1>
@@ -342,7 +362,7 @@ export default function JournalAdminPage() {
               </tr>
             </thead>
             <tbody>
-              {posts.map(post => (
+              {paginated.map(post => (
                 <tr key={post.id} style={{ borderBottom: '1px solid #F0EDE8', cursor: 'pointer' }} onClick={() => startEdit(post)}>
                   <td style={{ padding: '10px 16px', width: 56 }}>
                     {post.cover_image
@@ -367,7 +387,7 @@ export default function JournalAdminPage() {
                   <td style={{ padding: '10px 16px' }} onClick={e => e.stopPropagation()}>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button onClick={() => startEdit(post)} style={{ background: C.light, border: 'none', borderRadius: 4, color: C.gold, fontSize: 11, padding: '5px 12px', cursor: 'pointer' }}>编辑</button>
-                      <button onClick={() => deletePost(post)} style={{ background: C.light, border: 'none', borderRadius: 4, color: C.red, fontSize: 11, padding: '5px 12px', cursor: 'pointer' }}>删除</button>
+                      <button onClick={() => setConfirmPost(post)} style={{ background: C.light, border: 'none', borderRadius: 4, color: C.red, fontSize: 11, padding: '5px 12px', cursor: 'pointer' }}>删除</button>
                     </div>
                   </td>
                 </tr>
@@ -376,6 +396,7 @@ export default function JournalAdminPage() {
           </table>
         )}
       </div>
+      <Pagination page={page} totalPages={totalPages} totalCount={posts.length} onChange={setPage} />
     </div>
   )
 }

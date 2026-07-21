@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import { ConfirmDialog } from '@/components/admin/ConfirmDialog'
 
 const C = {
   bg: '#F5F3F0', card: '#FFFFFF', border: '#E8E4DF',
@@ -66,6 +67,8 @@ export default function ImagesPage() {
   const [loading, setLoading]   = useState(true)
   const [uploading, setUploading] = useState({}) // key -> bool
   const [toast, setToast]       = useState(null)
+  const [confirmKey, setConfirmKey] = useState(null)
+  const [confirmLoading, setConfirmLoading] = useState(false)
   const fileRefs = useRef({})
 
   useEffect(() => { load() }, [])
@@ -111,7 +114,7 @@ export default function ImagesPage() {
   }
 
   async function handleDelete(key) {
-    if (!confirm('确定要删除这张图片吗？删除后该位置将显示默认渐变色。')) return
+    setConfirmLoading(true)
     setUploading(u => ({ ...u, [key]: true }))
     try {
       await fetch('/api/admin/site-images', {
@@ -124,6 +127,8 @@ export default function ImagesPage() {
     } catch {
       showToast('删除失败', false)
     }
+    setConfirmLoading(false)
+    setConfirmKey(null)
     setUploading(u => ({ ...u, [key]: false }))
   }
 
@@ -133,6 +138,16 @@ export default function ImagesPage() {
 
   return (
     <div>
+      <ConfirmDialog
+        open={!!confirmKey}
+        title="删除图片"
+        message="确定要删除这张图片吗？删除后该位置将显示默认渐变色。"
+        danger
+        loading={confirmLoading}
+        onConfirm={() => handleDelete(confirmKey)}
+        onCancel={() => setConfirmKey(null)}
+      />
+
       {/* 标题 */}
       <div style={{ marginBottom: 32 }}>
         <h1 style={{ color: C.ink, fontSize: 24, fontWeight: 300, marginBottom: 6 }}>图片管理</h1>
@@ -221,7 +236,7 @@ export default function ImagesPage() {
                       {/* 删除按钮 */}
                       {url && (
                         <button
-                          onClick={() => handleDelete(key)}
+                          onClick={() => setConfirmKey(key)}
                           disabled={busy}
                           style={{
                             padding: '8px 12px',

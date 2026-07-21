@@ -1,6 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { Pagination } from '@/components/admin/Pagination'
 
+const PAGE_SIZE = 30
 const C = {
   border: '#E8E4DF', gold: '#B89B6A', ink: '#1C1714',
   sub: '#6B6460', muted: '#A8A4A0', row: '#FAFAF8',
@@ -12,6 +14,7 @@ export default function CustomersPage() {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all') // all | registered | guest
   const [selected, setSelected] = useState(null)
+  const [page, setPage] = useState(1)
 
   useEffect(() => { load() }, [])
 
@@ -36,6 +39,10 @@ export default function CustomersPage() {
 
   const registeredCount = customers.filter(c => c.user_id).length
   const guestCount = customers.filter(c => !c.user_id).length
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  useEffect(() => { setPage(1) }, [search, filter])
 
   return (
     <div style={{ display: 'flex', gap: 24, height: 'calc(100vh - 80px)' }}>
@@ -79,7 +86,7 @@ export default function CustomersPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(c => (
+                {paginated.map(c => (
                   <tr key={c.email} onClick={() => setSelected(c)}
                     style={{ borderBottom: `1px solid #F0EDE8`, cursor: 'pointer', background: selected?.email === c.email ? C.row : 'transparent', transition: 'background 0.1s' }}
                     onMouseEnter={e => { if (selected?.email !== c.email) e.currentTarget.style.background = C.row }}
@@ -112,6 +119,7 @@ export default function CustomersPage() {
             </table>
           )}
         </div>
+        <Pagination page={page} totalPages={totalPages} totalCount={filtered.length} onChange={setPage} />
       </div>
 
       {/* 详情面板 */}

@@ -40,12 +40,13 @@ export default function JournalAdminPage() {
   const [confirmPost, setConfirmPost] = useState(null)
   const [confirmLoading, setConfirmLoading] = useState(false)
   const [showCoverPicker, setShowCoverPicker] = useState(false)
+  const [imagePickerFor, setImagePickerFor] = useState(null) // 'new' | section index | null
 
   const emptyForm = () => ({
     title: '', slug: '', category: 'Guide', excerpt: '',
     intro: '', cover_image: '', closing: '', read_time: '3 min read',
     is_published: false,
-    sections: [{ heading: '', body: '' }],
+    sections: [{ type: 'text', heading: '', body: '' }],
   })
 
   const [form, setForm] = useState(emptyForm())
@@ -77,7 +78,9 @@ export default function JournalAdminPage() {
         closing: post.closing || '',
         read_time: post.read_time || '3 min read',
         is_published: post.is_published || false,
-        sections: post.sections?.length > 0 ? post.sections : [{ heading: '', body: '' }],
+        sections: post.sections?.length > 0
+          ? post.sections.map(s => ({ type: s.type || 'text', ...s }))
+          : [{ type: 'text', heading: '', body: '' }],
         was_published: post.is_published,
       })
       setEditing(post)
@@ -91,8 +94,8 @@ export default function JournalAdminPage() {
   }
 
   // ── 段落操作 ──
-  function addSection() {
-    setForm(p => ({ ...p, sections: [...p.sections, { heading: '', body: '' }] }))
+  function addTextSection() {
+    setForm(p => ({ ...p, sections: [...p.sections, { type: 'text', heading: '', body: '' }] }))
   }
   function updateSection(i, field, value) {
     setForm(p => ({ ...p, sections: p.sections.map((s, j) => j === i ? { ...s, [field]: value } : s) }))
@@ -109,6 +112,17 @@ export default function JournalAdminPage() {
       return { ...p, sections: arr }
     })
   }
+  // 插入图片段：'new' 表示追加到末尾，数字表示替换第 i 段的图片
+  function handleSectionImagePicked(urls) {
+    const url = urls[0]
+    if (!url) { setImagePickerFor(null); return }
+    if (imagePickerFor === 'new') {
+      setForm(p => ({ ...p, sections: [...p.sections, { type: 'image', url, caption: '' }] }))
+    } else if (typeof imagePickerFor === 'number') {
+      updateSection(imagePickerFor, 'url', url)
+    }
+    setImagePickerFor(null)
+  }
 
   // ── 保存 ──
   async function save() {
@@ -121,7 +135,9 @@ export default function JournalAdminPage() {
         post: {
           ...(editing !== 'new' ? { id: editing.id } : {}),
           ...form,
-          sections: form.sections.filter(s => s.heading.trim() || s.body.trim()),
+          sections: form.sections.filter(s =>
+            s.type === 'image' ? !!s.url : ((s.heading || '').trim() || (s.body || '').trim())
+          ),
         },
       }
       const res = await fetch('/api/admin/journal', {
@@ -254,33 +270,78 @@ export default function JournalAdminPage() {
             <span style={{ fontSize: 11, color: C.muted }}>{form.sections.length} 个段落</span>
           </div>
 
-          {form.sections.map((section, i) => (
-            <div key={i} style={{ background: C.bg, borderRadius: 8, padding: 20, marginBottom: 12, border: `1px solid ${C.border}` }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <span style={{ fontSize: 11, color: C.muted, letterSpacing: '.08em' }}>段落 {i + 1}</span>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <SmallBtn onClick={() => moveSection(i, -1)} disabled={i === 0}>↑</SmallBtn>
-                  <SmallBtn onClick={() => moveSection(i, 1)} disabled={i === form.sections.length - 1}>↓</SmallBtn>
-                  <SmallBtn danger onClick={() => removeSection(i)} disabled={form.sections.length <= 1}>✕</SmallBtn>
+          {form.sections.map((section, i) => {
+            const type = section.type || 'text'
+            return (
+              <div key={i} style={{ background: C.bg, borderRadius: 8, padding: 20, marginBottom: 12, border: `1px solid ${C.border}` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <span style={{ fontSize: 11, color: C.muted, letterSpacing: '.08em', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    段落 {i + 1}
+                    <span style={{
+                      fontSize: 10, padding: '2px 8px', borderRadius: 10,
+                      background: type === 'image' ? C.gold + '22' : C.light,
+                      color: type === 'image' ? C.gold : C.sub,
+                    }}>{type === 'image' ? '图片' : '文字'}</span>
+                  </span>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <SmallBtn onClick={() => moveSection(i, -1)} disabled={i === 0}>↑</SmallBtn>
+                    <SmallBtn onClick={() => moveSection(i, 1)} disabled={i === form.sections.length - 1}>↓</SmallBtn>
+                    <SmallBtn danger onClick={() => removeSection(i)} disabled={form.sections.length <= 1}>✕</SmallBtn>
+                  </div>
                 </div>
-              </div>
-              <div style={{ marginBottom: 12 }}>
-                <Label>小标题</Label>
-                <input value={section.heading} onChange={e => updateSection(i, 'heading', e.target.value)}
-                  style={{ ...inp, background: C.white }} placeholder="Start with the right length" />
-              </div>
-              <div>
-                <Label>段落正文</Label>
-                <textarea value={section.body} onChange={e => updateSection(i, 'body', e.target.value)}
-                  style={{ ...inp, background: C.white, minHeight: 100, resize: 'vertical' }}
-                  placeholder="段落内容…" />
-              </div>
-            </div>
-          ))}
 
-          <button onClick={addSection} style={{ padding: '10px 20px', background: C.white, border: `1px dashed ${C.border}`, borderRadius: 6, color: C.gold, fontSize: 12, cursor: 'pointer' }}>
-            + 添加段落
-          </button>
+                {type === 'image' ? (
+                  <>
+                    {section.url && (
+                      <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', marginBottom: 12, overflow: 'hidden', borderRadius: 6, background: C.light }}>
+                        <img src={section.url} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                      <button onClick={() => setImagePickerFor(i)} style={{ padding: '8px 16px', background: C.white, border: `1px dashed ${C.border}`, borderRadius: 6, color: C.gold, fontSize: 12, cursor: 'pointer' }}>
+                        {section.url ? '更换图片' : '+ 选择图片'}
+                      </button>
+                    </div>
+                    <div>
+                      <Label>图注（可选）</Label>
+                      <input value={section.caption || ''} onChange={e => updateSection(i, 'caption', e.target.value)}
+                        style={{ ...inp, background: C.white }} placeholder="A close-up of the hand-frayed edge…" />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ marginBottom: 12 }}>
+                      <Label>小标题</Label>
+                      <input value={section.heading || ''} onChange={e => updateSection(i, 'heading', e.target.value)}
+                        style={{ ...inp, background: C.white }} placeholder="Start with the right length" />
+                    </div>
+                    <div>
+                      <Label>段落正文</Label>
+                      <textarea value={section.body || ''} onChange={e => updateSection(i, 'body', e.target.value)}
+                        style={{ ...inp, background: C.white, minHeight: 100, resize: 'vertical' }}
+                        placeholder="段落内容…" />
+                    </div>
+                  </>
+                )}
+              </div>
+            )
+          })}
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={addTextSection} style={{ padding: '10px 20px', background: C.white, border: `1px dashed ${C.border}`, borderRadius: 6, color: C.gold, fontSize: 12, cursor: 'pointer' }}>
+              + 添加文字段
+            </button>
+            <button onClick={() => setImagePickerFor('new')} style={{ padding: '10px 20px', background: C.white, border: `1px dashed ${C.border}`, borderRadius: 6, color: C.gold, fontSize: 12, cursor: 'pointer' }}>
+              + 插入图片
+            </button>
+          </div>
+
+          <MediaLibraryModal
+            open={imagePickerFor !== null}
+            namespace="journal"
+            onClose={() => setImagePickerFor(null)}
+            onSelect={handleSectionImagePicked}
+          />
 
           <div style={{ marginTop: 20 }}>
             <Label>结尾段落（斜体，显示在文章末尾）</Label>

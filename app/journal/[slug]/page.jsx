@@ -104,16 +104,34 @@ export default async function JournalPost({ params }) {
           )}
 
           {/* Sections */}
-          {sections.map((s, i) => (
-            <div key={i} style={{ marginBottom: 48 }}>
-              {s.heading && (
-                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 300, color: 'var(--ink)', marginBottom: 16, lineHeight: 1.3 }}>
-                  {s.heading}
-                </h2>
-              )}
-              {s.body && <p style={{ fontSize: 13, lineHeight: 2.2, color: 'var(--taupe)' }}>{s.body}</p>}
-            </div>
-          ))}
+          {sections.map((s, i) => {
+            const type = s.type || 'text'
+            if (type === 'image') {
+              if (!s.url) return null
+              return (
+                <figure key={i} style={{ margin: '0 0 48px', marginLeft: -60, marginRight: -60 }} className="post-figure">
+                  <div style={{ width: '100%', aspectRatio: '16/9', overflow: 'hidden', background: 'var(--sand)' }}>
+                    <img src={s.url} alt={s.caption || post.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  </div>
+                  {s.caption && (
+                    <figcaption style={{ fontSize: 11, letterSpacing: '.04em', color: 'var(--taupe)', textAlign: 'center', marginTop: 14, padding: '0 60px' }} className="post-figcaption">
+                      {s.caption}
+                    </figcaption>
+                  )}
+                </figure>
+              )
+            }
+            return (
+              <div key={i} style={{ marginBottom: 48 }}>
+                {s.heading && (
+                  <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 300, color: 'var(--ink)', marginBottom: 16, lineHeight: 1.3 }}>
+                    {s.heading}
+                  </h2>
+                )}
+                {s.body && <p style={{ fontSize: 13, lineHeight: 2.2, color: 'var(--taupe)' }}>{s.body}</p>}
+              </div>
+            )
+          })}
 
           {/* Closing */}
           {post.closing && (
@@ -140,6 +158,8 @@ export default async function JournalPost({ params }) {
           .post-cover-pad { padding: 0 24px !important; }
           .post-pad { padding: 48px 24px 80px !important; }
           .post-h1 { font-size: 32px !important; }
+          .post-figure { margin-left: -24px !important; margin-right: -24px !important; }
+          .post-figcaption { padding: 0 24px !important; }
         }
       `}</style>
     </>

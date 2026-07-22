@@ -36,6 +36,10 @@ export default function ProductClient({ initialProduct, initialSkus, slug, relat
     setSelectedSku(null)
     setImgIdx(0)
     setQty(1)
+    // 从系列页往下滑很多之后点进商品，Next.js 的默认滚动还原有时候不会把新页面滚回顶部
+    // （尤其是从系列页跳到商品详情页这种嵌套路由场景），手动强制归零，
+    // 用 'instant' 而不是默认的 smooth，避免落地后又能看到一段"慢慢滚上去"的动画
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
   }, [slug])
 
   // 无 attribute_config 时，按颜色/宽度自动预选默认项（放在 effect 里，避免渲染期间 setState）

@@ -51,7 +51,9 @@ async function sendVerificationEmail(email, token) {
 
 export async function POST(req) {
   try {
-    const { email, source } = await req.json()
+    const { email: rawEmail, source } = await req.json()
+    // 统一归一化（trim + 小写），避免同一邮箱因大小写/空格不同被当成两个订阅者
+    const email = (rawEmail || '').trim().toLowerCase()
 
     // 格式验证
     if (!email || !email.includes('@') || !email.includes('.')) {
@@ -59,7 +61,7 @@ export async function POST(req) {
     }
 
     // 拦截假域名
-    const domain = email.split('@')[1]?.toLowerCase()
+    const domain = email.split('@')[1]
     if (BLOCKED_DOMAINS.includes(domain)) {
       return NextResponse.json({ error: 'Please use a real email address' }, { status: 400 })
     }

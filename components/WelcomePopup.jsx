@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
+import { subscribeEmail, isValidEmail } from '@/lib/client/subscribe'
 
 const STORAGE_KEY = 'osr_popup'
 
@@ -89,24 +90,17 @@ export default function WelcomePopup() {
   }
 
   const handleSubmit = async () => {
-    if (!email.includes('@') || !email.includes('.')) {
+    if (!isValidEmail(email)) {
       setError('Please enter a valid email address')
       return
     }
     setLoading(true); setError('')
-    try {
-      const res  = await fetch('/api/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, source: 'welcome_popup' }),
-      })
-      const data = await res.json()
-      if (data.ok) {
-        setStep(data.already ? 'already' : 'sent')
-      } else {
-        setError(data.error || 'Something went wrong')
-      }
-    } catch { setError('Something went wrong, please try again') }
+    const result = await subscribeEmail(email, 'welcome_popup')
+    if (result.ok) {
+      setStep(result.already ? 'already' : 'sent')
+    } else {
+      setError(result.error)
+    }
     setLoading(false)
   }
 

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { formatGBP } from '@/lib/pricing'
+import { subscribeEmail, isValidEmail } from '@/lib/client/subscribe'
 
 const COLLECTIONS = [
   { name: 'Fine Silk Ribbons',  slug: 'fine-silk-ribbons',        count: '30 colourways', desc: 'Our signature collection. Ultra-fine 100% mulberry silk ribbons in hand-selected colourways, from 2mm to 10mm.' },
@@ -393,19 +394,17 @@ function NewsletterSection() {
   const [msg, setMsg] = useState('')
 
   const handleSubscribe = async () => {
-    if (!email.trim() || !email.includes('@')) { setMsg('Please enter a valid email'); setStatus('error'); return }
+    if (!isValidEmail(email)) { setMsg('Please enter a valid email'); setStatus('error'); return }
     setStatus('loading')
-    try {
-      const res = await fetch('/api/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
-      const data = await res.json()
-      if (res.ok && data.already) { setStatus('success'); setMsg("You're already subscribed — thank you!"); setEmail('') }
-      else if (res.ok) { setStatus('success'); setMsg('Thank you! Please check your inbox to confirm.'); setEmail('') }
-      else { setStatus('error'); setMsg(data.error || 'Something went wrong.') }
-    } catch { setStatus('error'); setMsg('Something went wrong. Please try again.') }
+    const result = await subscribeEmail(email, 'home_newsletter')
+    if (result.ok) {
+      setStatus('success')
+      setMsg(result.already ? "You're already subscribed — thank you!" : 'Thank you! Please check your inbox to confirm.')
+      setEmail('')
+    } else {
+      setStatus('error')
+      setMsg(result.error)
+    }
   }
 
   return (

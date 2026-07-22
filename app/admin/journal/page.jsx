@@ -1,8 +1,8 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog'
 import { Pagination } from '@/components/admin/Pagination'
-import { compressImage, friendlyUploadError } from '@/lib/client/compress-image'
+import MediaLibraryModal from '@/components/admin/MediaLibraryModal'
 
 const PAGE_SIZE = 30
 const CATEGORIES = ['Guide', 'Behind the Scenes', 'Inspiration', 'News', 'Care & Tips']
@@ -36,11 +36,10 @@ export default function JournalAdminPage() {
   const [editing, setEditing] = useState(null)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
-  const [uploading, setUploading] = useState(false)
   const [page, setPage] = useState(1)
   const [confirmPost, setConfirmPost] = useState(null)
   const [confirmLoading, setConfirmLoading] = useState(false)
-  const fileRef = useRef(null)
+  const [showCoverPicker, setShowCoverPicker] = useState(false)
 
   const emptyForm = () => ({
     title: '', slug: '', category: 'Guide', excerpt: '',
@@ -86,24 +85,9 @@ export default function JournalAdminPage() {
     setMsg('')
   }
 
-  // ── 封面图上传 ──
-  async function handleCoverUpload(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setUploading(true)
-    let res
-    try {
-      const compressed = await compressImage(file)
-      const fd = new FormData()
-      fd.append('file', compressed)
-      fd.append('productId', 'journal-' + Date.now())
-      res = await fetch('/api/admin/upload', { method: 'POST', body: fd })
-      const data = await res.json()
-      if (data.url) setForm(p => ({ ...p, cover_image: data.url }))
-      else setMsg('上传失败：' + (data.error || ''))
-    } catch (err) { setMsg(friendlyUploadError(err, res)) }
-    setUploading(false)
-    if (fileRef.current) fileRef.current.value = ''
+  // ── 封面图：从媒体库选（上传本身在 MediaLibraryModal 里完成）──
+  function handleCoverPicked(urls) {
+    if (urls[0]) setForm(p => ({ ...p, cover_image: urls[0] }))
   }
 
   // ── 段落操作 ──
@@ -242,13 +226,18 @@ export default function JournalAdminPage() {
               }}>移除</button>
             </div>
           )}
-          <button onClick={() => fileRef.current?.click()} disabled={uploading} style={{
+          <button onClick={() => setShowCoverPicker(true)} style={{
             padding: '10px 24px', background: C.white, border: `1px dashed ${C.border}`,
             borderRadius: 6, color: C.gold, fontSize: 12, cursor: 'pointer',
           }}>
-            {uploading ? '上传中…' : form.cover_image ? '更换图片' : '+ 上传封面图'}
+            {form.cover_image ? '更换图片' : '+ 选择封面图'}
           </button>
-          <input ref={fileRef} type="file" accept="image/*" onChange={handleCoverUpload} style={{ display: 'none' }} />
+          <MediaLibraryModal
+            open={showCoverPicker}
+            namespace="journal"
+            onClose={() => setShowCoverPicker(false)}
+            onSelect={handleCoverPicked}
+          />
         </Section>
 
         {/* 正文 */}

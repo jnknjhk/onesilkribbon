@@ -1,11 +1,6 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin as supabase } from '@/lib/supabase'
 import { verifyAdmin } from '@/lib/admin-auth'
 import { NextResponse } from 'next/server'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-)
 
 // 获取所有网站图片
 export async function GET() {
@@ -24,76 +19,43 @@ export async function GET() {
   }
 }
 
-// 上传并更新图片
+// 把某个位置指向媒体库里的一张图——实际上传已经在 /api/admin/media 那边做完了，
+// 这里只是把 { key -> url } 这条关系存下来
 export async function POST(req) {
   const admin = await verifyAdmin()
   if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    const formData = await req.formData()
-    const file = formData.get('file')
-    const key  = formData.get('key')
+    const { key, url } = await req.json()
+    if (!key || !url) return NextResponse.json({ error: 'Missing key or url' }, { status: 400 })
 
-    if (!file || !key) {
-      return NextResponse.json({ error: 'Missing file or key' }, { status: 400 })
-    }
-
-    const ext      = file.name.split('.').pop().toLowerCase()
-    const fileName = `${key}-${Date.now()}.${ext}`
-    const buffer   = Buffer.from(await file.arrayBuffer())
-
-    // 上传到 site-images bucket
-    const { error: uploadError } = await supabase.storage
-      .from('site-images')
-      .upload(fileName, buffer, { contentType: file.type, upsert: true })
-
-    if (uploadError) throw uploadError
-
-    const { data: urlData } = supabase.storage
-      .from('site-images')
-      .getPublicUrl(fileName)
-
-    const url = urlData.publicUrl
-
-    // 更新数据库（upsert 确保即使记录不存在也能插入）
-    const { error: dbError } = await supabase
+    const { error } = await supabase
       .from('site_images')
-      .upsert(
-        { key, url, updated_at: new Date().toISOString() },
-        { onConflict: 'key' }
-      )
+      .upsert({ key, url, updated_at: new Date().toISOString() }, { onConflict: 'key' })
 
-    if (dbError) throw dbError
-
+    if (error) throw error
     return NextResponse.json({ url })
   } catch (err) {
-    console.error('Site image upload error:', err)
+    console.error('Site image update error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
 
-// 删除图片（清空某个位置的图片）
+// 清空某个位置的图片——只清引用，不删媒体库里的文件（那张图可能在别处还在用，
+// 真的要删文件请去媒体库管理页操作）
 export async function DELETE(req) {
   const admin = await verifyAdmin()
   if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    const { key, url } = await req.json()
+    const { key } = await req.json()
     if (!key) return NextResponse.json({ error: 'Missing key' }, { status: 400 })
 
-    // 从 storage 删除文件
-    if (url) {
-      const parts = url.split('/storage/v1/object/public/site-images/')
-      if (parts.length >= 2) {
-        await supabase.storage.from('site-images').remove([parts[1]])
-      }
-    }
-
-    // 清空数据库 URL
-    await supabase
+    const { error } = await supabase
       .from('site_images')
       .update({ url: null, updated_at: new Date().toISOString() })
       .eq('key', key)
+    if (error) throw error
 
     return NextResponse.json({ ok: true })
   } catch (err) {

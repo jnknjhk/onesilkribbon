@@ -239,3 +239,25 @@ create policy "Admin manage subscribers" on subscribers
   for all using (is_admin_user()) with check (is_admin_user());
 create policy "Admin manage tracking_events" on tracking_events
   for all using (is_admin_user()) with check (is_admin_user());
+
+-- ── 统一媒体库 ────────────────────────────────────────────────────────────
+-- 之前商品图/文章封面图/首页图三套上传各玩各的（文章封面图甚至借用商品上传接口、
+-- 编个假 productId 糊弄过去）。现在统一成一个媒体库：图片先传进来登记一条记录，
+-- 哪里要用图就从库里选，同一张图可以被多处复用，不用重复上传。
+create table if not exists media (
+  id          uuid primary key default gen_random_uuid(),
+  url         text not null,
+  path        text not null,           -- storage 里的实际路径，删除时要用
+  filename    text,
+  alt_text    text,
+  size_bytes  integer,
+  namespace   text,                    -- 'product' | 'journal' | 'site' | 'general'，只是给筛选用，不是外键
+  created_at  timestamptz default now()
+);
+
+alter table media enable row level security;
+drop policy if exists "Admin manage media" on media;
+create policy "Admin manage media" on media
+  for all using (is_admin_user()) with check (is_admin_user());
+
+create index if not exists media_created_at_idx on media(created_at desc);

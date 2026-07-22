@@ -1,7 +1,7 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog'
-import { compressImage, friendlyUploadError } from '@/lib/client/compress-image'
+import MediaLibraryModal from '@/components/admin/MediaLibraryModal'
 
 const C = {
   bg: '#F5F3F0', card: '#FFFFFF', border: '#E8E4DF',
@@ -70,7 +70,7 @@ export default function ImagesPage() {
   const [toast, setToast]       = useState(null)
   const [confirmKey, setConfirmKey] = useState(null)
   const [confirmLoading, setConfirmLoading] = useState(false)
-  const fileRefs = useRef({})
+  const [pickerKey, setPickerKey] = useState(null) // 当前正在为哪个位置选图
 
   useEffect(() => { load() }, [])
 
@@ -93,25 +93,26 @@ export default function ImagesPage() {
     setTimeout(() => setToast(null), 3000)
   }
 
-  async function handleUpload(key, file) {
-    if (!file) return
+  // 从媒体库选中（或刚上传）一张图后，把它设成某个位置的图片——真正的文件上传
+  // 已经在 MediaLibraryModal 里通过 /api/admin/media 做完了，这里只是保存 { key -> url }
+  async function handlePicked(key, urls) {
+    const url = urls[0]
+    if (!url) return
     setUploading(u => ({ ...u, [key]: true }))
-    let res
     try {
-      const compressed = await compressImage(file, { maxDimension: 2400 })
-      const fd = new FormData()
-      fd.append('file', compressed)
-      fd.append('key', key)
-      res  = await fetch('/api/admin/site-images', { method: 'POST', body: fd })
+      const res = await fetch('/api/admin/site-images', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, url }),
+      })
       const data = await res.json()
       if (data.url) {
         setImages(prev => ({ ...prev, [key]: data.url }))
         showToast('图片已更新')
       } else {
-        showToast(data.error || '上传失败', false)
+        showToast(data.error || '设置失败', false)
       }
-    } catch (err) {
-      showToast(friendlyUploadError(err, res), false)
+    } catch {
+      showToast('设置失败', false)
     }
     setUploading(u => ({ ...u, [key]: false }))
   }
@@ -123,7 +124,7 @@ export default function ImagesPage() {
       await fetch('/api/admin/site-images', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key, url: images[key] }),
+        body: JSON.stringify({ key }),
       })
       setImages(prev => ({ ...prev, [key]: null }))
       showToast('图片已删除')
@@ -149,6 +150,12 @@ export default function ImagesPage() {
         loading={confirmLoading}
         onConfirm={() => handleDelete(confirmKey)}
         onCancel={() => setConfirmKey(null)}
+      />
+      <MediaLibraryModal
+        open={!!pickerKey}
+        namespace="site"
+        onClose={() => setPickerKey(null)}
+        onSelect={(urls) => handlePicked(pickerKey, urls)}
       />
 
       {/* 标题 */}
@@ -221,7 +228,7 @@ export default function ImagesPage() {
                     <div style={{ display: 'flex', gap: 8 }}>
                       {/* 上传/替换按钮 */}
                       <button
-                        onClick={() => fileRefs.current[key]?.click()}
+                        onClick={() => setPickerKey(key)}
                         disabled={busy}
                         style={{
                           flex: 1, padding: '8px 0',
@@ -254,19 +261,6 @@ export default function ImagesPage() {
                         </button>
                       )}
                     </div>
-
-                    {/* 隐藏文件选择器 */}
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      style={{ display: 'none' }}
-                      ref={el => fileRefs.current[key] = el}
-                      onChange={e => {
-                        const file = e.target.files?.[0]
-                        if (file) handleUpload(key, file)
-                        e.target.value = ''
-                      }}
-                    />
                   </div>
                 </div>
               )

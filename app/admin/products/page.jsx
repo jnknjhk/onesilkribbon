@@ -1,8 +1,8 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { ConfirmDialog, InfoDialog } from '@/components/admin/ConfirmDialog'
 import { Pagination } from '@/components/admin/Pagination'
-import { compressImage, friendlyUploadError } from '@/lib/client/compress-image'
+import MediaLibraryModal from '@/components/admin/MediaLibraryModal'
 
 const PAGE_SIZE = 30
 
@@ -48,13 +48,10 @@ export default function ProductsPage() {
   const [form, setForm] = useState({ name: '', slug: '', description: '', collection: 'fine-silk-ribbons', active: true })
   const [images, setImages] = useState([])
   const [specifications, setSpecifications] = useState([{ key: '', value: '' }])
-  const [uploading, setUploading] = useState(false)
-  const [imageError, setImageError] = useState('')
+  const [showGalleryPicker, setShowGalleryPicker] = useState(false)
   const [attrConfig, setAttrConfig] = useState([])
   const [skus, setSkus] = useState([])
   const [deletedSkuIds, setDeletedSkuIds] = useState([])
-  const [deletedImageUrls, setDeletedImageUrls] = useState([])
-  const fileInputRef = useRef(null)
 
   useEffect(() => { loadProducts() }, [])
 
@@ -81,7 +78,7 @@ export default function ProductsPage() {
     if (product === 'new') {
       setForm({ name: '', slug: '', description: '', collection: 'fine-silk-ribbons', active: true })
       setImages([]); setAttrConfig([]); setSkus([])
-      setDeletedSkuIds([]); setDeletedImageUrls([])
+      setDeletedSkuIds([])
       setSpecifications([{ key: '', value: '' }])
       setEditing('new')
     } else {
@@ -111,36 +108,19 @@ export default function ProductsPage() {
         ...s,
         attributes: s.attributes || {},
       })))
-      setDeletedSkuIds([]); setDeletedImageUrls([])
+      setDeletedSkuIds([])
       setEditing(product)
     }
     setMsg('')
   }
 
-  async function handleImageUpload(e) {
-    const files = Array.from(e.target.files)
-    if (!files.length) return
-    setUploading(true)
-    setImageError('')
-    const pid = editing === 'new' ? 'temp-' + Date.now() : editing.id
-    for (const file of files) {
-      let res
-      try {
-        const compressed = await compressImage(file)
-        const fd = new FormData(); fd.append('file', compressed); fd.append('productId', pid)
-        res = await fetch('/api/admin/upload', { method: 'POST', body: fd })
-        const data = await res.json()
-        if (data.url) setImages(p => [...p, { url: data.url, isNew: true }])
-        else setImageError('上传失败：' + (data.error || ''))
-      } catch (err) { setImageError(friendlyUploadError(err, res)) }
-    }
-    setUploading(false)
-    if (fileInputRef.current) fileInputRef.current.value = ''
+  // 商品相册：从媒体库选图（可多选），上传本身在 MediaLibraryModal 里完成
+  function handleImagesPicked(urls) {
+    setImages(p => [...p, ...urls.map(url => ({ url, isNew: true }))])
   }
+  // 从这个商品的相册里移除，只是去掉引用——图片还留在媒体库里（可能别的地方也在用），
+  // 真的要把文件删掉，去媒体库管理页操作
   function removeImage(i) {
-    const img = images[i]
-    if (img && !img.isNew) setDeletedImageUrls(p => [...p, img.url])
-    else if (img?.isNew) fetch('/api/admin/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: img.url }) }).catch(() => {})
     setImages(p => p.filter((_, j) => j !== i))
   }
   function moveImage(i, d) {
@@ -320,10 +300,6 @@ export default function ProductsPage() {
       const result = await res.json()
       if (result.error) { setMsg('保存失败：' + result.error); setSaving(false); return }
 
-      for (const url of deletedImageUrls) {
-        await fetch('/api/admin/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }).catch(() => {})
-      }
-
       setMsg('保存成功 ✓')
       setTimeout(() => { setEditing(null); loadProducts() }, 800)
     } catch (err) { setMsg('保存失败：' + err.message) }
@@ -351,11 +327,9 @@ export default function ProductsPage() {
 
     if (data.softDeleted) {
       setInfoState({ title: '已下架', message: data.message })
-    } else if (product.images) {
-      for (const url of product.images) {
-        await fetch('/api/admin/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }).catch(() => {})
-      }
     }
+    // 硬删除的商品：图片留在媒体库里不动——可能是复用来的图，删商品不该顺手删图片，
+    // 真要清理未使用的图，去媒体库管理页处理
     if (editing) setEditing(null)
     loadProducts()
   }
@@ -535,16 +509,21 @@ export default function ProductsPage() {
                 </div>
               </div>
             ))}
-            <button onClick={() => fileInputRef.current?.click()} disabled={uploading} style={{
+            <button onClick={() => setShowGalleryPicker(true)} style={{
               width: 120, height: 120, border: `2px dashed ${C.border}`, borderRadius: 6, background: 'transparent',
               cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: C.muted, fontSize: 11,
             }}>
               <span style={{ fontSize: 28, lineHeight: 1 }}>+</span>
-              {uploading ? '上传中…' : '添加图片'}
+              选择图片
             </button>
-            <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleImageUpload} style={{ display: 'none' }} />
+            <MediaLibraryModal
+              open={showGalleryPicker}
+              multiple
+              namespace="product"
+              onClose={() => setShowGalleryPicker(false)}
+              onSelect={handleImagesPicked}
+            />
           </div>
-          {imageError && <p style={{ color: C.red, fontSize: 12, marginTop: -8, marginBottom: 8 }}>{imageError}</p>}
         </Section>
 
         {/* 属性配置 */}
@@ -571,7 +550,6 @@ export default function ProductsPage() {
                         style={{ ...inp, background: C.white, flex: 1 }} placeholder={`选项 ${oi + 1}`} />
                       <AttrOptionImage
                         image={optObj.image}
-                        productId={editing === 'new' ? 'new' : editing?.id}
                         onChange={url => setAttrConfig(p => p.map((a, j) => j === ai ? {
                           ...a, options: a.options.map((o, k) => k === oi ? { ...(typeof o === 'object' ? o : { value: o, image: '' }), image: url } : o)
                         } : a))}
@@ -720,7 +698,6 @@ export default function ProductsPage() {
                       <td style={{ padding: '8px 12px' }}>
                         <SkuImageUpload
                           images={sku.images || []}
-                          productId={editing === 'new' ? 'new' : editing?.id}
                           onChange={imgs => updateSku(i, 'images', imgs)}
                         />
                       </td>
@@ -902,37 +879,15 @@ function SmallBtn({ onClick, disabled, danger, children }) {
 }
 
 /* ── SKU 图片上传组件 ── */
-function SkuImageUpload({ images, productId, onChange }) {
-  const [uploading, setUploading] = useState(false)
-  const [error, setError] = useState('')
+function SkuImageUpload({ images, onChange }) {
+  const [showPicker, setShowPicker] = useState(false)
 
-  async function handleUpload(e) {
-    const files = Array.from(e.target.files)
-    if (!files.length || !productId || productId === 'new') return
-    setUploading(true)
-    setError('')
-    const newImgs = [...(images || [])]
-    for (const file of files) {
-      let res
-      try {
-        const compressed = await compressImage(file)
-        const fd = new FormData()
-        fd.append('file', compressed)
-        fd.append('productId', productId)
-        res = await fetch('/api/admin/upload', { method: 'POST', body: fd })
-        const data = await res.json()
-        if (data.url) newImgs.push(data.url)
-        else setError(data.error || '上传失败')
-      } catch (err) { setError(friendlyUploadError(err, res)) }
-    }
-    onChange(newImgs)
-    setUploading(false)
-    e.target.value = ''
+  function handlePicked(urls) {
+    onChange([...(images || []), ...urls])
   }
 
-  async function handleRemove(url) {
+  function handleRemove(url) {
     onChange((images || []).filter(u => u !== url))
-    try { await fetch('/api/admin/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }) } catch {}
   }
 
   return (
@@ -948,58 +903,30 @@ function SkuImageUpload({ images, productId, onChange }) {
           }}>✕</button>
         </div>
       ))}
-      <label style={{
-        width: 36, height: 36, border: '1px dashed #C8C0B8', borderRadius: 3,
+      <button onClick={() => setShowPicker(true)} style={{
+        width: 36, height: 36, border: '1px dashed #C8C0B8', borderRadius: 3, background: 'none',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        cursor: uploading ? 'default' : 'pointer', color: '#9A8878', fontSize: 18, flexShrink: 0,
-      }}>
-        {uploading ? '…' : '+'}
-        <input type="file" accept="image/*" multiple onChange={handleUpload} style={{ display: 'none' }} disabled={uploading || !productId || productId === 'new'} />
-      </label>
-      {(!productId || productId === 'new') && (
-        <span style={{ fontSize: 10, color: '#C8B8A8' }}>先保存商品</span>
-      )}
-      {error && <span style={{ fontSize: 10, color: '#ef4444', width: '100%' }}>{error}</span>}
+        cursor: 'pointer', color: '#9A8878', fontSize: 18, flexShrink: 0,
+      }}>+</button>
+      <MediaLibraryModal
+        open={showPicker}
+        multiple
+        namespace="product"
+        onClose={() => setShowPicker(false)}
+        onSelect={handlePicked}
+      />
     </div>
   )
 }
 
 /* ── 属性选项图片上传组件 ── */
-function AttrOptionImage({ image, productId, onChange }) {
-  const [uploading, setUploading] = useState(false)
-  const [error, setError] = useState('')
-
-  async function handleUpload(e) {
-    const file = e.target.files?.[0]
-    if (!file || !productId || productId === 'new') return
-    setUploading(true)
-    setError('')
-    let res
-    try {
-      const compressed = await compressImage(file)
-      const fd = new FormData()
-      fd.append('file', compressed)
-      fd.append('productId', productId)
-      res = await fetch('/api/admin/upload', { method: 'POST', body: fd })
-      const data = await res.json()
-      if (data.url) onChange(data.url)
-      else setError(data.error || '上传失败')
-    } catch (err) { setError(friendlyUploadError(err, res)) }
-    setUploading(false)
-    e.target.value = ''
-  }
-
-  async function handleRemove() {
-    if (image) {
-      try { await fetch('/api/admin/upload', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: image }) }) } catch {}
-    }
-    onChange('')
-  }
+function AttrOptionImage({ image, onChange }) {
+  const [showPicker, setShowPicker] = useState(false)
 
   if (image) return (
     <div style={{ position: 'relative', width: 36, height: 36, flexShrink: 0 }}>
       <img src={image} style={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 3, border: '1px solid #E8E4DF' }} />
-      <button onClick={handleRemove} style={{
+      <button onClick={() => onChange('')} style={{
         position: 'absolute', top: -4, right: -4, width: 14, height: 14,
         background: '#ef4444', border: 'none', borderRadius: '50%',
         color: '#fff', fontSize: 8, cursor: 'pointer',
@@ -1009,15 +936,18 @@ function AttrOptionImage({ image, productId, onChange }) {
   )
 
   return (
-    <label style={{
-      width: 36, height: 36, border: `1px dashed ${error ? '#ef4444' : '#C8C0B8'}`, borderRadius: 3, flexShrink: 0,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      cursor: uploading || !productId || productId === 'new' ? 'default' : 'pointer',
-      color: '#9A8878', fontSize: 16,
-    }} title={error || (!productId || productId === 'new' ? '先保存商品再上传图片' : '上传此选项的图片')}>
-      {uploading ? '…' : error ? '⚠' : '🖼'}
-      <input type="file" accept="image/*" onChange={handleUpload} style={{ display: 'none' }}
-        disabled={uploading || !productId || productId === 'new'} />
-    </label>
+    <>
+      <button onClick={() => setShowPicker(true)} style={{
+        width: 36, height: 36, border: '1px dashed #C8C0B8', borderRadius: 3, background: 'none', flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: 'pointer', color: '#9A8878', fontSize: 16,
+      }} title="选择此选项的图片">🖼</button>
+      <MediaLibraryModal
+        open={showPicker}
+        namespace="product"
+        onClose={() => setShowPicker(false)}
+        onSelect={urls => onChange(urls[0])}
+      />
+    </>
   )
 }

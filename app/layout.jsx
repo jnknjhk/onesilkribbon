@@ -40,27 +40,31 @@ const organizationSchema = {
 
 export const metadata = {
   title: {
-    default: 'One Silk Ribbon — 100% Mulberry Silk Ribbons',
+    default: 'One Silk Ribbon — Handmade Mulberry Silk Ribbons UK',
     template: '%s | One Silk Ribbon'
   },
-  description: 'Handcrafted 100% pure mulberry silk ribbons. Six collections, 200+ colourways. Ethically made, shipped across the UK and Europe.',
-  keywords: ['silk ribbon', 'mulberry silk', 'hand frayed ribbon', 'wedding ribbon', 'silk ribbon UK'],
+  description: 'Handmade 100% mulberry silk ribbons for weddings, bouquets and gift wrapping. Hand-dyed in the UK, 200+ colourways, shipped across the UK and Europe.',
+  keywords: [
+    'silk ribbon UK', 'mulberry silk ribbon', 'hand-dyed silk ribbon', 'handmade silk ribbon',
+    'wedding ribbon UK', 'bridal ribbon', 'florist ribbon supplies', 'hand frayed ribbon',
+    'silk ribbon for bouquets', 'wedding stationery ribbon',
+  ],
   alternates: { canonical: '/' },
   openGraph: {
-    title: 'One Silk Ribbon',
-    description: 'Handcrafted 100% pure mulberry silk ribbons.',
+    title: 'One Silk Ribbon — Handmade Silk Ribbon UK',
+    description: 'Handmade 100% mulberry silk ribbons for weddings, bouquets and gift wrapping. Hand-dyed in the UK.',
     url: 'https://onesilkribbon.com',
     siteName: 'One Silk Ribbon',
     locale: 'en_GB',
     type: 'website',
     // 全站兜底分享图——没有自己声明 openGraph 的页面（/about、/contact 等）都会用这张。
     // 图片文件本身还没放进去，路径先接好：把 1200x630 的品牌图放到 public/og-image.jpg 即可生效。
-    images: [{ url: '/og-image.jpg', width: 1200, height: 630, alt: 'One Silk Ribbon — Handcrafted Mulberry Silk Ribbons' }],
+    images: [{ url: '/og-image.jpg', width: 1200, height: 630, alt: 'One Silk Ribbon — Handmade Mulberry Silk Ribbons UK' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'One Silk Ribbon',
-    description: 'Handcrafted 100% pure mulberry silk ribbons.',
+    title: 'One Silk Ribbon — Handmade Silk Ribbon UK',
+    description: 'Handmade 100% mulberry silk ribbons for weddings, bouquets and gift wrapping. Hand-dyed in the UK.',
     images: ['/og-image.jpg'],
   },
   robots: { index: true, follow: true },

@@ -8,7 +8,7 @@ const supabaseServer = createClient(
 
 export const metadata = {
   title: 'FAQ',
-  description: 'Answers to common questions about orders, delivery, products, and care.',
+  description: 'Answers to common questions about UK orders, delivery, silk ribbon care and our handmade process.',
   alternates: { canonical: '/faq' },
 }
 

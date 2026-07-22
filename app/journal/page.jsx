@@ -8,7 +8,7 @@ const supabaseServer = createClient(
 
 export const metadata = {
   title: 'Journal',
-  description: 'Stories, guides and inspiration from the One Silk Ribbon atelier.',
+  description: 'Wedding styling ideas, ribbon craft guides and behind-the-scenes stories from the One Silk Ribbon atelier in the UK.',
   alternates: { canonical: '/journal' },
 }
 

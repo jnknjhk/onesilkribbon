@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 export const metadata = {
   title: 'All Collections',
-  description: 'Explore all six One Silk Ribbon collections — Fine Silk, Hand-Frayed, Adornments, Patterned, Studio Tools and Vintage-Inspired.',
+  description: 'Explore all six One Silk Ribbon collections — Fine Silk, Hand-Frayed, Adornments, Patterned, Studio Tools and Vintage-Inspired. Handmade in the UK.',
   alternates: { canonical: '/collections' },
 }
 

@@ -1,6 +1,6 @@
 export const metadata = {
   title: 'Silk Care Guide',
-  description: 'How to wash, iron, store and handle your One Silk Ribbon mulberry silk ribbons.',
+  description: 'How to wash, iron, store and handle your handmade One Silk Ribbon mulberry silk ribbons.',
   alternates: { canonical: '/care-guide' },
 }
 

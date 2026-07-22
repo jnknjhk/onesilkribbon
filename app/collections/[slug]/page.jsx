@@ -4,12 +4,12 @@ import { notFound } from 'next/navigation'
 import CollectionClient from './CollectionClient'
 
 const COLLECTION_META = {
-  'fine-silk-ribbons':        { name: 'Fine Silk Ribbons',        desc: 'Our signature ultra-fine 100% mulberry silk ribbons, in widths from 2mm to 10mm and 30 hand-selected colourways.' },
-  'hand-frayed-silk-ribbons': { name: 'Hand-Frayed Silk Ribbons', desc: 'Each edge carefully frayed by hand for an ethereal, organic finish. Perfect for bouquets, invitations and fine craft.' },
-  'handcrafted-adornments':   { name: 'Handcrafted Adornments',   desc: 'Silk scrunchies, bows and decorative pieces — each made by hand from pure mulberry silk.' },
-  'patterned-ribbons':        { name: 'Patterned Ribbons',        desc: 'Botanical, geometric and heritage-inspired patterns printed on pure silk.' },
-  'studio-tools':             { name: 'Studio Tools',             desc: 'Everything you need for a well-appointed ribbon and craft studio.' },
-  'vintage-inspired-ribbons': { name: 'Vintage-Inspired Ribbons', desc: 'Heritage tones and antique-inspired textures, evoking the romance of a bygone era.' },
+  'fine-silk-ribbons':        { name: 'Fine Silk Ribbons',        desc: 'Our signature ultra-fine 100% mulberry silk ribbons for UK weddings and invitations, in widths from 2mm to 10mm and 30 hand-dyed colourways.' },
+  'hand-frayed-silk-ribbons': { name: 'Hand-Frayed Silk Ribbons', desc: 'Each edge carefully hand-frayed for an ethereal, organic finish. Perfect for UK wedding bouquets, invitations and fine floristry.' },
+  'handcrafted-adornments':   { name: 'Handcrafted Adornments',   desc: 'Handmade silk scrunchies, bows and decorative pieces — perfect wedding favours and gifts, made from pure mulberry silk in the UK.' },
+  'patterned-ribbons':        { name: 'Patterned Ribbons',        desc: 'Botanical, geometric and heritage-inspired patterns hand-printed on pure silk — ideal for bouquets and gift wrapping.' },
+  'studio-tools':             { name: 'Studio Tools',             desc: 'Everything you need for a well-appointed ribbon, floristry and craft studio.' },
+  'vintage-inspired-ribbons': { name: 'Vintage-Inspired Ribbons', desc: 'Heritage tones and antique-inspired textures for romantic UK weddings, evoking the beauty of a bygone era.' },
 }
 
 const supabaseServer = createClient(

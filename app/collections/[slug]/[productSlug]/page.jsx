@@ -31,7 +31,7 @@ export async function generateMetadata({ params }) {
   const socialTitle = `${product.name} — One Silk Ribbon`
   const description = product.description
     ? product.description.replace(/<[^>]+>/g, '').slice(0, 160)
-    : `Handcrafted 100% mulberry silk ribbon. Shop ${product.name} at One Silk Ribbon.`
+    : `Handmade 100% mulberry silk ribbon, hand-dyed in the UK. Perfect for weddings and bouquets. Shop ${product.name} at One Silk Ribbon.`
   const image = Array.isArray(product.images) ? product.images[0] : null
 
   return {
@@ -120,6 +120,13 @@ export default async function ProductPage({ params }) {
   const image = product && Array.isArray(product.images) ? product.images[0] : null
   const hasPrice = skus && skus.length > 0
 
+  const productUrl = `https://onesilkribbon.com/collections/${slug}/${productSlug}`
+
+  // Google Shopping/Merchant Center 要求商品必须带至少一个标识符（gtin/mpn/isbn 三选一）。
+  // 手工小批量产品没有真正的条码，用内部 slug 顶 mpn（制造商料号）——总比完全不填、
+  // 被 Google 判定"缺商品标识符"要好；等以后如果有真的 UPC/EAN 条码，直接把这行换成 gtin 即可。
+  const hasValidOffer = hasPrice && minPrice > 0
+
   const jsonLd = product ? {
     '@context': 'https://schema.org',
     '@type': 'Product',
@@ -127,24 +134,33 @@ export default async function ProductPage({ params }) {
     description: product.description?.replace(/<[^>]+>/g, '') || '',
     image: Array.isArray(product.images) ? product.images : [],
     brand: { '@type': 'Brand', name: 'One Silk Ribbon' },
+    material: 'Mulberry Silk',
     sku: productSlug,
-    url: `https://onesilkribbon.com/collections/${slug}/${productSlug}`,
-    offers: {
-      '@type': 'AggregateOffer',
-      priceCurrency: 'GBP',
-      lowPrice: minPrice.toFixed(2),
-      highPrice: maxPrice.toFixed(2),
-      availability: inStock
-        ? 'https://schema.org/InStock'
-        : 'https://schema.org/OutOfStock',
-      seller: { '@type': 'Organization', name: 'One Silk Ribbon' },
-    },
+    mpn: productSlug,
+    url: productUrl,
+    // 没有任何在售 SKU（比如全部下架/缺库存价格）时，宁可不输出 offers，
+    // 也不要给 Google 一个 £0.00 的假报价——那会被 Merchant Center 当异常商品打回
+    ...(hasValidOffer ? {
+      offers: {
+        '@type': 'AggregateOffer',
+        priceCurrency: 'GBP',
+        lowPrice: minPrice.toFixed(2),
+        highPrice: maxPrice.toFixed(2),
+        offerCount: skus.length,
+        availability: inStock
+          ? 'https://schema.org/InStock'
+          : 'https://schema.org/OutOfStock',
+        itemCondition: 'https://schema.org/NewCondition',
+        url: productUrl,
+        seller: { '@type': 'Organization', name: 'One Silk Ribbon', url: 'https://onesilkribbon.com' },
+      },
+    } : {}),
     breadcrumb: {
       '@type': 'BreadcrumbList',
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: 'Collections', item: 'https://onesilkribbon.com/collections' },
         { '@type': 'ListItem', position: 2, name: product.collection?.replace(/-/g, ' ') || 'Products', item: `https://onesilkribbon.com/collections/${product.collection}` },
-        { '@type': 'ListItem', position: 3, name: product.name, item: `https://onesilkribbon.com/collections/${slug}/${productSlug}` },
+        { '@type': 'ListItem', position: 3, name: product.name, item: productUrl },
       ],
     },
   } : null

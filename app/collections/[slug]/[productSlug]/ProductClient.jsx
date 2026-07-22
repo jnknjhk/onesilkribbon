@@ -424,7 +424,7 @@ export default function ProductClient({ initialProduct, initialSkus, slug, relat
               <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 300, color: 'var(--ink)', textAlign: 'center', marginBottom: 48 }}>
                 More from this Collection
               </h2>
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(relatedProducts.length, 4)}, 1fr)`, gap: 32 }} className="related-grid">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 280px))', justifyContent: 'center', gap: 32 }} className="related-grid">
                 {relatedProducts.map(p => (
                   <Link key={p.id} href={`/collections/${collectionSlug}/${p.slug}`} style={{ textDecoration: 'none' }}>
                     <div style={{ aspectRatio: '1/1', background: 'var(--sand)', marginBottom: 14, overflow: 'hidden', position: 'relative' }}>
@@ -451,7 +451,7 @@ export default function ProductClient({ initialProduct, initialSkus, slug, relat
           .bc-pad { padding-left: 24px !important; padding-right: 24px !important; }
           .zone2-pad { padding-left: 24px !important; padding-right: 24px !important; }
           .related-pad { padding-left: 24px !important; padding-right: 24px !important; }
-          .related-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 20px !important; }
+          .related-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 220px)) !important; gap: 20px !important; }
         }
         .first-section-title { margin-top: 0 !important; }
       `}</style>

@@ -26,7 +26,7 @@ export function Footer() {
             fontFamily: 'var(--font-display)', fontSize: 15, fontStyle: 'italic',
             color: 'var(--taupe)', lineHeight: 1.8, maxWidth: 260,
           }}>
-            "Silk in its most natural form — hand-treated, botanically inspired, made to last."
+            'Silk in its most natural form — hand-treated, botanically inspired, made to last.'
           </p>
           {/* Social */}
           <div style={{ display: 'flex', gap: 12, marginTop: 32 }}>

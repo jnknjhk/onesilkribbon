@@ -213,7 +213,7 @@ export function Navbar() {
           )}
 
           {/* 购物车 */}
-          <button onClick={toggleCart} className="nav-icon-btn" aria-label="Cart" style={{ position: 'relative' }}>
+          <button onClick={toggleCart} className="nav-icon-btn" aria-label="Basket" style={{ position: 'relative' }}>
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke={iconStroke} strokeWidth="1.4" style={{ transition: 'stroke 0.4s', filter: isLight ? 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))' : 'none' }}>
               <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
               <line x1="3" y1="6" x2="21" y2="6"/>

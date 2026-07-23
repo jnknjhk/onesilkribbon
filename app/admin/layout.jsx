@@ -12,6 +12,7 @@ const NAV = [
   { href: '/admin/images',    label: '网站图片', icon: '◻' },
   { href: '/admin/journal',   label: '文章',   icon: '✎' },
   { href: '/admin/customers', label: '客户',   icon: '◉' },
+  { href: '/admin/subscribers', label: '订阅用户', icon: '▧' },
   { href: '/admin/marketing', label: '营销',   icon: '◇' },
   { href: '/admin/email',     label: '发邮件', icon: '✉' },
 ]

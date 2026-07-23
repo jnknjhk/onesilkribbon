@@ -110,7 +110,7 @@ export default function SubscribersPage() {
           background: C.gold, border: 'none', borderRadius: 8, color: '#fff', fontSize: 12,
           padding: '10px 24px', cursor: exporting ? 'default' : 'pointer', opacity: exporting ? 0.7 : 1,
         }}>
-          {exporting ? '导出中…' : '⬇ Export CSV'}
+          {exporting ? '导出中…' : '⬇ 导出 CSV'}
         </button>
       </div>
 

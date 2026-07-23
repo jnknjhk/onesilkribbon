@@ -25,13 +25,13 @@ export default function Terms() {
           <p>We accept payment via PayPal and major credit/debit cards via Stripe. All transactions are processed securely. We do not store any card details.</p>
 
           <h2>4. Delivery</h2>
-          <p>We aim to dispatch all orders within 2–3 working days. Delivery timescales are estimates and not guaranteed. We are not liable for delays caused by couriers or circumstances beyond our control.</p>
+          <p>Orders are shipped from our workshop in China and are usually dispatched within 2 business days of payment being received. Orders are shipped by air and typically arrive within 5–14 days of dispatch. Delivery timescales are estimates and not guaranteed — we are not liable for delays caused by customs clearance, local postal services, or circumstances beyond our control.</p>
           <p>Risk of loss and title for items pass to you upon delivery.</p>
 
           <h2>5. Returns &amp; Refunds</h2>
-          <p>You have the right to cancel your order within 14 days of receipt under the Consumer Contracts Regulations 2013. Items must be returned in their original condition and packaging.</p>
-          <p>To initiate a return, email <a href="mailto:hello@onesilkribbon.com">hello@onesilkribbon.com</a> with your order number. Return postage is at your expense unless the item is faulty.</p>
-          <p>Refunds will be processed within 14 days of receiving the returned item. See our <a href="/shipping-returns">Shipping &amp; Returns</a> page for full details.</p>
+          <p>We accept returns for eligible products. Cut-to-length, custom-made, and personalised items cannot be returned, as they are prepared specifically to your requirements. Please contact us before returning any item — items returned without prior approval may not be accepted.</p>
+          <p>To initiate a return, email <a href="mailto:song@onesilkribbon.com">song@onesilkribbon.com</a> with your order number. Return postage is at your expense unless the item is faulty or the return is due to an error on our part.</p>
+          <p>Refunds will be processed once the returned item has been received and inspected. See our <a href="/shipping-returns">Shipping &amp; Returns</a> page for full details.</p>
 
           <h2>6. Product Descriptions</h2>
           <p>We make every effort to ensure product descriptions, colours and images are accurate. However, due to the handcrafted and naturally dyed nature of our products, slight variations in colour and texture are inherent and not considered defects.</p>

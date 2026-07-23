@@ -310,7 +310,7 @@ export default function ProductClient({ initialProduct, initialSkus, slug, relat
 
             {/* Trust badges */}
             <div style={{ display: 'flex', justifyContent: 'center', gap: 28, marginTop: 24, flexWrap: 'wrap' }}>
-              {['🔒 Secure Checkout', '↩ 30-Day Returns', '📦 Dispatched in 2–3 Days'].map(t => (
+              {['🔒 Secure Checkout', '↩ Easy Returns', '📦 Dispatched in 2 Days'].map(t => (
                 <span key={t} style={{ fontSize: 10, color: 'var(--taupe)', letterSpacing: '0.06em' }}>{t}</span>
               ))}
             </div>
@@ -376,9 +376,8 @@ export default function ProductClient({ initialProduct, initialSkus, slug, relat
             {tab === 'shipping' && (
               <div style={{ maxWidth: 560, margin: '0 auto' }}>
                 {[
-                  { title: 'UK Delivery', items: [shippingInfo.freeEnabled ? `Standard — 3–5 working days · Free on orders over £${shippingInfo.threshold}, otherwise £${shippingInfo.rate}` : `Standard — 3–5 working days · £${shippingInfo.rate}`, 'Express — 1–2 working days · £5.95'] },
-                  { title: 'International Delivery', items: ['Europe — 7–10 working days · £8.95', 'Rest of World — 10–14 working days · £12.95'] },
-                  { title: 'Packaging & Dispatch', items: ['All orders are carefully wrapped in tissue paper and sealed with our wax stamp. Dispatched within 2–3 working days, Monday to Friday.'] },
+                  { title: 'Delivery', items: [shippingInfo.freeEnabled ? `Free on orders over £${shippingInfo.threshold}, otherwise £${shippingInfo.rate} per order` : `£${shippingInfo.rate} per order`, 'Shipped by air, typically arriving within 5–14 days of dispatch'] },
+                  { title: 'Packaging & Dispatch', items: ['All orders are carefully wrapped in tissue paper and sealed with our wax stamp. Dispatched within 2 business days of payment being received.'] },
                 ].map(({ title, items }) => (
                   <div key={title}>
                     <p style={{ fontSize: 9, letterSpacing: '.28em', textTransform: 'uppercase', color: 'var(--ink)', marginBottom: 16, marginTop: 36, paddingBottom: 12, borderBottom: '1px solid var(--sand)' }}>{title}</p>

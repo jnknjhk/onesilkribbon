@@ -25,10 +25,10 @@ export default function FAQContent({ shippingRate = '3.95', freeThreshold = '45'
     {
       category: 'Orders & Delivery',
       items: [
-        { q: 'How long will my order take to arrive?', a: 'UK standard delivery takes 3–5 working days. Express (1–2 days) is available at checkout. We dispatch within 2–3 working days of your order. International delivery takes 7–14 days depending on destination.' },
-        { q: 'Do you offer free shipping?', a: freeEnabled ? `Yes — UK standard shipping is free on all orders over £${freeThreshold}. Below that, it is £${shippingRate}. Express shipping is £5.95.` : `UK standard shipping is £${shippingRate} per order. Express shipping is £5.95.` },
-        { q: 'Can I track my order?', a: 'Yes. Once your order is dispatched you will receive a confirmation email with tracking information where available. You can also check your order status at /track-order.' },
-        { q: 'Do you ship internationally?', a: 'Yes, we ship to Europe (£8.95) and worldwide (£12.95). Please note that international orders may be subject to import duties and taxes, which are the responsibility of the recipient.' },
+        { q: 'How long will my order take to arrive?', a: 'We dispatch orders within 2 business days of payment being received. Orders are shipped by air from our workshop and typically arrive within 5–14 days of dispatch, depending on your destination and local customs clearance.' },
+        { q: 'Do you offer free shipping?', a: freeEnabled ? `Yes — shipping is free on all orders over £${freeThreshold}. Below that, it is £${shippingRate} per order.` : `Shipping is £${shippingRate} per order.` },
+        { q: 'Can I track my order?', a: 'Yes. Once your order is dispatched you will receive a confirmation email with tracking information. Tracking may take a little time to become active after dispatch.' },
+        { q: 'Do you ship internationally?', a: 'Yes, we ship worldwide to the United Kingdom, Europe, and beyond. Please note that international orders may be subject to customs duties, import taxes, or VAT, which are the responsibility of the customer unless otherwise stated at checkout.' },
       ],
     },
     {
@@ -43,7 +43,7 @@ export default function FAQContent({ shippingRate = '3.95', freeThreshold = '45'
     {
       category: 'Returns & Care',
       items: [
-        { q: 'What is your returns policy?', a: 'We accept returns within 14 days of receipt. Items must be unused and in their original condition. Bespoke or custom-cut orders are non-refundable unless faulty. See our Shipping & Returns page for full details.' },
+        { q: 'What is your returns policy?', a: 'We accept returns for eligible products — please contact us before sending anything back. Items must be unused, in their original condition and packaging, and suitable for resale. Cut-to-length, custom-made, and personalised products cannot be returned. See our Shipping & Returns page for full details.' },
         { q: 'How do I care for my silk ribbon?', a: 'Hand wash gently in cool water with a mild detergent. Lay flat to dry away from direct sunlight. Iron on a low silk setting with a pressing cloth. Store rolled or flat, away from moisture and heat. See our full Care Guide for more.' },
         { q: 'My ribbon arrived damaged — what do I do?', a: 'We are sorry to hear that. Please email song@onesilkribbon.com within 7 days of receipt with your order number and a photo of the damage. We will arrange a replacement or full refund at no cost to you.' },
       ],

@@ -147,7 +147,7 @@ function Hero({ heroImages }) {
 }
 
 function Marquee({ freeThreshold = '45', freeEnabled = true }) {
-  const items = ['Fine Silk Ribbons','Hand-Frayed Collection','Handcrafted Adornments','Patterned Ribbons','Studio Tools','Vintage-Inspired','200+ Colourways', freeEnabled ? `Free UK Shipping over £${freeThreshold}` : 'Worldwide Shipping Available']
+  const items = ['Fine Silk Ribbons','Hand-Frayed Collection','Handcrafted Adornments','Patterned Ribbons','Studio Tools','Vintage-Inspired','200+ Colourways', freeEnabled ? `Free Worldwide Shipping over £${freeThreshold}` : 'Worldwide Shipping Available']
   return (
     <div style={{ background: 'var(--deep)', padding: '14px 0', overflow: 'hidden', whiteSpace: 'nowrap' }}>
       <div style={{ display: 'inline-flex', animation: 'marquee 24s linear infinite' }}>

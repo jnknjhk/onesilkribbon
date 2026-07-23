@@ -23,7 +23,7 @@ export default async function ShippingReturns() {
   const freeEnabled       = map.free_shipping_enabled !== 'false'
 
   const shippingDesc = freeEnabled
-    ? `Free on orders over £${freeThreshold}, otherwise £${shippingRate}`
+    ? `free on orders over £${freeThreshold}, otherwise £${shippingRate} per order`
     : `£${shippingRate} per order`
 
   return (
@@ -31,43 +31,73 @@ export default async function ShippingReturns() {
       <div style={{ paddingTop: 68, background: 'var(--cream)', minHeight: '100vh' }}>
         <div className="policy-wrap">
           <h1>Shipping &amp; Returns</h1>
-          <p className="updated">Last updated: March 2026</p>
+          <p className="updated">Last updated: July 2026</p>
 
           <p>Every order from One Silk Ribbon is carefully prepared by hand — wrapped in tissue, rolled onto a vintage wooden spool, and sealed with our wax stamp. Here is everything you need to know about how it reaches you.</p>
 
-          <h2>UK Delivery</h2>
-          <ul>
-            <li><strong>Standard (Royal Mail 2nd Class)</strong> — 3–5 working days · {shippingDesc}</li>
-            <li><strong>Express (Royal Mail 1st Class / Tracked)</strong> — 1–2 working days · £5.95</li>
-          </ul>
-          <p>Orders are dispatched within 2–3 working days of purchase, Monday to Friday. You will receive a dispatch confirmation email with tracking information where available.</p>
+          <h2>Shipping</h2>
+          <p>We ship orders from our workshop in China to customers in the United Kingdom, Europe, and worldwide. Shipping is {shippingDesc}.</p>
 
-          <h2>International Delivery</h2>
-          <ul>
-            <li><strong>Europe</strong> — 7–10 working days · £8.95</li>
-            <li><strong>Rest of World</strong> — 10–14 working days · £12.95</li>
-          </ul>
-          <p>International customers may be subject to import duties and taxes upon arrival. These charges are the responsibility of the recipient and are not included in our shipping fees.</p>
+          <h2>Order Processing</h2>
+          <p>Orders are usually dispatched within 2 business days after payment has been successfully received.</p>
+          <p>Once your order has been dispatched, you will receive a shipping confirmation email containing your tracking information.</p>
+
+          <h2>Delivery Times</h2>
+          <p>Orders are shipped by air and typically arrive within <strong>5–14 days</strong> after dispatch.</p>
+          <p>Please note that delivery times are estimates and may vary depending on the destination country, customs clearance, local postal services, weather conditions, and other circumstances beyond our control.</p>
+
+          <h2>Tracking</h2>
+          <p>All orders are shipped with tracking information. You can use the tracking number provided in your shipping confirmation email to follow the progress of your shipment.</p>
+          <p>Please note that tracking information may take some time to become active after your order has been dispatched.</p>
+
+          <h2>Customs, Duties and Taxes</h2>
+          <p>International orders may be subject to customs duties, import taxes, VAT, or other charges imposed by the destination country.</p>
+          <p>Any customs duties, import taxes, VAT, or other fees charged by the destination country are the responsibility of the customer unless otherwise stated at checkout. We are not responsible for delays caused by customs clearance.</p>
 
           <h2>Returns</h2>
-          <p>We hope you love your ribbon. If for any reason you are not completely satisfied, we accept returns within <strong>14 days</strong> of the date you receive your order.</p>
-          <p>To be eligible for a return:</p>
+          <p>We accept returns for eligible products. If you wish to return an item, please contact us before sending anything back — items returned without prior approval may not be accepted.</p>
+
+          <h2>Standard Returns</h2>
+          <p>You may request a return for eligible products if you change your mind or no longer wish to keep the item. The return shipping cost is the responsibility of the customer.</p>
+          <p>The returned item must be:</p>
           <ul>
-            <li>Items must be unused and in their original condition</li>
-            <li>Items must be returned in their original packaging</li>
-            <li>Bespoke or custom-cut orders are non-refundable unless faulty</li>
+            <li>Unused</li>
+            <li>In its original condition</li>
+            <li>In its original packaging where applicable</li>
+            <li>Suitable for resale</li>
           </ul>
-          <p>To initiate a return, please email <a href="mailto:song@onesilkribbon.com">song@onesilkribbon.com</a> with your order number and reason for return. We will respond within 2 working days with return instructions.</p>
-          <p>Return postage costs are at your expense unless the item is faulty or incorrectly sent. We recommend using a tracked service as we cannot be responsible for items lost in return transit.</p>
+          <p>Please contact us at <a href="mailto:song@onesilkribbon.com">song@onesilkribbon.com</a> before returning your order so that we can provide the appropriate return instructions. Refunds will be issued after the returned item has been received and inspected.</p>
+
+          <h2>Damaged or Defective Items</h2>
+          <p>If your order arrives damaged or you believe the product has a quality issue, please contact us at <a href="mailto:song@onesilkribbon.com">song@onesilkribbon.com</a> within 7 days of receiving your order.</p>
+          <p>Please include:</p>
+          <ul>
+            <li>Your order number</li>
+            <li>A description of the issue</li>
+            <li>Clear photographs or videos showing the problem</li>
+          </ul>
+          <p>If the issue is confirmed to be a product quality problem or damage that occurred before delivery, we will provide an appropriate solution. Where a return is required due to a confirmed product quality issue, we will cover the return shipping cost.</p>
+
+          <h2>Non-Returnable Items</h2>
+          <p>The following items cannot be returned:</p>
+          <ul>
+            <li>Cut-to-length ribbon</li>
+            <li>Products that have been cut or altered according to the customer's requested length</li>
+            <li>Custom-made products</li>
+            <li>Personalised products</li>
+            <li>Products that have been used, altered, damaged, or modified after delivery</li>
+          </ul>
+          <p>Because these products are prepared specifically according to the customer's requirements, they cannot be resold.</p>
+
+          <h2>Exchanges</h2>
+          <p>We currently do not offer direct exchanges. If you would like a different product, colour, size, or variation, please contact us regarding the available options.</p>
 
           <h2>Refunds</h2>
-          <p>Once your return is received and inspected, we will process your refund within <strong>5–7 working days</strong>. Refunds are issued to the original payment method. Please note that original shipping costs are non-refundable.</p>
+          <p>Once your return has been received and inspected, we will process the refund for eligible returned items. The refund will generally be issued to the original payment method.</p>
+          <p>Original shipping charges, if any, may not be refundable unless the return is due to a confirmed product quality issue or an error on our part.</p>
 
-          <h2>Faulty or Incorrect Items</h2>
-          <p>If you receive a faulty or incorrect item, please contact us at <a href="mailto:song@onesilkribbon.com">song@onesilkribbon.com</a> within 7 days of receipt. We will arrange a free return and send a replacement or issue a full refund, including postage.</p>
-
-          <h2>Questions?</h2>
-          <p>Email us at <a href="mailto:song@onesilkribbon.com">song@onesilkribbon.com</a> and we will be happy to help.</p>
+          <h2>Contact Us</h2>
+          <p>If you have any questions about shipping or returns, please contact us before placing a return request. Email: <a href="mailto:song@onesilkribbon.com">song@onesilkribbon.com</a></p>
         </div>
       </div>
 

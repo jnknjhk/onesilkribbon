@@ -2,8 +2,7 @@
 import { useState } from 'react'
 
 export default function Bespoke() {
-  const [tab, setTab] = useState('bespoke') // 'bespoke' | 'wholesale'
-  const [form, setForm] = useState({ name: '', email: '', company: '', occasion: '', colours: '', width: '', length: '', notes: '' })
+  const [form, setForm] = useState({ name: '', email: '', message: '' })
   const [sent, setSent] = useState(false)
 
   const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
@@ -11,18 +10,16 @@ export default function Bespoke() {
   const handleSubmit = async () => {
     if (!form.name || !form.email) return
     setSent('loading')
-    const subject = tab === 'bespoke'
-      ? `Bespoke Enquiry — ${form.name}`
-      : `Wholesale Enquiry — ${form.name}${form.company ? ' / ' + form.company : ''}`
-    const message = Object.entries(form)
-      .filter(([, v]) => v)
-      .map(([k, v]) => `${k.charAt(0).toUpperCase() + k.slice(1).replace(/_/g, ' ')}: ${v}`)
-      .join('\n')
     try {
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: form.name, email: form.email, subject, message }),
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          subject: `Bespoke & Wholesale Enquiry — ${form.name}`,
+          message: form.message,
+        }),
       })
       const data = await res.json()
       if (data.success) setSent('done')
@@ -30,47 +27,23 @@ export default function Bespoke() {
     } catch { setSent('error') }
   }
 
-  const bespokeSpecs = [
-    { label: 'Minimum Order', value: '10 metres per colourway' },
-    { label: 'Lead Time', value: '2–4 weeks depending on specification' },
-    { label: 'Colour Matching', value: 'Pantone references or fabric swatches welcome' },
-    { label: 'Widths Available', value: '4mm, 7mm, 10mm, 15mm, 25mm, 38mm' },
+  const specs = [
+    { label: 'Bespoke Minimum', value: '10 metres per colourway' },
+    { label: 'Wholesale Minimum', value: 'From £250 per order' },
+    { label: 'Lead Time', value: '1–4 weeks depending on order' },
     { label: 'Enquiries', value: 'song@onesilkribbon.com' },
   ]
-
-  const wholesaleSpecs = [
-    { label: 'Who We Work With', value: 'Florists, stylists, boutiques, event planners, brands' },
-    { label: 'Minimum Order', value: 'From £250 per order' },
-    { label: 'Pricing', value: 'Trade pricing available on request' },
-    { label: 'Lead Time', value: '1–2 weeks for stock items' },
-    { label: 'Enquiries', value: 'song@onesilkribbon.com' },
-  ]
-
-  const specs = tab === 'bespoke' ? bespokeSpecs : wholesaleSpecs
 
   return (
     <>
       <div style={{ paddingTop: 68, background: 'var(--cream)', minHeight: '100vh' }}>
 
         {/* Hero */}
-        <div style={{ borderBottom: '1px solid var(--sand)', padding: '80px 60px 0', maxWidth: 1360, margin: '0 auto' }}>
+        <div style={{ borderBottom: '1px solid var(--sand)', padding: '80px 60px 48px', maxWidth: 1360, margin: '0 auto' }}>
           <p style={{ fontSize: 9, letterSpacing: '.38em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 16 }}>Trade & Custom</p>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 56, fontWeight: 300, lineHeight: 1.08, color: 'var(--ink)', maxWidth: 600, marginBottom: 48 }}>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 56, fontWeight: 300, lineHeight: 1.08, color: 'var(--ink)', maxWidth: 600 }}>
             Bespoke &amp;<br /><em>Wholesale.</em>
           </h1>
-
-          {/* Tabs */}
-          <div style={{ display: 'flex', gap: 0 }}>
-            {[['bespoke', 'Bespoke Orders'], ['wholesale', 'Wholesale & Trade']].map(([id, label]) => (
-              <button key={id} onClick={() => { setTab(id); setSent(false) }} style={{
-                padding: '14px 32px', background: 'none', border: 'none',
-                borderBottom: tab === id ? '2px solid var(--gold)' : '2px solid transparent',
-                fontFamily: 'var(--font-body)', fontSize: 10, letterSpacing: '.22em',
-                textTransform: 'uppercase', color: tab === id ? 'var(--ink)' : 'var(--taupe)',
-                cursor: 'pointer', transition: 'color .2s', marginBottom: -1,
-              }}>{label}</button>
-            ))}
-          </div>
         </div>
 
         {/* Body */}
@@ -78,25 +51,12 @@ export default function Bespoke() {
 
           {/* Left — info */}
           <div>
-            {tab === 'bespoke' ? (
-              <>
-                <p style={{ fontSize: 13, lineHeight: 2.2, color: 'var(--taupe)', marginBottom: 20 }}>
-                  We welcome bespoke commissions for weddings, special occasions, editorial shoots, and gifting. Whether you need a specific colourway, a custom width, or a particular length — we would love to help bring your vision to life.
-                </p>
-                <p style={{ fontSize: 13, lineHeight: 2.2, color: 'var(--taupe)', marginBottom: 40 }}>
-                  Fill in the form and we will be in touch within 3 working days with a quote and timeline.
-                </p>
-              </>
-            ) : (
-              <>
-                <p style={{ fontSize: 13, lineHeight: 2.2, color: 'var(--taupe)', marginBottom: 20 }}>
-                  We supply florists, stylists, boutiques, event planners and brands across the UK and Europe. Our trade programme offers competitive pricing, priority fulfilment, and access to our full range.
-                </p>
-                <p style={{ fontSize: 13, lineHeight: 2.2, color: 'var(--taupe)', marginBottom: 40 }}>
-                  Tell us about your business and requirements, and we will send you our wholesale information pack within 2 working days.
-                </p>
-              </>
-            )}
+            <p style={{ fontSize: 13, lineHeight: 2.2, color: 'var(--taupe)', marginBottom: 20 }}>
+              We welcome enquiries for bespoke commissions — weddings, special occasions, editorial shoots and gifting — as well as wholesale and trade accounts for florists, stylists, boutiques and brands.
+            </p>
+            <p style={{ fontSize: 13, lineHeight: 2.2, color: 'var(--taupe)', marginBottom: 40 }}>
+              Tell us what you&apos;re looking for and we will be in touch within a few working days with pricing and timeline.
+            </p>
 
             {specs.map(({ label, value }) => (
               <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '14px 0', borderBottom: '1px solid var(--sand)', fontSize: 12 }}>
@@ -109,22 +69,12 @@ export default function Bespoke() {
           {/* Right — form */}
           <div>
             <p style={{ fontSize: 9, letterSpacing: '.28em', textTransform: 'uppercase', color: 'var(--taupe)', marginBottom: 28 }}>
-              {tab === 'bespoke' ? 'Bespoke Enquiry' : 'Wholesale Enquiry'}
+              Enquiry
             </p>
 
             {[
-              { name: 'name', label: 'Your Name', placeholder: 'Jane Smith' },
+              { name: 'name', label: 'Your Name', placeholder: 'Company / Studio / Your Name' },
               { name: 'email', label: 'Email Address', placeholder: 'jane@example.com' },
-              ...(tab === 'wholesale' ? [{ name: 'company', label: 'Business Name', placeholder: 'Studio Bloom Floristry' }] : []),
-              ...(tab === 'bespoke' ? [
-                { name: 'occasion', label: 'Occasion / Project', placeholder: 'Wedding, editorial, gift…' },
-                { name: 'colours', label: 'Colour Ideas', placeholder: 'Dusty rose, ivory, Pantone 182 C…' },
-                { name: 'width', label: 'Width Preference', placeholder: '10mm, 25mm, unsure…' },
-                { name: 'length', label: 'Approximate Length', placeholder: '50 metres, 200 metres…' },
-              ] : [
-                { name: 'occasion', label: 'Type of Business', placeholder: 'Florist, boutique, brand…' },
-                { name: 'length', label: 'Estimated Monthly Volume', placeholder: '100m, 500m…' },
-              ]),
             ].map(({ name, label, placeholder }) => (
               <div key={name} style={{ marginBottom: 18 }}>
                 <label style={{ display: 'block', fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase', color: 'var(--taupe)', marginBottom: 8 }}>{label}</label>
@@ -134,9 +84,9 @@ export default function Bespoke() {
             ))}
 
             <div style={{ marginBottom: 28 }}>
-              <label style={{ display: 'block', fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase', color: 'var(--taupe)', marginBottom: 8 }}>Additional Notes</label>
-              <textarea name="notes" value={form.notes} onChange={handleChange}
-                placeholder={tab === 'bespoke' ? 'Packaging, labelling, deadlines…' : 'Any other details about your requirements…'}
+              <label style={{ display: 'block', fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase', color: 'var(--taupe)', marginBottom: 8 }}>Your Requirements</label>
+              <textarea name="message" value={form.message} onChange={handleChange}
+                placeholder="Tell us what you're looking for"
                 style={{ width: '100%', minHeight: 100, padding: '12px 14px', background: 'var(--cream)', border: '1px solid var(--warm)', fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 300, color: 'var(--ink)', outline: 'none', resize: 'vertical' }} className="form-input" />
             </div>
 
@@ -154,7 +104,7 @@ export default function Bespoke() {
 
             {sent === 'done' && (
               <p style={{ fontSize: 11, color: 'var(--taupe)', marginTop: 12, lineHeight: 1.8 }}>
-                Your email client should have opened. If not, email us directly at{' '}
+                We&apos;ve received your enquiry and sent a confirmation to your email. If you don&apos;t see it, feel free to reach us directly at{' '}
                 <a href="mailto:song@onesilkribbon.com" style={{ color: 'var(--gold)' }}>song@onesilkribbon.com</a>.
               </p>
             )}

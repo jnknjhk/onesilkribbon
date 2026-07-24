@@ -255,7 +255,7 @@ export function Navbar() {
               <div className="search-results">
                 {searching && <p style={{ padding: '20px 0', fontSize: 12, color: 'var(--taupe)', textAlign: 'center' }}>Searching…</p>}
                 {!searching && searchQuery.length >= 2 && searchResults.length === 0 && (
-                  <p style={{ padding: '20px 0', fontSize: 13, color: 'var(--taupe)', textAlign: 'center' }}>No products found for "{searchQuery}"</p>
+                  <p style={{ padding: '20px 0', fontSize: 13, color: 'var(--taupe)', textAlign: 'center' }}>No products found for &quot;{searchQuery}&quot;</p>
                 )}
                 {searchResults.map(p => {
                   const img = Array.isArray(p.images) ? p.images[0] : null
@@ -311,7 +311,7 @@ export function Navbar() {
         </div>
       )}
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .site-nav { padding-left: clamp(28px, 5vw, 60px) !important; padding-right: clamp(28px, 5vw, 60px) !important; }
         .nav-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; z-index: 101; flex-shrink: 0; }
         .nav-logo { height: 34px; width: 34px; border-radius: 50%; object-fit: cover; display: block; position: relative; top: -1px; }
@@ -338,7 +338,7 @@ export function Navbar() {
         @media (max-width: 900px) { .nav-desktop { display: none !important; } .nav-links { position: static; transform: none; } }
         @media (min-width: 901px) { .nav-mobile { display: none !important; } }
         @media (max-width: 480px) { .nav-brand-text { font-size: 14px; } .nav-logo { height: 32px; width: 32px; } }
-      `}</style>
+      ` }} />
     </>
   )
 }

@@ -1,30 +1,6 @@
-import { createServerClient } from '@supabase/ssr'
 import { supabaseAdmin } from '@/lib/supabase'
-import { cookies } from 'next/headers'
-
-async function getUser(request) {
-  const auth = request.headers.get('authorization') || ''
-  if (auth.startsWith('Bearer ')) {
-    const token = auth.slice(7)
-    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
-    if (!error && user) return user
-  }
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll() },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
-        },
-      },
-    }
-  )
-  const { data: { user }, error } = await supabase.auth.getUser()
-  return error ? null : user
-}
+import { getAuthUser as getUser } from '@/lib/get-auth-user'
+import { errorResponse } from '@/lib/api-error'
 
 // GET /api/user/profile
 export async function GET(request) {
@@ -37,7 +13,7 @@ export async function GET(request) {
     .eq('id', user.id)
     .single()
 
-  if (error) return Response.json({ error: error.message }, { status: 500 })
+  if (error) return errorResponse(error, { tag: 'user-profile-get' })
   return Response.json({ profile })
 }
 
@@ -56,6 +32,6 @@ export async function PATCH(request) {
     .select()
     .single()
 
-  if (error) return Response.json({ error: error.message }, { status: 500 })
+  if (error) return errorResponse(error, { tag: 'user-profile-update' })
   return Response.json({ profile })
 }

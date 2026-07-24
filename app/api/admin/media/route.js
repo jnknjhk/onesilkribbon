@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyAdmin } from '@/lib/admin-auth'
+import { errorResponse } from '@/lib/api-error'
 
 const PAGE_SIZE = 60
 
@@ -18,7 +19,7 @@ export async function GET(req) {
   if (search) query = query.ilike('filename', `%${search}%`)
 
   const { data, error, count } = await query.range(from, to)
-  if (error) return Response.json({ error: error.message }, { status: 500 })
+  if (error) return errorResponse(error, { tag: 'admin-media-get' })
 
   return Response.json({ media: data || [], total: count || 0, page, totalPages: Math.max(1, Math.ceil((count || 0) / PAGE_SIZE)) })
 }
@@ -44,8 +45,7 @@ export async function POST(req) {
       .upload(path, buffer, { contentType: file.type, upsert: false })
 
     if (uploadError) {
-      console.error('Media upload error:', uploadError)
-      return Response.json({ error: uploadError.message }, { status: 500 })
+      return errorResponse(uploadError, { tag: 'admin-media-upload' })
     }
 
     const { data: urlData } = supabaseAdmin.storage.from('media').getPublicUrl(path)
@@ -63,14 +63,12 @@ export async function POST(req) {
       .single()
 
     if (insertError) {
-      console.error('Media record insert error:', insertError)
-      return Response.json({ error: insertError.message }, { status: 500 })
+      return errorResponse(insertError, { tag: 'admin-media-insert' })
     }
 
     return Response.json({ media: record })
   } catch (err) {
-    console.error('Media upload error:', err)
-    return Response.json({ error: err.message }, { status: 500 })
+    return errorResponse(err, { tag: 'admin-media-post' })
   }
 }
 
@@ -90,10 +88,10 @@ export async function DELETE(req) {
 
     await supabaseAdmin.storage.from('media').remove([record.path])
     const { error } = await supabaseAdmin.from('media').delete().eq('id', id)
-    if (error) return Response.json({ error: error.message }, { status: 500 })
+    if (error) return errorResponse(error, { tag: 'admin-media-delete' })
 
     return Response.json({ success: true })
   } catch (err) {
-    return Response.json({ error: err.message }, { status: 500 })
+    return errorResponse(err, { tag: 'admin-media-delete' })
   }
 }

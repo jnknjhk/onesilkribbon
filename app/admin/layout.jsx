@@ -80,7 +80,7 @@ export default function AdminLayout({ children }) {
           <main style={{ padding: '32px' }}>{children}</main>
         </div>
       </div>
-      <style>{`* { box-sizing: border-box; } ::-webkit-scrollbar { width: 4px; height: 4px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #D4C8BE; border-radius: 2px; } ::-webkit-scrollbar-thumb:hover { background: #B89B6A; } input::placeholder { color: #B0AAA6 !important; }`}</style>
+      <style dangerouslySetInnerHTML={{ __html: `* { box-sizing: border-box; } ::-webkit-scrollbar { width: 4px; height: 4px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #D4C8BE; border-radius: 2px; } ::-webkit-scrollbar-thumb:hover { background: #B89B6A; } input::placeholder { color: #B0AAA6 !important; }` }} />
     </>
   )
 }

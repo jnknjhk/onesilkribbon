@@ -1,17 +1,20 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyAdmin } from '@/lib/admin-auth'
+import { errorResponse } from '@/lib/api-error'
 
 // GET /api/admin/customers — 按邮箱聚合出的客户列表（供客户管理页 + 发送邮件页复用）
 export async function GET() {
   const admin = await verifyAdmin()
   if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
+  // 兜底上限，防止订单量增长后这里的整表聚合无限膨胀
   const { data: orders, error } = await supabaseAdmin
     .from('orders')
     .select('customer_email, shipping_name, shipping_city, shipping_country, total_gbp, created_at, status, user_id')
     .order('created_at', { ascending: false })
+    .limit(5000)
 
-  if (error) return Response.json({ error: error.message }, { status: 500 })
+  if (error) return errorResponse(error, { tag: 'admin-customers-get' })
 
   const { data: profiles } = await supabaseAdmin
     .from('user_profiles')

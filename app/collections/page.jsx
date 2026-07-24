@@ -58,12 +58,12 @@ export default function CollectionsPage() {
         </div>
       </div>
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .coll-page-card:hover .coll-page-img { transform: scale(1.04); }
         .coll-page-card:hover .coll-line { width: 52px !important; }
         @media(max-width:900px) { .coll-page-grid{grid-template-columns:1fr !important} }
         @media(max-width:600px) { .coll-page-pad{padding:0 24px 80px !important} }
-      `}</style>
+      ` }} />
     </div>
   )
 }

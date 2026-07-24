@@ -1,5 +1,6 @@
 import { verifyAdmin } from '@/lib/admin-auth'
 import { supabaseAdmin } from '@/lib/supabase'
+import { errorResponse } from '@/lib/api-error'
 import Stripe from 'stripe'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
@@ -52,7 +53,6 @@ export async function POST(req) {
 
     return Response.json({ success: false, error: '无法自动退款，请手动处理' })
   } catch (err) {
-    console.error('Refund error:', err)
-    return Response.json({ success: false, error: err.message }, { status: 500 })
+    return errorResponse(err, { tag: 'admin-refund' })
   }
 }

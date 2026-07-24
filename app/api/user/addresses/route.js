@@ -1,30 +1,6 @@
-import { createServerClient } from '@supabase/ssr'
 import { supabaseAdmin } from '@/lib/supabase'
-import { cookies } from 'next/headers'
-
-async function getUser(request) {
-  const auth = request.headers.get('authorization') || ''
-  if (auth.startsWith('Bearer ')) {
-    const token = auth.slice(7)
-    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
-    if (!error && user) return user
-  }
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll() },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
-        },
-      },
-    }
-  )
-  const { data: { user }, error } = await supabase.auth.getUser()
-  return error ? null : user
-}
+import { getAuthUser as getUser } from '@/lib/get-auth-user'
+import { errorResponse } from '@/lib/api-error'
 
 // GET /api/user/addresses — 获取所有地址
 export async function GET(request) {
@@ -38,7 +14,7 @@ export async function GET(request) {
     .order('is_default', { ascending: false })
     .order('created_at', { ascending: false })
 
-  if (error) return Response.json({ error: error.message }, { status: 500 })
+  if (error) return errorResponse(error, { tag: 'user-addresses-get' })
   return Response.json({ addresses })
 }
 
@@ -64,7 +40,7 @@ export async function POST(request) {
     .select()
     .single()
 
-  if (error) return Response.json({ error: error.message }, { status: 500 })
+  if (error) return errorResponse(error, { tag: 'user-addresses-create' })
   return Response.json({ address }, { status: 201 })
 }
 
@@ -98,7 +74,7 @@ export async function PATCH(request) {
     .select()
     .single()
 
-  if (error) return Response.json({ error: error.message }, { status: 500 })
+  if (error) return errorResponse(error, { tag: 'user-addresses-update' })
   return Response.json({ address })
 }
 
@@ -116,6 +92,6 @@ export async function DELETE(request) {
     return Response.json({ error: 'Forbidden' }, { status: 403 })
 
   const { error } = await supabaseAdmin.from('user_addresses').delete().eq('id', id)
-  if (error) return Response.json({ error: error.message }, { status: 500 })
+  if (error) return errorResponse(error, { tag: 'user-addresses-delete' })
   return Response.json({ ok: true })
 }

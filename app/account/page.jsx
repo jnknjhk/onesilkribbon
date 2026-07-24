@@ -149,12 +149,12 @@ export default function AccountPage() {
         )}
       </div>
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @keyframes spin { to { transform: rotate(360deg) } }
         @media (max-width: 600px) {
           .account-quick-grid { grid-template-columns: 1fr 1fr !important; }
         }
-      `}</style>
+      ` }} />
     </AccountLayout>
   )
 }

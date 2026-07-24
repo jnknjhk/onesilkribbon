@@ -1,12 +1,10 @@
 import { cache } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin as supabaseServer } from '@/lib/supabase'
 import Link from 'next/link'
+import Image from 'next/image'
 import { notFound } from 'next/navigation'
 
-const supabaseServer = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-)
+export const revalidate = 300
 
 function formatDate(iso) {
   if (!iso) return ''
@@ -87,8 +85,8 @@ export default async function JournalPost({ params }) {
         {/* Cover image */}
         {post.cover_image && (
           <div style={{ maxWidth: 1360, margin: '0 auto', padding: '0 60px' }} className="post-cover-pad">
-            <div style={{ width: '100%', aspectRatio: '16/6', overflow: 'hidden', background: 'var(--sand)', marginTop: 48 }}>
-              <img src={post.cover_image} alt={post.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            <div style={{ width: '100%', aspectRatio: '16/6', overflow: 'hidden', background: 'var(--sand)', marginTop: 48, position: 'relative' }}>
+              <Image src={post.cover_image} alt={post.title} fill priority sizes="(max-width: 1360px) 100vw, 1360px" style={{ objectFit: 'cover' }} />
             </div>
           </div>
         )}
@@ -110,8 +108,8 @@ export default async function JournalPost({ params }) {
               if (!s.url) return null
               return (
                 <figure key={i} style={{ margin: '0 0 48px', marginLeft: -60, marginRight: -60 }} className="post-figure">
-                  <div style={{ width: '100%', aspectRatio: '16/9', overflow: 'hidden', background: 'var(--sand)' }}>
-                    <img src={s.url} alt={s.caption || post.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  <div style={{ width: '100%', aspectRatio: '16/9', overflow: 'hidden', background: 'var(--sand)', position: 'relative' }}>
+                    <Image src={s.url} alt={s.caption || post.title} fill loading="lazy" sizes="(max-width: 700px) 100vw, 700px" style={{ objectFit: 'cover' }} />
                   </div>
                   {s.caption && (
                     <figcaption style={{ fontSize: 11, letterSpacing: '.04em', color: 'var(--taupe)', textAlign: 'center', marginTop: 14, padding: '0 60px' }} className="post-figcaption">
@@ -151,7 +149,7 @@ export default async function JournalPost({ params }) {
         </div>
       </div>
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .back-link:hover { color: var(--gold) !important; border-bottom-color: var(--gold) !important; }
         @media(max-width: 768px) {
           .post-header-pad { padding: 48px 24px 40px !important; }
@@ -161,7 +159,7 @@ export default async function JournalPost({ params }) {
           .post-figure { margin-left: -24px !important; margin-right: -24px !important; }
           .post-figcaption { padding: 0 24px !important; }
         }
-      `}</style>
+      ` }} />
     </>
   )
 }

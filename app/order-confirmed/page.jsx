@@ -37,7 +37,7 @@ function OrderConfirmedContent() {
           <Row label="Delivery" value="5–14 days after dispatch" />
           <div style={{ height: 1, background: 'var(--warm)' }} />
           <p style={{ fontSize: 12, color: 'var(--taupe)', lineHeight: 1.8 }}>
-            A confirmation email has been sent to your inbox. You'll receive a shipping notification with your tracking number once your order is dispatched.
+            A confirmation email has been sent to your inbox. You&apos;ll receive a shipping notification with your tracking number once your order is dispatched.
           </p>
           <p style={{ fontSize: 11, color: 'var(--taupe)', marginTop: 8 }}>
             Need help? <a href="mailto:song@onesilkribbon.com" style={{ color: 'var(--gold)' }}>song@onesilkribbon.com</a>
@@ -59,7 +59,7 @@ function OrderConfirmedContent() {
         </Link>
       </div>
 
-      <style>{`@keyframes drawCheck{to{stroke-dashoffset:0}}`}</style>
+      <style dangerouslySetInnerHTML={{ __html: `@keyframes drawCheck{to{stroke-dashoffset:0}}` }} />
     </div>
   )
 }

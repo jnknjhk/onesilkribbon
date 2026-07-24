@@ -1,7 +1,7 @@
-import * as Sentry from '@sentry/nextjs'
 import { supabaseAdmin } from '@/lib/supabase'
 import { computeAuthoritativeOrder } from '@/lib/order-pricing'
 import { getAuthUser } from '@/lib/get-auth-user'
+import { errorResponse } from '@/lib/api-error'
 
 const PAYPAL_BASE = process.env.PAYPAL_MODE === 'live'
   ? 'https://api-m.paypal.com'
@@ -117,8 +117,6 @@ export async function POST(req) {
 
     return Response.json({ approvalUrl })
   } catch (err) {
-    Sentry.captureException(err, { tags: { api: 'paypal-create-order' } })
-    console.error('PayPal error:', err)
-    return Response.json({ error: err.message }, { status: 500 })
+    return errorResponse(err, { tag: 'paypal-create-order' })
   }
 }

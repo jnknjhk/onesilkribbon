@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
 import { ConfirmDialog, InfoDialog } from '@/components/admin/ConfirmDialog'
 import { Pagination } from '@/components/admin/Pagination'
 import MediaLibraryModal from '@/components/admin/MediaLibraryModal'
@@ -101,9 +102,7 @@ export default function ProductsPage() {
           : [{ key: '', value: '' }]
       )
 
-      const { createClient } = await import('@supabase/supabase-js')
-      const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-      const { data: skuData } = await sb.from('product_skus').select('*').eq('product_id', product.id).order('created_at')
+      const { data: skuData } = await supabase.from('product_skus').select('*').eq('product_id', product.id).order('created_at')
       setSkus((skuData || []).map(s => ({
         ...s,
         attributes: s.attributes || {},
@@ -670,7 +669,7 @@ export default function ProductsPage() {
             </div>
           )}
           {skus.length === 0 ? (
-            <p style={{ color: C.muted, fontSize: 13, marginBottom: 16 }}>暂无 SKU。请先添加属性后点击"自动生成 SKU 组合"，或手动添加</p>
+            <p style={{ color: C.muted, fontSize: 13, marginBottom: 16 }}>暂无 SKU。请先添加属性后点击&quot;自动生成 SKU 组合&quot;，或手动添加</p>
           ) : (
             <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'auto', marginBottom: 16 }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: attrNames.length * 120 + 300 }}>

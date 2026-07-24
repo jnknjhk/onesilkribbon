@@ -1,5 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabase, supabaseAdmin } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
@@ -15,11 +14,6 @@ export async function GET(request) {
     if (!accessToken) {
       return NextResponse.json({ user: null })
     }
-
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    )
 
     // 验证 access token
     const { data: { user }, error } = await supabase.auth.getUser(accessToken)

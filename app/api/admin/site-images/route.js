@@ -1,6 +1,7 @@
 import { supabaseAdmin as supabase } from '@/lib/supabase'
 import { verifyAdmin } from '@/lib/admin-auth'
 import { NextResponse } from 'next/server'
+import { errorResponse } from '@/lib/api-error'
 
 // 获取所有网站图片
 export async function GET() {
@@ -15,7 +16,7 @@ export async function GET() {
     if (error) throw error
     return NextResponse.json(data || [])
   } catch (err) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return errorResponse(err, { tag: 'admin-site-images-get' })
   }
 }
 
@@ -36,8 +37,7 @@ export async function POST(req) {
     if (error) throw error
     return NextResponse.json({ url })
   } catch (err) {
-    console.error('Site image update error:', err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return errorResponse(err, { tag: 'admin-site-images-post' })
   }
 }
 
@@ -59,6 +59,6 @@ export async function DELETE(req) {
 
     return NextResponse.json({ ok: true })
   } catch (err) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return errorResponse(err, { tag: 'admin-site-images-delete' })
   }
 }

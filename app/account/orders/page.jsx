@@ -133,7 +133,7 @@ export default function OrdersPage() {
         )}
       </div>
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @keyframes spin { to { transform: rotate(360deg) } }
         @media (max-width: 600px) {
           .orders-header { display: none !important; }
@@ -141,7 +141,7 @@ export default function OrdersPage() {
           .order-row > *:nth-child(2),
           .order-row > *:nth-child(3) { display: none; }
         }
-      `}</style>
+      ` }} />
     </AccountLayout>
   )
 }

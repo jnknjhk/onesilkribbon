@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { verifyAdmin } from '@/lib/admin-auth'
 import { sendShippingNotification } from '@/lib/email'
 import { NextResponse } from 'next/server'
+import { errorResponse } from '@/lib/api-error'
 
 export async function POST(req) {
   const admin = await verifyAdmin()
@@ -30,7 +31,6 @@ export async function POST(req) {
 
     return NextResponse.json({ ok: true })
   } catch (err) {
-    console.error('Ship email error:', err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return errorResponse(err, { tag: 'admin-ship-email' })
   }
 }

@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 
 const COLLECTION_META = {
@@ -194,7 +195,7 @@ export default function CollectionClient({ initialProducts, slug: initialSlug, i
         )}
       </div>
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .coll-hero {
           position: relative;
           height: clamp(380px, 48vw, 520px);
@@ -224,7 +225,7 @@ export default function CollectionClient({ initialProducts, slug: initialSlug, i
           .coll-toolbar { padding: 16px 20px; }
         }
         @media(max-width:480px) { .prod-grid { gap: 16px 10px; } }
-      `}</style>
+      ` }} />
     </div>
   )
 }
@@ -254,8 +255,8 @@ function ProductCard({ product: p }) {
           position: 'relative',
         }}>
           {img ? (
-            <img src={img} alt={name} style={{
-              width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+            <Image src={img} alt={name} fill sizes="(max-width: 768px) 50vw, 25vw" style={{
+              objectFit: 'cover',
               transform: hovered ? 'scale(1.07)' : 'scale(1)',
               transition: 'transform 1.2s cubic-bezier(0.25,0.46,0.45,0.94)',
             }} />

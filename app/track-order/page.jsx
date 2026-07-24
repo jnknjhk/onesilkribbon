@@ -130,7 +130,7 @@ function TrackOrderContent() {
         {/* Help */}
         <div style={{ marginTop: 48, textAlign: 'center', padding: '28px', background: 'var(--mist)', borderTop: '1px solid var(--sand)' }}>
           <p style={{ fontSize: 12, color: 'var(--taupe)', lineHeight: 1.9 }}>
-            Can't find your order? <a href="mailto:orders@onesilkribbon.com" style={{ color: 'var(--gold)' }}>Contact us</a> and we'll help you track it down.
+            Can&apos;t find your order? <a href="mailto:orders@onesilkribbon.com" style={{ color: 'var(--gold)' }}>Contact us</a> and we&apos;ll help you track it down.
           </p>
         </div>
       </div>

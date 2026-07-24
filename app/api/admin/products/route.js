@@ -1,6 +1,7 @@
 import { supabaseAdmin as supabase } from '@/lib/supabase'
 import { verifyAdmin } from '@/lib/admin-auth'
 import { NextResponse } from 'next/server'
+import { errorResponse } from '@/lib/api-error'
 
 // 获取产品（?id=xxx 拿单个产品+其全部 SKU，否则拿产品列表+全部 SKU）
 // 全部用 service role 查，不受 product_skus 的 "is_active=true 才公开可见" 这条 RLS 限制——
@@ -14,21 +15,24 @@ export async function GET(req) {
 
   if (id) {
     const { data: product, error } = await supabase.from('products').select('*').eq('id', id).single()
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return errorResponse(error, { tag: 'admin-products-get-one' })
     const { data: skus } = await supabase.from('product_skus').select('*').eq('product_id', id)
     return NextResponse.json({ product, skus: skus || [] })
   }
 
+  // 兜底上限，防止商品/SKU量增长后单次查询无限膨胀；管理页目前是整表拉取后前端筛选分页
   const { data: products, error } = await supabase
     .from('products')
     .select('*')
     .order('created_at', { ascending: false })
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    .limit(5000)
+  if (error) return errorResponse(error, { tag: 'admin-products-get' })
 
   const { data: skus } = await supabase
     .from('product_skus')
     .select('id, product_id, colour, colour_hex, attributes, stock_qty, price_gbp')
     .order('product_id')
+    .limit(20000)
 
   return NextResponse.json({ products: products || [], skus: skus || [] })
 }
@@ -60,7 +64,7 @@ export async function POST(req) {
         .select('id')
         .single()
 
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      if (error) return errorResponse(error, { tag: 'admin-products-create' })
 
       const productId = data.id
 
@@ -101,7 +105,7 @@ export async function POST(req) {
         })
         .eq('id', product.id)
 
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      if (error) return errorResponse(error, { tag: 'admin-products-update' })
 
       // 删除前端标记要删除的SKU
       if (deletedSkuIds && deletedSkuIds.length > 0) {
@@ -172,7 +176,6 @@ export async function POST(req) {
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
   } catch (err) {
-    console.error('Admin product API error:', err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return errorResponse(err, { tag: 'admin-products-post' })
   }
 }

@@ -1,37 +1,6 @@
-import { createServerClient } from '@supabase/ssr'
 import { supabaseAdmin } from '@/lib/supabase'
-import { cookies } from 'next/headers'
-
-async function getUser(request) {
-  // 方式1：Authorization header（客户端直接传 token）
-  const auth = request.headers.get('authorization') || ''
-  if (auth.startsWith('Bearer ')) {
-    const token = auth.slice(7)
-    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
-    if (!error && user) return user
-  }
-
-  // 方式2：SSR cookie（@supabase/ssr 存的）
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll() },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          )
-        },
-      },
-    }
-  )
-  const { data: { user }, error } = await supabase.auth.getUser()
-  if (!error && user) return user
-
-  return null
-}
+import { getAuthUser as getUser } from '@/lib/get-auth-user'
+import { errorResponse } from '@/lib/api-error'
 
 // GET /api/user/orders — 获取订单列表
 // GET /api/user/orders?id=xxx — 获取单个订单详情（含物流）
@@ -68,6 +37,6 @@ export async function GET(request) {
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
-  if (error) return Response.json({ error: error.message }, { status: 500 })
+  if (error) return errorResponse(error, { tag: 'user-orders-get' })
   return Response.json({ orders: orders || [] })
 }

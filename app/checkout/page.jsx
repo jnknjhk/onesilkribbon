@@ -2,6 +2,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useCart } from '@/lib/cart'
 import { useAuth } from '@/lib/auth'
 import { formatGBP, calculateTotals } from '@/lib/pricing'
@@ -80,6 +81,8 @@ function CheckoutContent() {
   const [couponLoading, setCouponLoading] = useState(false)
   const [shippingSettings, setShippingSettings] = useState(null)
   const [addressPrefilled, setAddressPrefilled] = useState(false)
+  const [continuing, setContinuing] = useState(false)
+  const [stockError, setStockError] = useState('')
 
   // ── 加载运费设置 ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -198,8 +201,6 @@ function CheckoutContent() {
     couponCode: coupon?.code || '',
   }
 
-  const [continuing, setContinuing] = useState(false)
-
   const handleContinue = async () => {
     if (!validate()) return
     setContinuing(true)
@@ -219,8 +220,6 @@ function CheckoutContent() {
     setContinuing(false)
     setStep('payment')
   }
-
-  const [stockError, setStockError] = useState('')
 
   const handlePayPalPayment = async () => {
     setLoading(true); setStockError('')
@@ -397,8 +396,8 @@ function CheckoutContent() {
             <div style={{ display:'flex', flexDirection:'column', gap:16, marginBottom:28, paddingBottom:28, borderBottom:'1px solid var(--warm)' }}>
               {items.map(item => (
                 <div key={item.skuId} style={{ display:'flex', gap:14 }}>
-                  <div className="cart-item-img" style={{ width:52, height:52, background: item.colourHex || 'var(--warm)' }}>
-                    {item.image && <img src={item.image} style={{ width:'100%', height:'100%', objectFit:'cover' }} />}
+                  <div className="cart-item-img" style={{ width:52, height:52, background: item.colourHex || 'var(--warm)', position: 'relative' }}>
+                    {item.image && <Image src={item.image} alt={item.name || ''} fill sizes="52px" style={{ objectFit:'cover' }} />}
                     <span className="cart-badge">{item.qty}</span>
                   </div>
                   <div style={{ flex:1 }}>
@@ -450,12 +449,12 @@ function CheckoutContent() {
           </div>
         </div>
       </div>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @media(max-width:960px){ .checkout-grid{grid-template-columns:1fr !important;gap:40px !important} }
         @media(max-width:600px){ .checkout-grid{padding:24px 20px 80px !important} }
         .cart-item-img { position:relative; overflow:hidden; flex-shrink:0; }
         .cart-badge { position:absolute; top:-6px; right:-6px; background:var(--deep); color:#fff; width:18px; height:18px; border-radius:50%; font-size:10px; display:flex; align-items:center; justify-content:center; z-index:1; }
-      `}</style>
+      ` }} />
     </div>
   )
 }

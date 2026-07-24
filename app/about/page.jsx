@@ -1,10 +1,8 @@
 import Link from 'next/link'
-import { createClient } from '@supabase/supabase-js'
+import Image from 'next/image'
+import { supabaseAdmin as supabaseServer } from '@/lib/supabase'
 
-const supabaseServer = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-)
+export const revalidate = 3600
 
 export const metadata = {
   title: 'Our Story',
@@ -49,7 +47,7 @@ export default async function About() {
         {/* HERO */}
         <div style={{ position: 'relative', paddingTop: 68, height: '72vh', minHeight: 440, overflow: 'hidden' }}>
           {imgMap.about_hero ? (
-            <img src={imgMap.about_hero} alt="One Silk Ribbon" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+            <Image src={imgMap.about_hero} alt="One Silk Ribbon" fill priority sizes="100vw" style={{ objectFit: 'cover' }} />
           ) : (
             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(160deg, #E8DDD0 0%, #C4A882 100%)' }} />
           )}
@@ -83,9 +81,9 @@ export default async function About() {
             </p>
           </div>
           <div style={{ padding: '96px 0 96px 80px' }}>
-            <div style={{ aspectRatio: '4/5', overflow: 'hidden', background: 'var(--sand)' }}>
+            <div style={{ aspectRatio: '4/5', overflow: 'hidden', background: 'var(--sand)', position: 'relative' }}>
               {imgMap.about_main
-                ? <img src={imgMap.about_main} alt="Our Story" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                ? <Image src={imgMap.about_main} alt="Our Story" fill sizes="(max-width: 900px) 100vw, 50vw" style={{ objectFit: 'cover' }} />
                 : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(160deg, #E8DDD0 0%, #C4A882 100%)' }} />}
             </div>
           </div>
@@ -115,8 +113,8 @@ export default async function About() {
             ))}
           </div>
           {imgMap.about_craft && (
-            <div style={{ aspectRatio: '21/9', overflow: 'hidden', borderRadius: 2 }}>
-              <img src={imgMap.about_craft} alt="Our Craft" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            <div style={{ aspectRatio: '21/9', overflow: 'hidden', borderRadius: 2, position: 'relative' }}>
+              <Image src={imgMap.about_craft} alt="Our Craft" fill loading="lazy" sizes="(max-width: 1360px) 100vw, 1360px" style={{ objectFit: 'cover' }} />
             </div>
           )}
         </div>
@@ -135,9 +133,9 @@ export default async function About() {
               Explore All Ribbons →
             </Link>
           </div>
-          <div style={{ aspectRatio: '5/4', overflow: 'hidden', background: 'var(--sand)' }}>
+          <div style={{ aspectRatio: '5/4', overflow: 'hidden', background: 'var(--sand)', position: 'relative' }}>
             {imgMap.about_colour
-              ? <img src={imgMap.about_colour} alt="A World of Colour" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              ? <Image src={imgMap.about_colour} alt="A World of Colour" fill loading="lazy" sizes="(max-width: 900px) 100vw, 50vw" style={{ objectFit: 'cover' }} />
               : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #E8B4B8 0%, #C4A882 25%, #8B9A7A 50%, #A89BC4 75%, #D4C4A8 100%)' }} />}
           </div>
         </div>
@@ -149,9 +147,9 @@ export default async function About() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 32 }} className="made-for-grid">
               {MADE_FOR.map(({ title, body, cta, href, imgKey }) => (
                 <Link key={title} href={href} style={{ display: 'block', textDecoration: 'none', background: 'var(--cream)' }}>
-                  <div style={{ aspectRatio: '4/3', overflow: 'hidden', background: 'var(--sand)' }}>
+                  <div style={{ aspectRatio: '4/3', overflow: 'hidden', background: 'var(--sand)', position: 'relative' }}>
                     {imgMap[imgKey]
-                      ? <img src={imgMap[imgKey]} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      ? <Image src={imgMap[imgKey]} alt={title} fill loading="lazy" sizes="(max-width: 900px) 100vw, 33vw" style={{ objectFit: 'cover' }} />
                       : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(160deg, #E8DDD0 0%, #C4A882 100%)' }} />}
                   </div>
                   <div style={{ padding: '28px 28px 32px' }}>
@@ -197,7 +195,7 @@ export default async function About() {
         </div>
       </div>
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @media(max-width: 900px) {
           .about-grid { grid-template-columns: 1fr !important; padding: 0 24px !important; }
           .about-grid > div { padding: 48px 0 !important; border-right: none !important; border-bottom: 1px solid var(--sand); }
@@ -207,7 +205,7 @@ export default async function About() {
           .made-for-grid { grid-template-columns: 1fr !important; }
           h1 { font-size: 34px !important; }
         }
-      `}</style>
+      ` }} />
     </>
   )
 }

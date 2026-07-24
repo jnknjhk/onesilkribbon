@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { gbpToPence } from '@/lib/pricing'
 import { computeAuthoritativeOrder } from '@/lib/order-pricing'
 import { getAuthUser } from '@/lib/get-auth-user'
+import { errorResponse } from '@/lib/api-error'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -90,7 +91,6 @@ export async function POST(req) {
 
     return Response.json({ url: session.url })
   } catch (err) {
-    console.error('Stripe error:', err)
-    return Response.json({ error: err.message }, { status: 500 })
+    return errorResponse(err, { tag: 'stripe-create-checkout-session' })
   }
 }

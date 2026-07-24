@@ -1,12 +1,9 @@
 import { cache } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin as supabaseServer } from '@/lib/supabase'
 import { permanentRedirect, notFound } from 'next/navigation'
 import ProductClient from './ProductClient'
 
-const supabaseServer = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-)
+export const revalidate = 60
 
 // generateMetadata 和页面组件是两次独立执行，用 React cache() 包一层——
 // 同一次请求内两边都调用时，实际只会真正打一次数据库

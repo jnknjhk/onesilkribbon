@@ -1,19 +1,9 @@
 import Stripe from 'stripe'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendOrderConfirmation, sendOwnerNotification } from '@/lib/email'
+import { deductStock } from '@/lib/stock-check'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
-
-async function deductStock(items) {
-  for (const item of items) {
-    if (!item.sku_id) continue
-    const { data: sku } = await supabaseAdmin
-      .from('product_skus').select('stock_qty').eq('id', item.sku_id).single()
-    if (!sku) continue
-    const newQty = Math.max(0, (sku.stock_qty || 0) - (item.quantity || 1))
-    await supabaseAdmin.from('product_skus').update({ stock_qty: newQty }).eq('id', item.sku_id)
-  }
-}
 
 export async function POST(req) {
   const body = await req.text()

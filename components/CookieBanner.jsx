@@ -64,7 +64,7 @@ export default function CookieBanner() {
         </div>
       </div>
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .cookie-banner {
           position: fixed; bottom: 0; left: 0; right: 0; z-index: 999;
           background: var(--ink);
@@ -90,7 +90,7 @@ export default function CookieBanner() {
           }
           .cookie-actions button { width: 100%; }
         }
-      `}</style>
+      ` }} />
     </>
   )
 }

@@ -6,8 +6,9 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim
 export async function middleware(request) {
   const { pathname } = request.nextUrl
 
-  // 只保护 /admin 路由
-  if (!pathname.startsWith('/admin')) return NextResponse.next()
+  const isAdminApi  = pathname.startsWith('/api/admin')
+  const isAdminPage = pathname.startsWith('/admin')
+  if (!isAdminApi && !isAdminPage) return NextResponse.next()
 
   // 创建响应对象（SSR 客户端需要能写 cookie）
   let response = NextResponse.next({ request })
@@ -35,18 +36,20 @@ export async function middleware(request) {
 
   // 获取当前登录用户
   const { data: { user }, error } = await supabase.auth.getUser()
+  const isAuthorized = !error && user && ADMIN_EMAILS.includes(user.email.toLowerCase())
 
-  if (error || !user) {
-    return NextResponse.redirect(new URL('/admin-login', request.url))
+  if (isAuthorized) return response
+
+  // /api/admin/* 是接口，未授权时必须返回 401 JSON——重定向到登录页对 fetch() 调用方毫无意义，
+  // 而且这是兜底防线：就算某个 admin API route 里忘了自己调 verifyAdmin()，这里也会先拦住
+  if (isAdminApi) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  if (!ADMIN_EMAILS.includes(user.email.toLowerCase())) {
-    return NextResponse.redirect(new URL('/admin-login?error=forbidden', request.url))
-  }
-
-  return response
+  const reason = !error && user ? '?error=forbidden' : ''
+  return NextResponse.redirect(new URL(`/admin-login${reason}`, request.url))
 }
 
 export const config = {
-  matcher: ['/admin', '/admin/:path*'],
+  matcher: ['/admin', '/admin/:path*', '/api/admin/:path*'],
 }

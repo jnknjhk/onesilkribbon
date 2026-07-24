@@ -162,14 +162,14 @@ export default function Bespoke() {
         </div>
       </div>
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .form-input:focus { border-color: var(--ink) !important; }
         .form-input::placeholder { color: var(--warm); }
         @media(max-width: 900px) {
           .bespoke-grid { grid-template-columns: 1fr !important; padding: 48px 24px 80px !important; gap: 48px !important; }
           h1 { font-size: 36px !important; }
         }
-      `}</style>
+      ` }} />
     </>
   )
 }

@@ -1,10 +1,8 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin as supabaseServer } from '@/lib/supabase'
 import Link from 'next/link'
+import Image from 'next/image'
 
-const supabaseServer = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-)
+export const revalidate = 60
 
 export const metadata = {
   title: 'Journal',
@@ -47,8 +45,8 @@ export default async function JournalPage() {
                 </div>
                 <div style={{ display: 'flex', gap: 24, alignItems: 'start' }}>
                   {post.cover_image && (
-                    <div style={{ width: 80, height: 80, flexShrink: 0, overflow: 'hidden', background: 'var(--sand)' }}>
-                      <img src={post.cover_image} alt={post.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    <div style={{ width: 80, height: 80, flexShrink: 0, overflow: 'hidden', background: 'var(--sand)', position: 'relative' }}>
+                      <Image src={post.cover_image} alt={post.title} fill sizes="80px" style={{ objectFit: 'cover' }} />
                     </div>
                   )}
                   <div>
@@ -69,7 +67,7 @@ export default async function JournalPage() {
         </div>
       </div>
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .post-row:hover h2 { color: var(--gold) !important; }
         @media(max-width: 768px) {
           .journal-header-pad { padding: 60px 24px 48px !important; }
@@ -78,7 +76,7 @@ export default async function JournalPage() {
           .post-row-inner { grid-template-columns: 1fr 24px !important; gap: 16px !important; }
           .post-row-inner > div:first-child { display: none; }
         }
-      `}</style>
+      ` }} />
     </>
   )
 }

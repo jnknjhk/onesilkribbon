@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyAdmin } from '@/lib/admin-auth'
+import { errorResponse } from '@/lib/api-error'
 
 // GET /api/admin/subscribers — 订阅者列表，支持按邮箱搜索、按来源筛选
 // ?search=&source=&all=1（all=1 时不分页，供导出 CSV 用）
@@ -24,7 +25,7 @@ export async function GET(req) {
   if (!all) query = query.range((page - 1) * pageSize, page * pageSize - 1)
 
   const { data, error, count } = await query
-  if (error) return Response.json({ error: error.message }, { status: 500 })
+  if (error) return errorResponse(error, { tag: 'admin-subscribers-get' })
 
   return Response.json({
     subscribers: data || [],

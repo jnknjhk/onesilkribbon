@@ -67,7 +67,7 @@ export default function AccountLayout({ children }) {
         background: 'var(--cream)',
       }}>
         <div style={{ width: 24, height: 24, border: '2px solid var(--sand)', borderTopColor: 'var(--gold)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+        <style dangerouslySetInnerHTML={{ __html: `@keyframes spin { to { transform: rotate(360deg) } }` }} />
       </div>
     )
   }
@@ -174,14 +174,14 @@ export default function AccountLayout({ children }) {
         </main>
       </div>
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @media (max-width: 768px) {
           .account-grid {
             grid-template-columns: 1fr !important;
             gap: 24px !important;
           }
         }
-      `}</style>
+      ` }} />
     </div>
   )
 }

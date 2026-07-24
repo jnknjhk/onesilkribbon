@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyAdmin } from '@/lib/admin-auth'
+import { errorResponse } from '@/lib/api-error'
 
 const RESEND_API = 'https://api.resend.com/emails'
 const FROM = 'One Silk Ribbon <song@onesilkribbon.com>'
@@ -73,7 +74,6 @@ export async function POST(req) {
 
     return Response.json({ success: true })
   } catch (err) {
-    console.error('Send email error:', err)
-    return Response.json({ error: err.message }, { status: 500 })
+    return errorResponse(err, { tag: 'admin-send-email' })
   }
 }

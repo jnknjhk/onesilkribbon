@@ -73,7 +73,7 @@ export default function PrivacyPolicy() {
         </div>
       </div>
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .policy-wrap {
           max-width: 780px;
           margin: 0 auto;
@@ -119,7 +119,7 @@ export default function PrivacyPolicy() {
           .policy-wrap { padding: 48px 24px 80px; }
           .policy-wrap h1 { font-size: 28px; }
         }
-      `}</style>
+      ` }} />
     </>
   )
 }

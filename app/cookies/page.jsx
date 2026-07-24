@@ -51,7 +51,7 @@ export default function CookiePolicy() {
         </div>
       </div>
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .policy-wrap { max-width: 780px; margin: 0 auto; padding: 80px 60px 120px; }
         .policy-wrap h1 { font-family: var(--font-display); font-size: 38px; font-weight: 300; color: var(--ink); margin-bottom: 10px; line-height: 1.15; }
         .policy-wrap .updated { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--taupe); margin-bottom: 56px; padding-bottom: 32px; border-bottom: 1px solid var(--sand); }
@@ -61,7 +61,7 @@ export default function CookiePolicy() {
         .policy-wrap a { color: var(--gold); text-decoration: none; }
         .policy-wrap a:hover { text-decoration: underline; }
         @media(max-width: 768px) { .policy-wrap { padding: 48px 24px 80px; } .policy-wrap h1 { font-size: 28px; } }
-      `}</style>
+      ` }} />
     </>
   )
 }

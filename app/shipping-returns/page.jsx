@@ -1,9 +1,6 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin as supabaseServer } from '@/lib/supabase'
 
-const supabaseServer = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-)
+export const revalidate = 3600
 
 export const metadata = {
   title: 'Shipping & Returns',
@@ -82,12 +79,12 @@ export default async function ShippingReturns() {
           <p>The following items cannot be returned:</p>
           <ul>
             <li>Cut-to-length ribbon</li>
-            <li>Products that have been cut or altered according to the customer's requested length</li>
+            <li>Products that have been cut or altered according to the customer&apos;s requested length</li>
             <li>Custom-made products</li>
             <li>Personalised products</li>
             <li>Products that have been used, altered, damaged, or modified after delivery</li>
           </ul>
-          <p>Because these products are prepared specifically according to the customer's requirements, they cannot be resold.</p>
+          <p>Because these products are prepared specifically according to the customer&apos;s requirements, they cannot be resold.</p>
 
           <h2>Exchanges</h2>
           <p>We currently do not offer direct exchanges. If you would like a different product, colour, size, or variation, please contact us regarding the available options.</p>
@@ -101,7 +98,7 @@ export default async function ShippingReturns() {
         </div>
       </div>
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .policy-wrap { max-width: 780px; margin: 0 auto; padding: 80px 60px 120px; }
         .policy-wrap h1 { font-family: var(--font-display); font-size: 38px; font-weight: 300; color: var(--ink); margin-bottom: 10px; line-height: 1.15; }
         .policy-wrap .updated { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--taupe); margin-bottom: 56px; padding-bottom: 32px; border-bottom: 1px solid var(--sand); }
@@ -111,7 +108,7 @@ export default async function ShippingReturns() {
         .policy-wrap a { color: var(--gold); text-decoration: none; }
         .policy-wrap a:hover { text-decoration: underline; }
         @media(max-width: 768px) { .policy-wrap { padding: 48px 24px 80px; } .policy-wrap h1 { font-size: 28px; } }
-      `}</style>
+      ` }} />
     </>
   )
 }

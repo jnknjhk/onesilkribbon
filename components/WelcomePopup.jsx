@@ -188,7 +188,7 @@ export default function WelcomePopup() {
             <p style={{fontSize:32,marginBottom:16}}>✉️</p>
             <p style={{fontFamily:'var(--font-display)',fontSize:22,fontWeight:300,color:'var(--ink)',marginBottom:12}}>Check your inbox</p>
             <p style={{fontSize:13,color:'var(--taupe)',lineHeight:1.8,marginBottom:8}}>
-              We've sent a confirmation link to<br/><strong style={{color:'var(--ink)'}}>{email}</strong>
+              We&apos;ve sent a confirmation link to<br/><strong style={{color:'var(--ink)'}}>{email}</strong>
             </p>
             <p style={{fontSize:12,color:'var(--taupe)',lineHeight:1.8,marginBottom:28}}>
               Click the link in the email to receive your exclusive 10% discount code. The link expires in 24 hours.
@@ -212,7 +212,7 @@ export default function WelcomePopup() {
               {couponCode}
             </div>
             <p style={{fontSize:11,color:'var(--taupe)',lineHeight:1.8,marginBottom:28}}>
-              We've also sent it to your email for safekeeping.
+              We&apos;ve also sent it to your email for safekeeping.
             </p>
             <button onClick={handleClose} style={{
               background:'var(--ink)',border:'none',color:'var(--cream)',
@@ -225,7 +225,7 @@ export default function WelcomePopup() {
           {/* ALREADY */}
           {step === 'already' && <>
             <p style={{fontSize:28,marginBottom:16}}>✦</p>
-            <p style={{fontFamily:'var(--font-display)',fontSize:22,fontWeight:300,color:'var(--ink)',marginBottom:12}}>You're already subscribed</p>
+            <p style={{fontFamily:'var(--font-display)',fontSize:22,fontWeight:300,color:'var(--ink)',marginBottom:12}}>You&apos;re already subscribed</p>
             <p style={{fontSize:13,color:'var(--taupe)',lineHeight:1.8,marginBottom:28}}>
               This email has already received a welcome discount. Please check your inbox for your code.
             </p>
@@ -256,7 +256,7 @@ export default function WelcomePopup() {
             <p style={{fontSize:28,marginBottom:16}}>⚠️</p>
             <p style={{fontFamily:'var(--font-display)',fontSize:22,fontWeight:300,color:'var(--ink)',marginBottom:12}}>Something went wrong</p>
             <p style={{fontSize:13,color:'var(--taupe)',lineHeight:1.8,marginBottom:28}}>
-              We couldn't verify this link. It may have already been used, or the link may be broken. Please subscribe again or contact us if this keeps happening.
+              We couldn&apos;t verify this link. It may have already been used, or the link may be broken. Please subscribe again or contact us if this keeps happening.
             </p>
             <button onClick={() => { setStep('form'); setEmail('') }} style={{
               background:'var(--ink)',border:'none',color:'var(--cream)',
@@ -268,7 +268,7 @@ export default function WelcomePopup() {
         </div>
       </div>
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @keyframes fadeIn{from{opacity:0}to{opacity:1}}
         @keyframes slideUp{from{opacity:0;transform:translate(-50%,-48%)}to{opacity:1;transform:translate(-50%,-50%)}}
 
@@ -299,7 +299,7 @@ export default function WelcomePopup() {
             border-bottom: 1px solid var(--sand);
           }
         }
-      `}</style>
+      ` }} />
     </>
   )
 }

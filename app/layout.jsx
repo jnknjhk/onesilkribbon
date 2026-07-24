@@ -1,14 +1,39 @@
 import './globals.css'
 import { Suspense } from 'react'
+import { Playfair_Display, Lora, Jost } from 'next/font/google'
 import { Footer } from '@/components/Footer'
 import { CartProvider } from '@/components/CartProvider'
 import { CartDrawer } from '@/components/CartDrawer'
 import ShellWrapper from '@/components/ShellWrapper'
 import WelcomePopup from '@/components/WelcomePopup'
 import { AuthProvider } from '@/lib/auth'
-import dynamic from 'next/dynamic'
+import { Navbar } from '@/components/Navbar'
 
-const Navbar = dynamic(() => import('@/components/Navbar').then(m => ({ default: m.Navbar })), { ssr: false })
+const playfairDisplay = Playfair_Display({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  style: ['normal', 'italic'],
+  variable: '--font-display',
+  fallback: ['Georgia', 'serif'],
+  display: 'swap',
+})
+
+const lora = Lora({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  style: ['normal', 'italic'],
+  variable: '--font-serif-alt',
+  fallback: ['Georgia', 'serif'],
+  display: 'swap',
+})
+
+const jost = Jost({
+  subsets: ['latin'],
+  weight: ['200', '300', '400', '500'],
+  variable: '--font-body',
+  fallback: ['system-ui', 'sans-serif'],
+  display: 'swap',
+})
 
 
 const organizationSchema = {
@@ -73,11 +98,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en-GB">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      </head>
+    <html lang="en-GB" className={`${playfairDisplay.variable} ${lora.variable} ${jost.variable}`}>
       <body>
         <script
           type="application/ld+json"

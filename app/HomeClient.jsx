@@ -45,11 +45,11 @@ export default function HomeClient({ heroImages, storyImage, collectionImages, f
       <FeaturedProducts products={featuredProducts} />
       <JournalSection posts={journalPosts} />
       <NewsletterSection />
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .reveal { opacity: 0; transform: translateY(32px); transition: opacity 0.9s ease, transform 0.9s ease; }
         .reveal.visible { opacity: 1; transform: translateY(0); }
         .prod-card:hover .prod-img-inner { transform: scale(1.04); }
-      `}</style>
+      ` }} />
     </>
   )
 }
@@ -109,7 +109,7 @@ function Hero({ heroImages }) {
         </p>
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(48px, 8.5vw, 96px)', fontWeight: 600, lineHeight: 1.08, color: '#fff', marginBottom: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', letterSpacing: '-0.02em' }}>
           <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.3s', display: 'block', fontWeight: 500 }}>Woven from</span>
-          <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.55s', display: 'block', fontStyle: 'italic', color: 'var(--gold)', fontWeight: 600 }}>nature's finest</span>
+          <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.55s', display: 'block', fontStyle: 'italic', color: 'var(--gold)', fontWeight: 600 }}>nature&apos;s finest</span>
           <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.8s', display: 'block', fontWeight: 500 }}>thread</span>
         </h1>
         <p className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '1.1s', fontSize: 15, lineHeight: 1.75, color: 'rgba(255,255,255,0.72)', maxWidth: 460, marginBottom: 52, textAlign: 'center', fontFamily: 'var(--font-serif-alt)', fontWeight: 400, letterSpacing: '0.01em' }}>
@@ -123,7 +123,7 @@ function Hero({ heroImages }) {
         </div>
       </div>
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .hero { position: relative; height: 100vh; height: 100dvh; min-height: 600px; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #1C1714; }
         .hero-slide { position: absolute; inset: 0; z-index: 0; opacity: 0; transition: opacity 1.5s ease-in-out; }
         .hero-slide-active { opacity: 1; animation: kenBurns 18s ease-out forwards; }
@@ -141,7 +141,7 @@ function Hero({ heroImages }) {
         .hero-scroll-line { width: 1px; height: 48px; background: linear-gradient(to bottom, var(--gold), transparent); animation: scrollPulse 2s ease-in-out infinite; }
         @keyframes scrollPulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
         @media (max-width: 768px) { .hero-btn { padding: 16px 32px; font-size: 9px; } .hero-scroll-wrap { bottom: 24px; } .hero-scroll-line { height: 32px; } }
-      `}</style>
+      ` }} />
     </section>
   )
 }
@@ -155,7 +155,7 @@ function Marquee({ freeThreshold = '45', freeEnabled = true }) {
           <span key={i} style={{ fontSize: 10, letterSpacing: '0.28em', textTransform: 'uppercase', color: 'var(--warm)', padding: '0 40px' }}>{item} ·</span>
         ))}
       </div>
-      <style>{`@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}`}</style>
+      <style dangerouslySetInnerHTML={{ __html: `@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}` }} />
     </div>
   )
 }
@@ -205,7 +205,7 @@ function Collections({ collectionImages }) {
         })}
       </div>
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .col-row { display: grid; grid-template-columns: 2fr 3fr; gap: 0; margin-bottom: clamp(16px, 3vw, 32px); overflow: hidden; min-height: 220px; }
         .col-row-reverse { direction: rtl; }
         .col-row-reverse > * { direction: ltr; }
@@ -217,7 +217,7 @@ function Collections({ collectionImages }) {
         .col-row:hover .col-row-cta-line { width: 48px; }
         .col-row:hover .col-row-cta { color: var(--gold); }
         @media (max-width: 768px) { .col-row { grid-template-columns: 1fr; min-height: auto; } .col-row-reverse { direction: ltr; } .col-row-img { min-height: 180px; } .col-row-text { padding: 28px 24px 36px; } }
-      `}</style>
+      ` }} />
     </section>
   )
 }
@@ -250,12 +250,12 @@ function StorySection({ storyImage }) {
           <Link href="/about" className="btn-text"><span className="line" />Read Our Story</Link>
         </div>
       </div>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .story-row { display: grid; grid-template-columns: 1fr 1fr; max-width: 1360px; margin: 0 auto; min-height: 560px; }
         .story-img { overflow: hidden; }
         .story-text { display: flex; flex-direction: column; justify-content: center; padding: clamp(40px, 6vw, 80px); }
         @media (max-width: 768px) { .story-row { grid-template-columns: 1fr; } .story-img { min-height: 300px; } .story-text { padding: 40px 24px 60px; } }
-      `}</style>
+      ` }} />
     </section>
   )
 }
@@ -297,13 +297,13 @@ function FeaturedProducts({ products }) {
           </Link>
         ))}
       </div>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .featured-section { padding: var(--section-padding-y, 100px) var(--page-padding, 60px); background: var(--cream); }
         .featured-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 48px; flex-wrap: wrap; gap: 16px; }
         .featured-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; }
         @media (max-width: 1024px) { .featured-grid { grid-template-columns: repeat(3, 1fr); } }
         @media (max-width: 768px) { .featured-grid { grid-template-columns: repeat(2, 1fr); gap: 20px; } .featured-header { margin-bottom: 32px; } }
-      `}</style>
+      ` }} />
     </section>
   )
 }
@@ -370,7 +370,7 @@ function JournalSection({ posts }) {
         <Link href="/journal" className="btn-text"><span className="line" />View All Articles</Link>
       </div>
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .journal-section { padding: var(--section-padding-y, 100px) var(--page-padding, 60px); background: var(--mist); }
         .journal-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(20px, 3vw, 36px); max-width: 1360px; margin: 0 auto; }
         .journal-card { background: var(--cream); overflow: hidden; transition: transform 0.4s ease, box-shadow 0.4s ease; }
@@ -382,7 +382,7 @@ function JournalSection({ posts }) {
         .journal-card:hover .journal-card-link { color: var(--ink); }
         @media (max-width: 900px) { .journal-grid { grid-template-columns: 1fr 1fr; } }
         @media (max-width: 600px) { .journal-grid { grid-template-columns: 1fr; } }
-      `}</style>
+      ` }} />
     </section>
   )
 }
@@ -429,12 +429,12 @@ function NewsletterSection() {
           </>
         )}
       </div>
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .newsletter-section { padding: var(--section-padding-y, 100px) var(--page-padding, 60px); background: var(--deep); color: #fff; text-align: center; }
         .newsletter-inner { max-width: 500px; margin: 0 auto; }
         .newsletter-form { display: flex; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 12px; gap: 12px; }
         @media (max-width: 480px) { .newsletter-form { flex-direction: column; border-bottom: none; gap: 16px; } .newsletter-form input { border-bottom: 1px solid rgba(255,255,255,0.2) !important; padding-bottom: 12px; } .newsletter-form button { border: 1px solid rgba(255,255,255,0.2) !important; padding: 14px !important; } }
-      `}</style>
+      ` }} />
     </section>
   )
 }

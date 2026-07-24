@@ -1,6 +1,7 @@
 import { verifyAdmin } from '@/lib/admin-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendOrderConfirmation } from '@/lib/email'
+import { errorResponse } from '@/lib/api-error'
 
 export async function POST(req) {
   const admin = await verifyAdmin()
@@ -46,7 +47,6 @@ export async function POST(req) {
 
     return Response.json({ success: true })
   } catch (err) {
-    console.error('Resend email error:', err)
-    return Response.json({ success: false, error: err.message }, { status: 500 })
+    return errorResponse(err, { tag: 'admin-resend-order-email' })
   }
 }

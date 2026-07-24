@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/nextjs'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendOrderConfirmation, sendOwnerNotification } from '@/lib/email'
+import { deductStock } from '@/lib/stock-check'
 import { redirect } from 'next/navigation'
 
 const PAYPAL_BASE = process.env.PAYPAL_MODE === 'live'
@@ -18,17 +19,6 @@ async function getPayPalToken() {
   })
   const data = await res.json()
   return data.access_token
-}
-
-async function deductStock(items) {
-  for (const item of items) {
-    if (!item.skuId) continue
-    const { data: sku } = await supabaseAdmin
-      .from('product_skus').select('stock_qty').eq('id', item.skuId).single()
-    if (!sku) continue
-    const newQty = Math.max(0, (sku.stock_qty || 0) - (item.qty || 1))
-    await supabaseAdmin.from('product_skus').update({ stock_qty: newQty }).eq('id', item.skuId)
-  }
 }
 
 // 注意：next/navigation 的 redirect() 内部通过 throw 实现，绝不能写在 try 块里面，

@@ -135,7 +135,7 @@ function LoginContent() {
                 <p style={{ fontSize: 15, color: C.ink }}>Reset Password</p>
                 <button onClick={() => { setShowForgot(false); setForgotMsg('') }} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: C.muted }}>×</button>
               </div>
-              <p style={{ fontSize: 13, color: C.muted, marginBottom: 20, lineHeight: 1.7 }}>Enter your email address and we'll send you a link to reset your password.</p>
+              <p style={{ fontSize: 13, color: C.muted, marginBottom: 20, lineHeight: 1.7 }}>Enter your email address and we&apos;ll send you a link to reset your password.</p>
               {forgotMsg ? (
                 <p style={{ fontSize: 13, color: forgotMsg.includes('sent') ? '#166534' : '#991b1b', lineHeight: 1.7 }}>{forgotMsg}</p>
               ) : (

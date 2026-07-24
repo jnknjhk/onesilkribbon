@@ -3,6 +3,7 @@ import React from 'react'
 import { useCart } from '@/lib/cart'
 import { formatGBP, calculateTotals } from '@/lib/pricing'
 import Link from 'next/link'
+import Image from 'next/image'
 
 export function CartProvider({ children }) {
   return <>{children}</>
@@ -120,10 +121,10 @@ export function CartDrawer() {
         )}
       </div>
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .cart-drawer { width: min(480px, 100vw); }
         @media (max-width: 520px) { .cart-drawer { width: 100vw; } }
-      `}</style>
+      ` }} />
     </>
   )
 }
@@ -132,7 +133,7 @@ function CartItem({ item, onRemove, onQtyChange }) {
   return (
     <div style={{ display: 'flex', gap: 14 }}>
       <div style={{ width: 64, height: 64, flexShrink: 0, background: item.colourHex || 'var(--sand)', position: 'relative', overflow: 'hidden' }}>
-        {item.image && <img src={item.image} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+        {item.image && <Image src={item.image} alt={item.name} fill sizes="64px" style={{ objectFit: 'cover' }} />}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 400, marginBottom: 4, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</p>

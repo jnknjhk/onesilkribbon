@@ -17,7 +17,7 @@ export default function Error({ error, reset }) {
           An unexpected error occurred
         </h1>
         <p style={{ fontSize: 14, color: 'var(--taupe)', lineHeight: 1.9, maxWidth: 400, margin: '0 auto 48px' }}>
-          We're sorry for the inconvenience. Please try again or contact us if the problem persists.
+          We&apos;re sorry for the inconvenience. Please try again or contact us if the problem persists.
         </p>
         <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
           <button onClick={reset}

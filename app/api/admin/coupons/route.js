@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyAdmin } from '@/lib/admin-auth'
+import { errorResponse } from '@/lib/api-error'
 
 export async function GET() {
   const admin = await verifyAdmin()
@@ -7,7 +8,7 @@ export async function GET() {
 
   const { data, error } = await supabaseAdmin
     .from('coupons').select('*').order('created_at', { ascending: false })
-  if (error) return Response.json({ error: error.message }, { status: 500 })
+  if (error) return errorResponse(error, { tag: 'admin-coupons-get' })
   return Response.json({ coupons: data || [] })
 }
 
@@ -21,20 +22,20 @@ export async function POST(req) {
 
     if (action === 'create') {
       const { error } = await supabaseAdmin.from('coupons').insert(payload)
-      if (error) return Response.json({ error: error.message }, { status: 500 })
+      if (error) return errorResponse(error, { tag: 'admin-coupons-create' })
       return Response.json({ success: true })
     }
 
     if (action === 'update') {
       if (!id) return Response.json({ error: 'Missing id' }, { status: 400 })
       const { error } = await supabaseAdmin.from('coupons').update(payload).eq('id', id)
-      if (error) return Response.json({ error: error.message }, { status: 500 })
+      if (error) return errorResponse(error, { tag: 'admin-coupons-update' })
       return Response.json({ success: true })
     }
 
     return Response.json({ error: 'Unknown action' }, { status: 400 })
   } catch (err) {
-    return Response.json({ error: err.message }, { status: 500 })
+    return errorResponse(err, { tag: 'admin-coupons-post' })
   }
 }
 
@@ -47,10 +48,10 @@ export async function PATCH(req) {
     const { id, active } = await req.json()
     if (!id) return Response.json({ error: 'Missing id' }, { status: 400 })
     const { error } = await supabaseAdmin.from('coupons').update({ active }).eq('id', id)
-    if (error) return Response.json({ error: error.message }, { status: 500 })
+    if (error) return errorResponse(error, { tag: 'admin-coupons-patch' })
     return Response.json({ success: true })
   } catch (err) {
-    return Response.json({ error: err.message }, { status: 500 })
+    return errorResponse(err, { tag: 'admin-coupons-patch' })
   }
 }
 
@@ -62,9 +63,9 @@ export async function DELETE(req) {
     const { id } = await req.json()
     if (!id) return Response.json({ error: 'Missing id' }, { status: 400 })
     const { error } = await supabaseAdmin.from('coupons').delete().eq('id', id)
-    if (error) return Response.json({ error: error.message }, { status: 500 })
+    if (error) return errorResponse(error, { tag: 'admin-coupons-delete' })
     return Response.json({ success: true })
   } catch (err) {
-    return Response.json({ error: err.message }, { status: 500 })
+    return errorResponse(err, { tag: 'admin-coupons-delete' })
   }
 }

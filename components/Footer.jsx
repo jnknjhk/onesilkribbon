@@ -26,7 +26,7 @@ export function Footer() {
             fontFamily: 'var(--font-display)', fontSize: 15, fontStyle: 'italic',
             color: 'var(--taupe)', lineHeight: 1.8, maxWidth: 260,
           }}>
-            'Silk ribbons and carefully chosen materials, made to last.'
+            &apos;Silk ribbons and carefully chosen materials, made to last.&apos;
           </p>
           {/* Social */}
           <div style={{ display: 'flex', gap: 12, marginTop: 32 }}>
@@ -93,7 +93,7 @@ export function Footer() {
         </div>
       </div>
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .site-footer {
           background: var(--ink);
           padding: 80px var(--page-padding, 60px) 40px;
@@ -127,7 +127,7 @@ export function Footer() {
           .footer-brand { grid-column: auto; }
           .footer-bottom { flex-direction: column; align-items: flex-start; }
         }
-      `}</style>
+      ` }} />
     </footer>
   )
 }
@@ -153,7 +153,7 @@ function FooterCol({ title, links }) {
           </li>
         ))}
       </ul>
-      <style>{`.footer-link:hover { color: var(--gold) !important; }`}</style>
+      <style dangerouslySetInnerHTML={{ __html: `.footer-link:hover { color: var(--gold) !important; }` }} />
     </div>
   )
 }

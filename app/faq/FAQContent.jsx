@@ -86,12 +86,12 @@ export default function FAQContent({ shippingRate = '3.95', freeThreshold = '45'
         </div>
       </div>
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @media(max-width: 768px) {
           .faq-pad { padding: 48px 24px 80px !important; }
           h1 { font-size: 36px !important; }
         }
-      `}</style>
+      ` }} />
     </>
   )
 }

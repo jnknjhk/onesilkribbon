@@ -1,6 +1,7 @@
 import { supabaseAdmin as supabase } from '@/lib/supabase'
 import { verifyAdmin } from '@/lib/admin-auth'
 import { NextResponse } from 'next/server'
+import { errorResponse } from '@/lib/api-error'
 
 // 获取所有文章
 export async function GET() {
@@ -11,7 +12,7 @@ export async function GET() {
     .from('journal_posts')
     .select('*')
     .order('created_at', { ascending: false })
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return errorResponse(error, { tag: 'admin-journal-get' })
   return NextResponse.json(data)
 }
 
@@ -42,7 +43,7 @@ export async function POST(req) {
         })
         .select('id')
         .single()
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      if (error) return errorResponse(error, { tag: 'admin-journal-create' })
       return NextResponse.json({ id: data.id })
 
     } else if (action === 'update') {
@@ -66,7 +67,7 @@ export async function POST(req) {
         .from('journal_posts')
         .update(updateData)
         .eq('id', post.id)
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      if (error) return errorResponse(error, { tag: 'admin-journal-update' })
       return NextResponse.json({ ok: true })
 
     } else if (action === 'delete') {
@@ -76,6 +77,6 @@ export async function POST(req) {
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
   } catch (err) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return errorResponse(err, { tag: 'admin-journal-post' })
   }
 }

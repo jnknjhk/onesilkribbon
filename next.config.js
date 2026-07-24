@@ -23,6 +23,23 @@ const nextConfig = {
       { source: '/products', destination: '/collections', permanent: true },
     ]
   },
+  async headers() {
+    // 注意：这里没有加 Content-Security-Policy——站内大量页面用内联 <style> 标签和
+    // dangerouslySetInnerHTML（JSON-LD）渲染，且没有 nonce 机制，贸然加严格 CSP
+    // 会直接打坏全站样式和结构化数据；要上 CSP 需要先给这些内联内容接入 nonce，属于单独的改造。
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+        ],
+      },
+    ]
+  },
 }
 
 module.exports = withSentryConfig(nextConfig, {

@@ -98,7 +98,7 @@ export default function Contact() {
         </div>
       </div>
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         h1 { font-size: 42px !important; }
         .contact-grid { }
         .field-label {
@@ -118,7 +118,7 @@ export default function Contact() {
         @media(max-width: 768px) {
           .contact-grid { grid-template-columns: 1fr !important; padding: 0 24px 80px !important; }
         }
-      `}</style>
+      ` }} />
     </>
   )
 }

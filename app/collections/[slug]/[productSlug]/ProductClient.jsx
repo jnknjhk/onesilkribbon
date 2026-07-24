@@ -441,7 +441,7 @@ export default function ProductClient({ initialProduct, initialSkus, slug, relat
         )}
       </div>
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .main-wrap:hover .main-img-hover { transform: scale(1.04); }
         @media(max-width: 960px) {
           .zone1 { grid-template-columns: 1fr !important; gap: 40px !important; padding: 32px 24px !important; }
@@ -453,7 +453,7 @@ export default function ProductClient({ initialProduct, initialSkus, slug, relat
           .related-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 220px)) !important; gap: 20px !important; }
         }
         .first-section-title { margin-top: 0 !important; }
-      `}</style>
+      ` }} />
     </>
   )
 }

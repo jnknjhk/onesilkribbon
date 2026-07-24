@@ -1,10 +1,7 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin as supabaseServer } from '@/lib/supabase'
 import FAQContent from './FAQContent'
 
-const supabaseServer = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-)
+export const revalidate = 3600
 
 export const metadata = {
   title: 'FAQ',

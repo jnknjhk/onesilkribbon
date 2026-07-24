@@ -101,12 +101,12 @@ export default function CareGuide() {
 
       </div>
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @media(max-width: 768px) {
           .care-pad { padding-left: 24px !important; padding-right: 24px !important; }
           h1 { font-size: 36px !important; }
         }
-      `}</style>
+      ` }} />
     </>
   )
 }

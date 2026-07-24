@@ -19,7 +19,7 @@ function ConfirmContent() {
         <div style={{ width: 24, height: 24, border: '2px solid var(--sand)', borderTopColor: 'var(--gold)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
         <p style={{ fontSize: 12, color: 'var(--taupe)', letterSpacing: '.06em' }}>Signing you in…</p>
       </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      <style dangerouslySetInnerHTML={{ __html: `@keyframes spin { to { transform: rotate(360deg) } }` }} />
     </div>
   )
 }

@@ -1,7 +1,9 @@
 import { cache } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin as supabaseServer } from '@/lib/supabase'
 import { notFound } from 'next/navigation'
 import CollectionClient from './CollectionClient'
+
+export const revalidate = 60
 
 const COLLECTION_META = {
   'fine-silk-ribbons':        { name: 'Fine Silk Ribbons',        desc: 'Our signature ultra-fine 100% mulberry silk ribbons for UK weddings and invitations, in widths from 2mm to 10mm and 30 hand-dyed colourways.' },
@@ -11,11 +13,6 @@ const COLLECTION_META = {
   'studio-tools':             { name: 'Studio Tools',             desc: 'Everything you need for a well-appointed ribbon, floristry and craft studio.' },
   'vintage-inspired-ribbons': { name: 'Vintage-Inspired Ribbons', desc: 'Heritage tones and antique-inspired textures for romantic UK weddings, evoking the beauty of a bygone era.' },
 }
-
-const supabaseServer = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-)
 
 // generateMetadata 和页面组件都要用同一张 hero 图，用 cache() 包一层避免同一次请求打两次库
 const getHeroImage = cache(async (slug) => {

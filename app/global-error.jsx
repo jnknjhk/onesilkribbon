@@ -20,7 +20,7 @@ export default function GlobalError({ error, reset }) {
               Something went wrong
             </p>
             <p style={{ fontSize: 14, color: '#6B6460', lineHeight: 1.8, marginBottom: 32 }}>
-              We're sorry for the inconvenience. Please try again, or contact us if the problem persists.
+              We&apos;re sorry for the inconvenience. Please try again, or contact us if the problem persists.
             </p>
             <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
               <button onClick={reset}

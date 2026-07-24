@@ -28,9 +28,9 @@ export default function Bespoke() {
   }
 
   const specs = [
-    { label: 'Bespoke Minimum', value: '10 metres per colourway' },
-    { label: 'Wholesale Minimum', value: 'From £250 per order' },
-    { label: 'Lead Time', value: '1–4 weeks depending on order' },
+    { label: 'Bespoke Minimum', value: 'No minimum' },
+    { label: 'Wholesale Minimum', value: 'No minimum' },
+    { label: 'Lead Time', value: 'Depends on your order' },
     { label: 'Enquiries', value: 'song@onesilkribbon.com' },
   ]
 

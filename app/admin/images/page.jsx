@@ -55,10 +55,15 @@ const GROUPS = [
   },
   {
     label: 'About 页图片',
-    desc: 'About 页面各区块的图片，建议尺寸 800×1000px，竖向构图',
+    desc: 'About 页面各区块的图片',
     keys: [
-      { key: 'about_main',  label: 'About 主图' },
-      { key: 'about_craft', label: '工艺展示图' },
+      { key: 'about_hero',    label: 'Hero 背景大图（建议 1920×1200px，横向）' },
+      { key: 'about_main',    label: 'Where it began 配图（建议 800×1000px，竖向）' },
+      { key: 'about_craft',   label: '工艺展示横幅图（建议 1600×686px，横向）' },
+      { key: 'about_colour',  label: 'A World of Colour 配图（建议 1000×800px）' },
+      { key: 'about_wedding', label: 'Made For · Weddings 配图（建议 800×600px）' },
+      { key: 'about_gifting', label: 'Made For · Gifting 配图（建议 800×600px）' },
+      { key: 'about_making',  label: 'Made For · Making 配图（建议 800×600px）' },
     ],
   },
 ]

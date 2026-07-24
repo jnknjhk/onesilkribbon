@@ -113,7 +113,7 @@ function Hero({ heroImages }) {
           <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.8s', display: 'block', fontWeight: 500 }}>thread</span>
         </h1>
         <p className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '1.1s', fontSize: 15, lineHeight: 1.75, color: 'rgba(255,255,255,0.72)', maxWidth: 460, marginBottom: 52, textAlign: 'center', fontFamily: 'var(--font-serif-alt)', fontWeight: 400, letterSpacing: '0.01em' }}>
-          Each ribbon carries the quiet beauty of silk in its most natural form — hand-treated, botanically inspired, made to last.
+          Each ribbon carries the quiet beauty of silk in its most natural form — carefully chosen, beautifully made, made to last.
         </p>
         <div className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '1.4s' }}>
           <Link href="/collections"><button className="hero-btn"><span className="hero-btn-line" />Explore Collections<span className="hero-btn-line" /></button></Link>

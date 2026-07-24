@@ -41,8 +41,8 @@ export default function Bespoke() {
         {/* Hero */}
         <div style={{ borderBottom: '1px solid var(--sand)', padding: '80px 60px 48px', maxWidth: 1360, margin: '0 auto' }}>
           <p style={{ fontSize: 9, letterSpacing: '.38em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 16 }}>Trade & Custom</p>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 56, fontWeight: 300, lineHeight: 1.08, color: 'var(--ink)', maxWidth: 600 }}>
-            Bespoke &amp;<br /><em>Wholesale.</em>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 56, fontWeight: 300, lineHeight: 1.08, color: 'var(--ink)' }}>
+            Bespoke &amp; <em>Wholesale.</em>
           </h1>
         </div>
 

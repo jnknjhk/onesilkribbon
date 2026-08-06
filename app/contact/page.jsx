@@ -32,7 +32,7 @@ export default function Contact() {
         <div style={{ maxWidth: 780, margin: '0 auto', padding: '80px 60px 0' }}>
           <p style={{ fontSize: 9, letterSpacing: '.38em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 14 }}>Get In Touch</p>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 42, fontWeight: 300, color: 'var(--ink)', lineHeight: 1.12, marginBottom: 20 }}>Contact Us</h1>
-          <p style={{ fontSize: 13, lineHeight: 2.1, color: 'var(--taupe)', marginBottom: 56, paddingBottom: 48, borderBottom: '1px solid var(--sand)' }}>
+          <p style={{ fontSize: 15, fontWeight: 400, lineHeight: 2.1, color: 'var(--taupe)', marginBottom: 56, paddingBottom: 48, borderBottom: '1px solid var(--sand)' }}>
             We would love to hear from you — whether you have a question about an order, need help choosing a ribbon, or are interested in a bespoke commission. We aim to respond within 2 working days.
           </p>
         </div>
@@ -43,20 +43,20 @@ export default function Contact() {
           {/* Form */}
           <div>
             <div style={{ marginBottom: 20 }}>
-              <label className="field-label">Your Name</label>
-              <input className="field-input" name="name" value={form.name} onChange={handleChange} placeholder="Jane Smith" />
+              <label className="input-label">Your Name</label>
+              <input className="input" name="name" value={form.name} onChange={handleChange} placeholder="Jane Smith" />
             </div>
             <div style={{ marginBottom: 20 }}>
-              <label className="field-label">Email Address</label>
-              <input className="field-input" name="email" type="email" value={form.email} onChange={handleChange} placeholder="jane@example.com" />
+              <label className="input-label">Email Address</label>
+              <input className="input" name="email" type="email" value={form.email} onChange={handleChange} placeholder="jane@example.com" />
             </div>
             <div style={{ marginBottom: 20 }}>
-              <label className="field-label">Subject <span style={{ color: 'var(--warm)' }}>(optional)</span></label>
-              <input className="field-input" name="subject" value={form.subject} onChange={handleChange} placeholder="Order enquiry, bespoke order…" />
+              <label className="input-label">Subject <span style={{ color: 'var(--warm)' }}>(optional)</span></label>
+              <input className="input" name="subject" value={form.subject} onChange={handleChange} placeholder="Order enquiry, bespoke order…" />
             </div>
             <div style={{ marginBottom: 28 }}>
-              <label className="field-label">Message</label>
-              <textarea className="field-input" name="message" value={form.message} onChange={handleChange}
+              <label className="input-label">Message</label>
+              <textarea className="input" name="message" value={form.message} onChange={handleChange}
                 placeholder="Tell us how we can help…"
                 style={{ minHeight: 140, resize: 'vertical' }} />
             </div>
@@ -73,7 +73,7 @@ export default function Contact() {
             </button>
             {status === 'sent' && (
               <p style={{ fontSize: 11, color: 'var(--taupe)', marginTop: 12, lineHeight: 1.8 }}>
-                Your email client should have opened with your message pre-filled. If not, email us directly at <a href="mailto:song@onesilkribbon.com" style={{ color: 'var(--gold)' }}>song@onesilkribbon.com</a>.
+                We&apos;ve received your message and sent a confirmation to your email. If you don&apos;t see it, feel free to reach us directly at <a href="mailto:song@onesilkribbon.com" style={{ color: 'var(--gold)' }}>song@onesilkribbon.com</a>.
               </p>
             )}
           </div>
@@ -89,8 +89,8 @@ export default function Contact() {
               <div key={label} style={{ padding: '18px 0', borderBottom: '1px solid var(--sand)' }}>
                 <p style={{ fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase', color: 'var(--taupe)', marginBottom: 6 }}>{label}</p>
                 {href
-                  ? <a href={href} style={{ fontSize: 13, color: 'var(--gold)', textDecoration: 'none' }}>{value}</a>
-                  : <p style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.7 }}>{value}</p>
+                  ? <a href={href} style={{ fontSize: 15, color: 'var(--gold)', textDecoration: 'none' }}>{value}</a>
+                  : <p style={{ fontSize: 15, color: 'var(--ink)', lineHeight: 1.7 }}>{value}</p>
                 }
               </div>
             ))}
@@ -100,21 +100,6 @@ export default function Contact() {
 
       <style dangerouslySetInnerHTML={{ __html: `
         h1 { font-size: 42px !important; }
-        .contact-grid { }
-        .field-label {
-          display: block;
-          font-size: 9px; letter-spacing: .22em; text-transform: uppercase;
-          color: var(--taupe); margin-bottom: 8px;
-        }
-        .field-input {
-          width: 100%; padding: 12px 14px;
-          background: var(--cream); border: 1px solid var(--warm);
-          font-family: var(--font-body); font-size: 12px; font-weight: 300;
-          color: var(--ink); outline: none;
-          transition: border-color .2s;
-        }
-        .field-input:focus { border-color: var(--ink); }
-        .field-input::placeholder { color: var(--warm); }
         @media(max-width: 768px) {
           .contact-grid { grid-template-columns: 1fr !important; padding: 0 24px 80px !important; }
         }

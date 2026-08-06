@@ -54,7 +54,7 @@ export default function CareGuide() {
 
         {/* Intro */}
         <div style={{ maxWidth: 780, margin: '0 auto', padding: '56px 60px 0' }} className="care-pad">
-          <p style={{ fontSize: 13, lineHeight: 2.2, color: 'var(--taupe)' }}>
+          <p style={{ fontSize: 15, fontWeight: 400, lineHeight: 2.2, color: 'var(--taupe)' }}>
             Mulberry silk is a natural protein fibre — lustrous, strong, and responsive to how it is handled. With a little care, your ribbon will keep its sheen and softness indefinitely. These guidelines apply to all One Silk Ribbon products.
           </p>
         </div>
@@ -69,8 +69,8 @@ export default function CareGuide() {
                   <div key={i} style={{ display: 'grid', gridTemplateColumns: '28px 1fr', gap: 20, alignItems: 'start' }}>
                     <span style={{ fontFamily: 'var(--font-display)', fontSize: 16, color: 'var(--gold)', paddingTop: 2 }}>{i + 1}</span>
                     <div>
-                      <p style={{ fontSize: 12, fontWeight: 400, color: 'var(--ink)', marginBottom: 6, letterSpacing: '.03em' }}>{heading}</p>
-                      <p style={{ fontSize: 13, lineHeight: 2.1, color: 'var(--taupe)' }}>{body}</p>
+                      <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink)', marginBottom: 6, letterSpacing: '.03em' }}>{heading}</p>
+                      <p style={{ fontSize: 15, fontWeight: 400, lineHeight: 2.1, color: 'var(--taupe)' }}>{body}</p>
                     </div>
                   </div>
                 ))}

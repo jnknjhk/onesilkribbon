@@ -184,7 +184,7 @@ input, textarea, select {
 .input::placeholder { color: var(--taupe); }
 
 @media (min-width: 768px) {
-  .input { font-size: 13px; }
+  .input { font-size: 15px; }
 }
 
 .input-label {

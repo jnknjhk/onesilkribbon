@@ -334,7 +334,7 @@ export default function ProductClient({ initialProduct, initialSkus, slug, relat
 
             {tab === 'description' && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, alignItems: 'start' }} className="desc-grid">
-                <div style={{ fontSize: 13, lineHeight: 2.2, color: 'var(--taupe)' }}>
+                <div style={{ fontSize: 15, fontWeight: 400, lineHeight: 2.2, color: 'var(--taupe)' }}>
                   {safe(product.description) ? (
                     <div dangerouslySetInnerHTML={{ __html: safe(product.description).replace(/\n/g, '<br/>').replace(/✦/g, '<span style="color:var(--gold)">✦</span>') }} />
                   ) : (
@@ -367,7 +367,7 @@ export default function ProductClient({ initialProduct, initialSkus, slug, relat
                 ].map(({ title, items }) => (
                   <div key={title}>
                     <p style={{ fontSize: 9, letterSpacing: '.28em', textTransform: 'uppercase', color: 'var(--ink)', marginBottom: 16, marginTop: 36, paddingBottom: 12, borderBottom: '1px solid var(--sand)' }} className="first-section-title">{title}</p>
-                    {items.map((item, i) => <p key={i} style={{ fontSize: 13, color: 'var(--taupe)', lineHeight: 2.2, marginBottom: 8 }}>· {item}</p>)}
+                    {items.map((item, i) => <p key={i} style={{ fontSize: 15, fontWeight: 400, color: 'var(--taupe)', lineHeight: 2.2, marginBottom: 8 }}>· {item}</p>)}
                   </div>
                 ))}
               </div>
@@ -381,7 +381,7 @@ export default function ProductClient({ initialProduct, initialSkus, slug, relat
                 ].map(({ title, items }) => (
                   <div key={title}>
                     <p style={{ fontSize: 9, letterSpacing: '.28em', textTransform: 'uppercase', color: 'var(--ink)', marginBottom: 16, marginTop: 36, paddingBottom: 12, borderBottom: '1px solid var(--sand)' }}>{title}</p>
-                    {items.map((item, i) => <p key={i} style={{ fontSize: 13, color: 'var(--taupe)', lineHeight: 2.2, marginBottom: 8 }}>· {item}</p>)}
+                    {items.map((item, i) => <p key={i} style={{ fontSize: 15, fontWeight: 400, color: 'var(--taupe)', lineHeight: 2.2, marginBottom: 8 }}>· {item}</p>)}
                   </div>
                 ))}
               </div>
@@ -396,10 +396,10 @@ export default function ProductClient({ initialProduct, initialSkus, slug, relat
               <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 38, fontWeight: 300, lineHeight: 1.2, color: 'var(--ink)', marginBottom: 28 }}>
                 The Art of the<br /><em>Hand-Torn Edge</em>
               </h2>
-              <p style={{ fontSize: 13, color: 'var(--taupe)', lineHeight: 2.2, marginBottom: 16 }}>
+              <p style={{ fontSize: 15, fontWeight: 400, color: 'var(--taupe)', lineHeight: 2.2, marginBottom: 16 }}>
                 Each ribbon is carefully hand-torn to create naturally frayed edges that celebrate the beauty of imperfection.
               </p>
-              <p style={{ fontSize: 13, color: 'var(--taupe)', lineHeight: 2.2 }}>
+              <p style={{ fontSize: 15, fontWeight: 400, color: 'var(--taupe)', lineHeight: 2.2 }}>
                 The result is something you feel before you see: a quiet luxury in the hands, a weight that speaks of care, and an edge that tells the story of how it was made.
               </p>
             </div>

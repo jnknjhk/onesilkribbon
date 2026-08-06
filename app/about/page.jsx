@@ -70,13 +70,13 @@ export default async function About() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', maxWidth: 1360, margin: '0 auto', padding: '0 60px' }} className="about-grid">
           <div style={{ padding: '96px 80px 96px 0', borderRight: '1px solid var(--sand)' }}>
             <p style={{ fontSize: 9, letterSpacing: '.32em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 16 }}>Where it began</p>
-            <p style={{ fontSize: 13, lineHeight: 2.2, color: 'var(--taupe)', marginBottom: 18 }}>
+            <p style={{ fontSize: 15, fontWeight: 400, lineHeight: 2.2, color: 'var(--taupe)', marginBottom: 18 }}>
               One Silk Ribbon began with a simple frustration: I couldn&rsquo;t find a ribbon that felt truly beautiful.
             </p>
-            <p style={{ fontSize: 13, lineHeight: 2.2, color: 'var(--taupe)', marginBottom: 18 }}>
+            <p style={{ fontSize: 15, fontWeight: 400, lineHeight: 2.2, color: 'var(--taupe)', marginBottom: 18 }}>
               I wanted something with softness, texture and character — something that felt as considered as the gift, bouquet or handmade piece it was meant to become part of. So I began with a simple idea: start with beautiful materials, and pay attention to the details.
             </p>
-            <p style={{ fontSize: 13, lineHeight: 2.2, color: 'var(--taupe)' }}>
+            <p style={{ fontSize: 15, fontWeight: 400, lineHeight: 2.2, color: 'var(--taupe)' }}>
               Today, One Silk Ribbon brings together silk ribbons, handcrafted adornments and carefully selected materials for people who believe that the smallest details can change the feeling of something entirely. From a quiet gift wrapped by hand to the finishing touch on a wedding bouquet, we make and curate pieces designed to be used, touched and remembered.
             </p>
           </div>
@@ -108,7 +108,7 @@ export default async function About() {
               <div key={title} style={{ paddingTop: 32, borderTop: '1px solid var(--sand)' }}>
                 <p style={{ fontSize: 9, letterSpacing: '.32em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 16 }}>{title}</p>
                 <p style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 300, color: 'var(--ink)', marginBottom: 12, lineHeight: 1.4 }}>{head}</p>
-                <p style={{ fontSize: 13, lineHeight: 2.1, color: 'var(--taupe)' }}>{body}</p>
+                <p style={{ fontSize: 15, fontWeight: 400, lineHeight: 2.1, color: 'var(--taupe)' }}>{body}</p>
               </div>
             ))}
           </div>
@@ -126,7 +126,7 @@ export default async function About() {
             <p style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 300, color: 'var(--ink)', marginBottom: 20, lineHeight: 1.35 }}>
               Colour is one of the ways we tell stories.
             </p>
-            <p style={{ fontSize: 13, lineHeight: 2.2, color: 'var(--taupe)', marginBottom: 28 }}>
+            <p style={{ fontSize: 15, fontWeight: 400, lineHeight: 2.2, color: 'var(--taupe)', marginBottom: 28 }}>
               From quiet neutrals and soft, faded tones to deeper, more expressive shades, our collections are designed to offer colour for every kind of making. With over 200 colourways across our collections, there is always another shade to discover.
             </p>
             <Link href="/collections" style={{ fontSize: 10, letterSpacing: '.2em', textTransform: 'uppercase', color: 'var(--gold)', textDecoration: 'none' }}>
@@ -154,7 +154,7 @@ export default async function About() {
                   </div>
                   <div style={{ padding: '28px 28px 32px' }}>
                     <p style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 300, color: 'var(--ink)', marginBottom: 12 }}>{title}</p>
-                    <p style={{ fontSize: 13, lineHeight: 2, color: 'var(--taupe)', marginBottom: 18 }}>{body}</p>
+                    <p style={{ fontSize: 15, fontWeight: 400, lineHeight: 2, color: 'var(--taupe)', marginBottom: 18 }}>{body}</p>
                     <span style={{ fontSize: 10, letterSpacing: '.2em', textTransform: 'uppercase', color: 'var(--gold)' }}>{cta} →</span>
                   </div>
                 </Link>
@@ -174,7 +174,7 @@ export default async function About() {
             ].map(({ title, body }) => (
               <div key={title} style={{ paddingTop: 32, borderTop: '1px solid var(--sand)' }}>
                 <p style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 300, color: 'var(--ink)', marginBottom: 16, lineHeight: 1.4 }}>{title}.</p>
-                <p style={{ fontSize: 13, lineHeight: 2.1, color: 'var(--taupe)' }}>{body}</p>
+                <p style={{ fontSize: 15, fontWeight: 400, lineHeight: 2.1, color: 'var(--taupe)' }}>{body}</p>
               </div>
             ))}
           </div>
@@ -185,7 +185,7 @@ export default async function About() {
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 300, color: 'var(--ink)', maxWidth: 560, margin: '0 auto 32px', lineHeight: 1.3 }}>
             Find something beautiful to make with.
           </h2>
-          <p style={{ fontSize: 13, lineHeight: 2.1, color: 'var(--taupe)', maxWidth: 480, margin: '0 auto 36px' }}>
+          <p style={{ fontSize: 15, fontWeight: 400, lineHeight: 2.1, color: 'var(--taupe)', maxWidth: 480, margin: '0 auto 36px' }}>
             Whether you&rsquo;re wrapping a gift, styling a bouquet or beginning something entirely your own, we hope you&rsquo;ll find a material that feels right.
           </p>
           <Link href="/collections" style={{

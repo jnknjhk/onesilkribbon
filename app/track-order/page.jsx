@@ -35,7 +35,7 @@ function TrackOrderContent() {
         <div style={{ textAlign: 'center', marginBottom: 60 }}>
           <span className="eyebrow" style={{ marginBottom: 20 }}>One Silk Ribbon</span>
           <h1 className="display-title" style={{ marginBottom: 16 }}>Track Your <em>Order</em></h1>
-          <p style={{ fontSize: 13, color: 'var(--taupe)', lineHeight: 1.9 }}>
+          <p style={{ fontSize: 15, fontWeight: 400, color: 'var(--taupe)', lineHeight: 1.9 }}>
             Enter your order number to see the latest shipping status.
             Your order number can be found in your confirmation email (e.g. OSR-2026-0001).
           </p>
@@ -129,7 +129,7 @@ function TrackOrderContent() {
 
         {/* Help */}
         <div style={{ marginTop: 48, textAlign: 'center', padding: '28px', background: 'var(--mist)', borderTop: '1px solid var(--sand)' }}>
-          <p style={{ fontSize: 12, color: 'var(--taupe)', lineHeight: 1.9 }}>
+          <p style={{ fontSize: 14, fontWeight: 400, color: 'var(--taupe)', lineHeight: 1.9 }}>
             Can&apos;t find your order? <a href="mailto:orders@onesilkribbon.com" style={{ color: 'var(--gold)' }}>Contact us</a> and we&apos;ll help you track it down.
           </p>
         </div>

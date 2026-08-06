@@ -126,7 +126,7 @@ export default async function JournalPost({ params }) {
                     {s.heading}
                   </h2>
                 )}
-                {s.body && <p style={{ fontSize: 13, lineHeight: 2.2, color: 'var(--taupe)' }}>{s.body}</p>}
+                {s.body && <p style={{ fontSize: 16, fontWeight: 400, lineHeight: 2.2, color: 'var(--taupe)' }}>{s.body}</p>}
               </div>
             )
           })}

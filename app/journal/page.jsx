@@ -51,7 +51,7 @@ export default async function JournalPage() {
                   )}
                   <div>
                     <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 300, color: 'var(--ink)', marginBottom: 12, lineHeight: 1.2 }}>{post.title}</h2>
-                    {post.excerpt && <p style={{ fontSize: 12, color: 'var(--taupe)', lineHeight: 1.9 }}>{post.excerpt}</p>}
+                    {post.excerpt && <p style={{ fontSize: 15, fontWeight: 400, color: 'var(--taupe)', lineHeight: 1.9 }}>{post.excerpt}</p>}
                   </div>
                 </div>
                 <div style={{ fontSize: 20, color: 'var(--warm)', paddingTop: 4 }}>→</div>

@@ -104,7 +104,8 @@ export default function PrivacyPolicy() {
           margin: 48px 0 16px;
         }
         .policy-wrap p, .policy-wrap li {
-          font-size: 13px;
+          font-size: 15px;
+          font-weight: 400;
           line-height: 2.1;
           color: var(--taupe);
           margin-bottom: 12px;

@@ -14,7 +14,7 @@ function FAQItem({ q, a }) {
         <span style={{ fontSize: 20, color: 'var(--warm)', flexShrink: 0, transition: 'transform .25s', transform: open ? 'rotate(45deg)' : 'none' }}>+</span>
       </button>
       {open && (
-        <p style={{ fontSize: 13, lineHeight: 2.1, color: 'var(--taupe)', paddingBottom: 20, maxWidth: 680 }}>{a}</p>
+        <p style={{ fontSize: 15, fontWeight: 400, lineHeight: 2.1, color: 'var(--taupe)', paddingBottom: 20, maxWidth: 680 }}>{a}</p>
       )}
     </div>
   )
@@ -77,7 +77,7 @@ export default function FAQContent({ shippingRate = '3.95', freeThreshold = '45'
           ))}
 
           <div style={{ marginTop: 32, padding: '36px 40px', background: 'var(--sand)', borderTop: '2px solid var(--warm)' }}>
-            <p style={{ fontSize: 13, color: 'var(--taupe)', lineHeight: 2 }}>
+            <p style={{ fontSize: 15, fontWeight: 400, color: 'var(--taupe)', lineHeight: 2 }}>
               Still have a question? Email us at{' '}
               <a href="mailto:song@onesilkribbon.com" style={{ color: 'var(--gold)', textDecoration: 'none' }}>song@onesilkribbon.com</a>
               {' '}and we will get back to you within 2 working days.

@@ -51,10 +51,10 @@ export default function Bespoke() {
 
           {/* Left — info */}
           <div>
-            <p style={{ fontSize: 13, lineHeight: 2.2, color: 'var(--taupe)', marginBottom: 20 }}>
+            <p style={{ fontSize: 15, fontWeight: 400, lineHeight: 2.2, color: 'var(--taupe)', marginBottom: 20 }}>
               We welcome enquiries for bespoke commissions — weddings, special occasions, editorial shoots and gifting — as well as wholesale and trade accounts for florists, stylists, boutiques and brands.
             </p>
-            <p style={{ fontSize: 13, lineHeight: 2.2, color: 'var(--taupe)', marginBottom: 40 }}>
+            <p style={{ fontSize: 15, fontWeight: 400, lineHeight: 2.2, color: 'var(--taupe)', marginBottom: 40 }}>
               Tell us what you&apos;re looking for and we will be in touch within a few working days with pricing and timeline.
             </p>
 
@@ -77,17 +77,17 @@ export default function Bespoke() {
               { name: 'email', label: 'Email Address', placeholder: 'jane@example.com' },
             ].map(({ name, label, placeholder }) => (
               <div key={name} style={{ marginBottom: 18 }}>
-                <label style={{ display: 'block', fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase', color: 'var(--taupe)', marginBottom: 8 }}>{label}</label>
+                <label className="input-label">{label}</label>
                 <input name={name} value={form[name]} onChange={handleChange} placeholder={placeholder}
-                  style={{ width: '100%', padding: '12px 14px', background: 'var(--cream)', border: '1px solid var(--warm)', fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 300, color: 'var(--ink)', outline: 'none' }} className="form-input" />
+                  className="input" style={{ fontFamily: 'var(--font-body)' }} />
               </div>
             ))}
 
             <div style={{ marginBottom: 28 }}>
-              <label style={{ display: 'block', fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase', color: 'var(--taupe)', marginBottom: 8 }}>Your Requirements</label>
+              <label className="input-label">Your Requirements</label>
               <textarea name="message" value={form.message} onChange={handleChange}
                 placeholder="Tell us what you're looking for"
-                style={{ width: '100%', minHeight: 100, padding: '12px 14px', background: 'var(--cream)', border: '1px solid var(--warm)', fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 300, color: 'var(--ink)', outline: 'none', resize: 'vertical' }} className="form-input" />
+                className="input" style={{ minHeight: 100, fontFamily: 'var(--font-body)', resize: 'vertical' }} />
             </div>
 
             <button onClick={handleSubmit} disabled={sent === 'loading' || sent === 'done'} style={{
@@ -113,8 +113,6 @@ export default function Bespoke() {
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
-        .form-input:focus { border-color: var(--ink) !important; }
-        .form-input::placeholder { color: var(--warm); }
         @media(max-width: 900px) {
           .bespoke-grid { grid-template-columns: 1fr !important; padding: 48px 24px 80px !important; gap: 48px !important; }
           h1 { font-size: 36px !important; }

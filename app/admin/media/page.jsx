@@ -90,7 +90,7 @@ export default function MediaLibraryPage() {
         onCancel={() => setConfirmItem(null)}
       />
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ color: C.ink, fontSize: 24, fontWeight: 300, marginBottom: 8 }}>媒体库</h1>
           <p style={{ color: C.muted, fontSize: 13 }}>共 {total} 张图片 · 商品图、文章图、首页图统一在这里管理，各处上传的图都会出现在这里，可以互相复用</p>
@@ -133,10 +133,10 @@ export default function MediaLibraryPage() {
 
       {totalPages > 1 && (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 24 }}>
-          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="admin-tap-target"
             style={{ padding: '6px 14px', background: '#fff', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1 }}>上一页</button>
           <span style={{ fontSize: 12, color: C.muted }}>第 {page} / {totalPages} 页</span>
-          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="admin-tap-target"
             style={{ padding: '6px 14px', background: '#fff', border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 12, cursor: page === totalPages ? 'not-allowed' : 'pointer', opacity: page === totalPages ? 0.4 : 1 }}>下一页</button>
         </div>
       )}

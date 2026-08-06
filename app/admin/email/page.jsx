@@ -110,7 +110,7 @@ export default function EmailPage() {
     <div>
       <h1 style={{ color: C.ink, fontSize: 24, fontWeight: 300, marginBottom: 28 }}>发送邮件</h1>
 
-      <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+      <div className="admin-flex-stack" style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
 
         {/* 左侧：模板 + 客户 */}
         <div style={{ width: 220, flexShrink: 0 }}>
@@ -163,9 +163,9 @@ export default function EmailPage() {
               style={{ width: '100%', padding: '12px 14px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 13, color: C.ink, outline: 'none', fontFamily: "'Jost', sans-serif", resize: 'vertical', lineHeight: 1.8, boxSizing: 'border-box' }} />
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
             <p style={{ fontSize: 11, color: C.muted }}>发件人：song@onesilkribbon.com</p>
-            <button onClick={handleSend} disabled={sending}
+            <button onClick={handleSend} disabled={sending} className="admin-tap-target"
               style={{ padding: '11px 28px', background: sending ? C.border : C.ink, border: 'none', borderRadius: 8, color: '#fff', fontSize: 12, letterSpacing: '.08em', cursor: sending ? 'not-allowed' : 'pointer', fontFamily: "'Jost', sans-serif", transition: 'background .15s' }}>
               {sending ? '发送中…' : '发送邮件'}
             </button>

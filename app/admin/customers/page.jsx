@@ -45,19 +45,20 @@ export default function CustomersPage() {
   useEffect(() => { setPage(1) }, [search, filter])
 
   return (
-    <div style={{ display: 'flex', gap: 24, height: 'calc(100vh - 80px)' }}>
+    <>
+    <div className="admin-master-detail" style={{ display: 'flex', gap: 24, height: 'calc(100vh - 80px)' }}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <div style={{ marginBottom: 20 }}>
           <h1 style={{ color: C.ink, fontSize: 24, fontWeight: 300, marginBottom: 16 }}>客户管理</h1>
 
           {/* 统计 */}
-          <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+          <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
             {[
               { label: '全部', value: customers.length, key: 'all' },
               { label: '已注册', value: registeredCount, key: 'registered' },
               { label: '访客', value: guestCount, key: 'guest' },
             ].map(item => (
-              <button key={item.key} onClick={() => setFilter(item.key)} style={{
+              <button key={item.key} onClick={() => setFilter(item.key)} className="admin-tap-target" style={{
                 padding: '8px 16px', border: `1px solid ${filter === item.key ? C.gold : C.border}`,
                 background: filter === item.key ? `rgba(184,155,106,0.08)` : '#fff',
                 color: filter === item.key ? C.gold : C.sub,
@@ -77,7 +78,7 @@ export default function CustomersPage() {
           {loading ? <p style={{ color: C.muted, padding: 24 }}>加载中…</p> : filtered.length === 0 ? (
             <p style={{ color: C.muted, padding: 24, fontSize: 13 }}>暂无客户数据</p>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table className="admin-list-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: `1px solid ${C.border}` }}>
                   {['客户', '类型', '位置', '订单数', '总消费', '最近购买', '操作'].map(h => (
@@ -92,22 +93,22 @@ export default function CustomersPage() {
                     onMouseEnter={e => { if (selected?.email !== c.email) e.currentTarget.style.background = C.row }}
                     onMouseLeave={e => { if (selected?.email !== c.email) e.currentTarget.style.background = 'transparent' }}
                   >
-                    <td style={{ padding: '12px 16px' }}>
+                    <td data-label="客户" style={{ padding: '12px 16px' }}>
                       <p style={{ color: C.ink, fontSize: 13 }}>{c.name || '-'}</p>
                       <p style={{ color: C.muted, fontSize: 11 }}>{c.email}</p>
                     </td>
-                    <td style={{ padding: '12px 16px' }}>
+                    <td data-label="类型" style={{ padding: '12px 16px' }}>
                       {c.user_id ? (
                         <span style={{ display: 'inline-block', padding: '2px 8px', background: 'rgba(184,155,106,0.1)', color: C.gold, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase' }}>已注册</span>
                       ) : (
                         <span style={{ display: 'inline-block', padding: '2px 8px', background: '#F5F3F0', color: C.muted, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase' }}>访客</span>
                       )}
                     </td>
-                    <td style={{ padding: '12px 16px', color: C.sub, fontSize: 12 }}>{[c.city, c.country].filter(Boolean).join(', ') || '-'}</td>
-                    <td style={{ padding: '12px 16px', color: C.ink, fontSize: 13 }}>{c.orders}</td>
-                    <td style={{ padding: '12px 16px', color: C.gold, fontSize: 13 }}>{fmt(c.spent)}</td>
-                    <td style={{ padding: '12px 16px', color: C.muted, fontSize: 12 }}>{fmtDate(c.lastOrder)}</td>
-                    <td style={{ padding: '12px 16px' }}>
+                    <td data-label="位置" style={{ padding: '12px 16px', color: C.sub, fontSize: 12 }}>{[c.city, c.country].filter(Boolean).join(', ') || '-'}</td>
+                    <td data-label="订单数" style={{ padding: '12px 16px', color: C.ink, fontSize: 13 }}>{c.orders}</td>
+                    <td data-label="总消费" style={{ padding: '12px 16px', color: C.gold, fontSize: 13 }}>{fmt(c.spent)}</td>
+                    <td data-label="最近购买" style={{ padding: '12px 16px', color: C.muted, fontSize: 12 }}>{fmtDate(c.lastOrder)}</td>
+                    <td data-label="操作" style={{ padding: '12px 16px' }}>
                       <a href={`mailto:${c.email}`} onClick={e => e.stopPropagation()}
                         style={{ background: '#F0EDE8', border: 'none', color: C.gold, fontSize: 11, padding: '5px 12px', cursor: 'pointer', textDecoration: 'none', display: 'inline-block', letterSpacing: '.06em' }}>
                         发邮件
@@ -124,7 +125,7 @@ export default function CustomersPage() {
 
       {/* 详情面板 */}
       {selected && (
-        <div style={{ width: 280, background: '#FFFFFF', border: `1px solid ${C.border}`, padding: 24, flexShrink: 0, overflowY: 'auto' }}>
+        <div className="admin-detail-panel" style={{ width: 280, background: '#FFFFFF', border: `1px solid ${C.border}`, padding: 24, flexShrink: 0, overflowY: 'auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
             <h2 style={{ color: C.ink, fontSize: 15, fontWeight: 400 }}>客户详情</h2>
             <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 18 }}>×</button>
@@ -171,5 +172,11 @@ export default function CustomersPage() {
         </div>
       )}
     </div>
+    <style dangerouslySetInnerHTML={{ __html: `
+      @media (max-width: 900px) {
+        .admin-detail-panel { padding: 20px !important; }
+      }
+    ` }} />
+    </>
   )
 }

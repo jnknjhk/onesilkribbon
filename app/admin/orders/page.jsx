@@ -184,7 +184,8 @@ export default function OrdersPage() {
   useEffect(() => { setPage(1) }, [filter, search])
 
   return (
-    <div style={{ display:'flex', gap:24, height:'calc(100vh - 80px)' }}>
+    <>
+    <div className="admin-master-detail" style={{ display:'flex', gap:24, height:'calc(100vh - 80px)' }}>
 
       {/* ── 发货弹窗 ── */}
       {showShipModal && (
@@ -274,7 +275,7 @@ export default function OrdersPage() {
             style={{ ...inp, marginBottom:12 }} />
           <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
             {STATUS_OPTIONS.map(s => (
-              <button key={s} onClick={() => setFilter(s)} style={{
+              <button key={s} onClick={() => setFilter(s)} className="admin-tap-target" style={{
                 padding:'5px 14px', borderRadius:20, border:'none', cursor:'pointer', fontSize:11,
                 background: filter===s ? C.gold : '#1f1f1f',
                 color: filter===s ? '#fff' : '#888',
@@ -287,7 +288,7 @@ export default function OrdersPage() {
           {loading ? <p style={{ color:C.muted, padding:24 }}>加载中…</p>
             : filtered.length === 0 ? <p style={{ color:C.muted, padding:24, fontSize:13 }}>暂无订单</p>
             : (
-              <table style={{ width:'100%', borderCollapse:'collapse' }}>
+              <table className="admin-list-table" style={{ width:'100%', borderCollapse:'collapse' }}>
                 <thead style={{ position:'sticky', top:0, background:C.white, zIndex:1 }}>
                   <tr style={{ borderBottom:`1px solid ${C.border}` }}>
                     {['订单号','客户','金额','状态','日期'].map(h => (
@@ -299,15 +300,15 @@ export default function OrdersPage() {
                   {paginatedOrders.map(o => (
                     <tr key={o.id} onClick={() => selectOrder(o)}
                       style={{ borderBottom:'1px solid #F5F3F0', cursor:'pointer', background: selected?.id===o.id ? '#FBF8F4' : 'transparent' }}>
-                      <td style={{ padding:'11px 14px', fontFamily:'monospace', fontSize:12, color:C.ink, fontWeight:500 }}>{o.order_number||'—'}</td>
-                      <td style={{ padding:'11px 14px', fontSize:12, color:C.sub }}>{o.customer_email||'—'}</td>
-                      <td style={{ padding:'11px 14px', fontSize:13, color:C.gold }}>{fmt(o.total_gbp)}</td>
-                      <td style={{ padding:'11px 14px' }}>
+                      <td data-label="订单号" style={{ padding:'11px 14px', fontFamily:'monospace', fontSize:12, color:C.ink, fontWeight:500 }}>{o.order_number||'—'}</td>
+                      <td data-label="客户" style={{ padding:'11px 14px', fontSize:12, color:C.sub }}>{o.customer_email||'—'}</td>
+                      <td data-label="金额" style={{ padding:'11px 14px', fontSize:13, color:C.gold }}>{fmt(o.total_gbp)}</td>
+                      <td data-label="状态" style={{ padding:'11px 14px' }}>
                         <span style={{ background:(STATUS_COLOR[o.status]||'#888')+'22', color:STATUS_COLOR[o.status]||'#888', fontSize:10, padding:'3px 9px', borderRadius:20 }}>
                           {STATUS_LABEL[o.status]||o.status}
                         </span>
                       </td>
-                      <td style={{ padding:'11px 14px', fontSize:11, color:C.muted }}>
+                      <td data-label="日期" style={{ padding:'11px 14px', fontSize:11, color:C.muted }}>
                         {o.created_at ? new Date(o.created_at).toLocaleDateString('zh-CN') : '—'}
                       </td>
                     </tr>
@@ -319,12 +320,12 @@ export default function OrdersPage() {
 
         {totalPages > 1 && (
           <div style={{ display:'flex', justifyContent:'center', alignItems:'center', gap:12, marginTop:16 }}>
-            <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1}
+            <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1} className="admin-tap-target"
               style={{ padding:'6px 14px', background:'#fff', border:`1px solid ${C.border}`, borderRadius:6, fontSize:12, cursor: page===1 ? 'not-allowed' : 'pointer', opacity: page===1 ? 0.4 : 1 }}>
               上一页
             </button>
             <span style={{ fontSize:12, color:C.muted }}>第 {page} / {totalPages} 页 · 共 {filtered.length} 条</span>
-            <button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page === totalPages}
+            <button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page === totalPages} className="admin-tap-target"
               style={{ padding:'6px 14px', background:'#fff', border:`1px solid ${C.border}`, borderRadius:6, fontSize:12, cursor: page===totalPages ? 'not-allowed' : 'pointer', opacity: page===totalPages ? 0.4 : 1 }}>
               下一页
             </button>
@@ -334,7 +335,7 @@ export default function OrdersPage() {
 
       {/* ── 右侧详情面板 ── */}
       {selected && (
-        <div style={{ width:380, background:C.white, border:`1px solid ${C.border}`, borderRadius:12, overflow:'auto', flexShrink:0, display:'flex', flexDirection:'column' }}>
+        <div className="admin-detail-panel" style={{ width:380, background:C.white, border:`1px solid ${C.border}`, borderRadius:12, overflow:'auto', flexShrink:0, display:'flex', flexDirection:'column' }}>
           {/* 头部 */}
           <div style={{ padding:'16px 20px', borderBottom:`1px solid ${C.border}`, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
             <div>
@@ -482,6 +483,7 @@ export default function OrdersPage() {
         </div>
       )}
     </div>
+    </>
   )
 }
 

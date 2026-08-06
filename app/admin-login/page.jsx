@@ -38,8 +38,8 @@ function AdminLoginContent() {
   const C = { bg: '#F5F3F0', border: '#E8E4DF', gold: '#B89B6A', ink: '#1C1714', muted: '#A8A4A0' }
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Jost', sans-serif" }}>
-      <div style={{ width: 360 }}>
+    <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Jost', sans-serif", padding: '0 20px', boxSizing: 'border-box' }}>
+      <div style={{ width: 360, maxWidth: '100%' }}>
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <p style={{ fontSize: 9, letterSpacing: '.45em', textTransform: 'uppercase', color: C.gold, marginBottom: 8 }}>One Silk Ribbon</p>
           <p style={{ fontSize: 11, color: C.muted, letterSpacing: '.15em' }}>管理后台</p>

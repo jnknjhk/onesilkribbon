@@ -186,7 +186,7 @@ export default function JournalAdminPage() {
 
         {/* 基本信息 */}
         <Section title="基本信息">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div className="admin-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div style={{ gridColumn: 'span 2' }}>
               <Label>文章标题 *</Label>
               <input value={form.title} onChange={e => {
@@ -389,7 +389,7 @@ export default function JournalAdminPage() {
         onCancel={() => setConfirmPost(null)}
       />
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ color: C.ink, fontSize: 24, fontWeight: 300, marginBottom: 8 }}>文章管理</h1>
           <p style={{ color: C.muted, fontSize: 13 }}>共 {posts.length} 篇 · 已发布 {published} · 草稿 {drafts}</p>
@@ -406,7 +406,7 @@ export default function JournalAdminPage() {
             <button onClick={() => startEdit('new')} style={{ background: C.gold, border: 'none', borderRadius: 6, color: '#fff', fontSize: 12, padding: '10px 24px', cursor: 'pointer' }}>+ 新建文章</button>
           </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table className="admin-list-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: `1px solid ${C.border}` }}>
                 {['封面', '标题', '分类', '阅读时间', '发布日期', '状态', '操作'].map(h => (
@@ -417,30 +417,30 @@ export default function JournalAdminPage() {
             <tbody>
               {paginated.map(post => (
                 <tr key={post.id} style={{ borderBottom: '1px solid #F0EDE8', cursor: 'pointer' }} onClick={() => startEdit(post)}>
-                  <td style={{ padding: '10px 16px', width: 56 }}>
+                  <td data-label="封面" style={{ padding: '10px 16px', width: 56 }}>
                     {post.cover_image
                       ? <img src={post.cover_image} style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4, display: 'block' }} />
                       : <div style={{ width: 40, height: 40, background: C.light, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>✎</div>
                     }
                   </td>
-                  <td style={{ padding: '10px 16px' }}>
+                  <td data-label="标题" style={{ padding: '10px 16px' }}>
                     <p style={{ color: C.ink, fontSize: 13, fontWeight: 400 }}>{post.title}</p>
                     <p style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>{post.slug}</p>
                   </td>
-                  <td style={{ padding: '10px 16px', color: C.sub, fontSize: 12 }}>{post.category}</td>
-                  <td style={{ padding: '10px 16px', color: C.sub, fontSize: 12 }}>{post.read_time}</td>
-                  <td style={{ padding: '10px 16px', color: C.sub, fontSize: 12 }}>{formatDate(post.published_at)}</td>
-                  <td style={{ padding: '10px 16px' }}>
+                  <td data-label="分类" style={{ padding: '10px 16px', color: C.sub, fontSize: 12 }}>{post.category}</td>
+                  <td data-label="阅读时间" style={{ padding: '10px 16px', color: C.sub, fontSize: 12 }}>{post.read_time}</td>
+                  <td data-label="发布日期" style={{ padding: '10px 16px', color: C.sub, fontSize: 12 }}>{formatDate(post.published_at)}</td>
+                  <td data-label="状态" style={{ padding: '10px 16px' }}>
                     <span style={{
                       background: post.is_published ? C.green + '22' : C.muted + '22',
                       color: post.is_published ? C.green : C.muted,
                       fontSize: 11, padding: '3px 10px', borderRadius: 20,
                     }}>{post.is_published ? '已发布' : '草稿'}</span>
                   </td>
-                  <td style={{ padding: '10px 16px' }} onClick={e => e.stopPropagation()}>
+                  <td data-label="操作" style={{ padding: '10px 16px' }} onClick={e => e.stopPropagation()}>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <button onClick={() => startEdit(post)} style={{ background: C.light, border: 'none', borderRadius: 4, color: C.gold, fontSize: 11, padding: '5px 12px', cursor: 'pointer' }}>编辑</button>
-                      <button onClick={() => setConfirmPost(post)} style={{ background: C.light, border: 'none', borderRadius: 4, color: C.red, fontSize: 11, padding: '5px 12px', cursor: 'pointer' }}>删除</button>
+                      <button onClick={() => startEdit(post)} className="admin-tap-target" style={{ background: C.light, border: 'none', borderRadius: 4, color: C.gold, fontSize: 11, padding: '5px 12px', cursor: 'pointer' }}>编辑</button>
+                      <button onClick={() => setConfirmPost(post)} className="admin-tap-target" style={{ background: C.light, border: 'none', borderRadius: 4, color: C.red, fontSize: 11, padding: '5px 12px', cursor: 'pointer' }}>删除</button>
                     </div>
                   </td>
                 </tr>

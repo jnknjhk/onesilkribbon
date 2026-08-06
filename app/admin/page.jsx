@@ -47,7 +47,7 @@ export default function AdminDashboard() {
         <p style={{ color: '#A8A4A0', fontSize: 13 }}>{new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 40 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 40 }}>
         <StatCard label="总订单数" value={loading ? '…' : stats.orders} sub="全部时间" />
         <StatCard label="总收入" value={loading ? '…' : fmt(stats.revenue)} sub="已付款+已发货" color="#B89B6A" />
         <StatCard label="待处理订单" value={loading ? '…' : stats.pending} sub="需要跟进" color={stats.pending > 0 ? '#facc15' : '#1C1714'} />
@@ -65,7 +65,7 @@ export default function AdminDashboard() {
         ) : stats.recentOrders.length === 0 ? (
           <p style={{ color: '#A8A4A0', padding: 24, fontSize: 13 }}>暂无订单</p>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table className="admin-list-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #E8E4DF' }}>
                 {['订单号', '客户邮箱', '金额', '状态', '日期'].map(h => (
@@ -76,15 +76,15 @@ export default function AdminDashboard() {
             <tbody>
               {stats.recentOrders.map(o => (
                 <tr key={o.id} style={{ borderBottom: '1px solid #F0EDE8' }}>
-                  <td style={{ padding: '14px 24px', color: '#8A8480', fontSize: 12 }}>{o.id.slice(0, 8)}…</td>
-                  <td style={{ padding: '14px 24px', color: '#504C48', fontSize: 13 }}>{o.customer_email || '-'}</td>
-                  <td style={{ padding: '14px 24px', color: '#B89B6A', fontSize: 13 }}>{fmt(o.total_gbp || 0)}</td>
-                  <td style={{ padding: '14px 24px' }}>
+                  <td data-label="订单号" style={{ padding: '14px 24px', color: '#8A8480', fontSize: 12 }}>{o.id.slice(0, 8)}…</td>
+                  <td data-label="客户邮箱" style={{ padding: '14px 24px', color: '#504C48', fontSize: 13 }}>{o.customer_email || '-'}</td>
+                  <td data-label="金额" style={{ padding: '14px 24px', color: '#B89B6A', fontSize: 13 }}>{fmt(o.total_gbp || 0)}</td>
+                  <td data-label="状态" style={{ padding: '14px 24px' }}>
                     <span style={{ background: statusColor(o.status) + '22', color: statusColor(o.status), fontSize: 11, padding: '3px 10px', borderRadius: 20 }}>
                       {statusLabel(o.status)}
                     </span>
                   </td>
-                  <td style={{ padding: '14px 24px', color: '#A8A4A0', fontSize: 12 }}>{fmtDate(o.created_at)}</td>
+                  <td data-label="日期" style={{ padding: '14px 24px', color: '#A8A4A0', fontSize: 12 }}>{fmtDate(o.created_at)}</td>
                 </tr>
               ))}
             </tbody>

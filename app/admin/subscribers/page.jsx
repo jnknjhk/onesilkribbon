@@ -130,7 +130,7 @@ export default function SubscribersPage() {
             <p style={{ color: C.muted, fontSize: 13 }}>{search || source ? '没有匹配的订阅者' : '暂无订阅者'}</p>
           </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table className="admin-list-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: `1px solid ${C.border}` }}>
                 {['邮箱', '来源', '状态', '订阅时间'].map(h => (
@@ -141,16 +141,16 @@ export default function SubscribersPage() {
             <tbody>
               {subscribers.map(s => (
                 <tr key={s.id} style={{ borderBottom: '1px solid #F0EDE8' }}>
-                  <td style={{ padding: '10px 16px', color: C.ink, fontSize: 13 }}>{s.email}</td>
-                  <td style={{ padding: '10px 16px', color: C.sub, fontSize: 12 }}>{sourceLabel(s.source)}</td>
-                  <td style={{ padding: '10px 16px' }}>
+                  <td data-label="邮箱" style={{ padding: '10px 16px', color: C.ink, fontSize: 13 }}>{s.email}</td>
+                  <td data-label="来源" style={{ padding: '10px 16px', color: C.sub, fontSize: 12 }}>{sourceLabel(s.source)}</td>
+                  <td data-label="状态" style={{ padding: '10px 16px' }}>
                     <span style={{
                       background: s.verified ? C.green + '22' : C.muted + '22',
                       color: s.verified ? C.green : C.muted,
                       fontSize: 11, padding: '3px 10px', borderRadius: 20,
                     }}>{s.verified ? '已验证' : '待验证'}</span>
                   </td>
-                  <td style={{ padding: '10px 16px', color: C.sub, fontSize: 12 }}>{formatDate(s.subscribed_at || s.created_at)}</td>
+                  <td data-label="订阅时间" style={{ padding: '10px 16px', color: C.sub, fontSize: 12 }}>{formatDate(s.subscribed_at || s.created_at)}</td>
                 </tr>
               ))}
             </tbody>

@@ -151,7 +151,7 @@ export default function MarketingPage() {
 
       {/* ── 运费设置 ── */}
       <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, padding: 28, marginBottom: 32 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
           <div>
             <h2 style={{ color: C.ink, fontSize: 16, fontWeight: 400, marginBottom: 4 }}>运费设置</h2>
             <p style={{ color: C.muted, fontSize: 12 }}>修改后立即生效，无需重新部署</p>
@@ -164,7 +164,7 @@ export default function MarketingPage() {
         {shippingLoading ? (
           <p style={{ color: C.muted, fontSize: 13 }}>加载中…</p>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 16, alignItems: 'flex-end' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, alignItems: 'flex-end' }}>
             {/* 运费金额 */}
             <div>
               <label style={{ display: 'block', color: C.muted, fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 8 }}>
@@ -243,19 +243,19 @@ export default function MarketingPage() {
       />
 
       {/* ── 优惠码区块 ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{ color: C.ink, fontSize: 16, fontWeight: 400, marginBottom: 4 }}>优惠码</h2>
           <p style={{ color: C.muted, fontSize: 12 }}>创建和管理折扣码</p>
         </div>
-        <button onClick={() => { setForm(EMPTY); setEditing(null); setShowForm(true) }}
+        <button onClick={() => { setForm(EMPTY); setEditing(null); setShowForm(true) }} className="admin-tap-target"
           style={{ background: C.gold, border: 'none', borderRadius: 8, color: '#fff', fontSize: 12, padding: '10px 20px', cursor: 'pointer', letterSpacing: '.08em' }}>
           + 新建优惠码
         </button>
       </div>
 
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16, marginBottom: 24 }}>
         {[
           { label: '优惠码总数', value: coupons.length },
           { label: '当前有效', value: coupons.filter(c => c.active && !isExpired(c)).length, color: C.green },
@@ -268,13 +268,13 @@ export default function MarketingPage() {
         ))}
       </div>
 
-      <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+      <div className="admin-master-detail" style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
         {/* Table */}
         <div style={{ flex: 1, background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
           {loading ? <p style={{ color: C.muted, padding: 24 }}>加载中…</p> : coupons.length === 0 ? (
             <p style={{ color: C.muted, padding: 24, fontSize: 13 }}>暂无优惠码，点击右上角新建</p>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table className="admin-list-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: `1px solid ${C.border}` }}>
                   {['优惠码', '折扣', '最低订单', '使用情况', '有效期', '状态', '操作'].map(h => (
@@ -287,26 +287,26 @@ export default function MarketingPage() {
                   const expired = isExpired(c)
                   return (
                     <tr key={c.id} style={{ borderBottom: `1px solid #F0EDE8`, opacity: expired ? 0.5 : 1 }}>
-                      <td style={{ padding: '13px 16px' }}>
+                      <td data-label="优惠码" style={{ padding: '13px 16px' }}>
                         <p style={{ color: C.ink, fontSize: 13, fontFamily: 'monospace', letterSpacing: '.08em' }}>{c.code}</p>
                         {c.description && <p style={{ color: C.muted, fontSize: 11, marginTop: 3 }}>{c.description}</p>}
                       </td>
-                      <td style={{ padding: '13px 16px', color: C.gold, fontSize: 13 }}>{fmtDiscount(c)}</td>
-                      <td style={{ padding: '13px 16px', color: C.sub, fontSize: 12 }}>{c.min_order_gbp > 0 ? `£${c.min_order_gbp}` : '无要求'}</td>
-                      <td style={{ padding: '13px 16px', color: C.sub, fontSize: 12 }}>
+                      <td data-label="折扣" style={{ padding: '13px 16px', color: C.gold, fontSize: 13 }}>{fmtDiscount(c)}</td>
+                      <td data-label="最低订单" style={{ padding: '13px 16px', color: C.sub, fontSize: 12 }}>{c.min_order_gbp > 0 ? `£${c.min_order_gbp}` : '无要求'}</td>
+                      <td data-label="使用情况" style={{ padding: '13px 16px', color: C.sub, fontSize: 12 }}>
                         {c.uses_count || 0}{c.max_uses ? ` / ${c.max_uses}` : ' / ∞'}
                       </td>
-                      <td style={{ padding: '13px 16px', color: expired ? C.red : C.sub, fontSize: 12 }}>{fmtDate(c.expires_at)}</td>
-                      <td style={{ padding: '13px 16px' }}>
+                      <td data-label="有效期" style={{ padding: '13px 16px', color: expired ? C.red : C.sub, fontSize: 12 }}>{fmtDate(c.expires_at)}</td>
+                      <td data-label="状态" style={{ padding: '13px 16px' }}>
                         <button onClick={() => toggleActive(c.id, c.active)}
                           style={{ background: (c.active && !expired) ? '#4ade8022' : '#f8717122', color: (c.active && !expired) ? C.green : C.red, border: 'none', borderRadius: 20, fontSize: 11, padding: '3px 12px', cursor: 'pointer' }}>
                           {c.active && !expired ? '有效' : expired ? '已过期' : '已停用'}
                         </button>
                       </td>
-                      <td style={{ padding: '13px 16px' }}>
+                      <td data-label="操作" style={{ padding: '13px 16px' }}>
                         <div style={{ display: 'flex', gap: 8 }}>
-                          <button onClick={() => startEdit(c)} style={{ background: C.light, border: 'none', borderRadius: 4, color: C.gold, fontSize: 11, padding: '5px 10px', cursor: 'pointer' }}>编辑</button>
-                          <button onClick={() => setConfirmCoupon(c)} style={{ background: C.light, border: 'none', borderRadius: 4, color: C.red, fontSize: 11, padding: '5px 10px', cursor: 'pointer' }}>删除</button>
+                          <button onClick={() => startEdit(c)} className="admin-tap-target" style={{ background: C.light, border: 'none', borderRadius: 4, color: C.gold, fontSize: 11, padding: '5px 10px', cursor: 'pointer' }}>编辑</button>
+                          <button onClick={() => setConfirmCoupon(c)} className="admin-tap-target" style={{ background: C.light, border: 'none', borderRadius: 4, color: C.red, fontSize: 11, padding: '5px 10px', cursor: 'pointer' }}>删除</button>
                         </div>
                       </td>
                     </tr>
@@ -320,7 +320,7 @@ export default function MarketingPage() {
 
         {/* Form panel */}
         {showForm && (
-          <div style={{ width: 340, background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, padding: 24, flexShrink: 0 }}>
+          <div className="admin-detail-panel" style={{ width: 340, background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, padding: 24, flexShrink: 0, overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
               <h2 style={{ color: C.ink, fontSize: 15, fontWeight: 400 }}>{editing ? '编辑优惠码' : '新建优惠码'}</h2>
               <button onClick={() => { setShowForm(false); setEditing(null) }} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 18 }}>×</button>

@@ -282,3 +282,84 @@ input, textarea, select {
   .container { padding: 0 20px; }
   .section-header { padding: 60px 20px 40px; }
 }
+
+/* ══════════════════════════════════════════════════════════
+   ADMIN — 共用响应式工具类，供 app/admin/* 页面使用
+   ══════════════════════════════════════════════════════════ */
+
+/* 横向滚动容器：包住任何可能变宽的表格（比如 SKU 矩阵），
+   桌面端不影响布局，内容超宽时才出现横向滚动条 */
+.admin-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 两列表单网格，窄屏自动收成一列 */
+.admin-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* 列表表格：窄屏下从表格变成一张张卡片。
+   要求每个 <td> 带上 data-label="列名" 属性 */
+.admin-list-table { width: 100%; border-collapse: collapse; }
+
+@media (max-width: 768px) {
+  .admin-2col { grid-template-columns: 1fr !important; }
+
+  .admin-list-table thead { display: none; }
+  .admin-list-table, .admin-list-table tbody, .admin-list-table tr, .admin-list-table td {
+    display: block; width: 100%;
+  }
+  .admin-list-table tr {
+    padding: 12px 14px;
+    border-bottom: 1px solid #E8E4DF;
+  }
+  .admin-list-table td {
+    padding: 4px 0 !important;
+    border: none !important;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    text-align: right;
+  }
+  .admin-list-table td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-size: 10px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #A8A4A0;
+    text-align: left;
+  }
+  .admin-list-table td:empty,
+  .admin-list-table td[data-label=""] { display: none; }
+}
+
+/* 触控目标：手机上保证按钮/可点击元素至少 44px 高，方便手指点击 */
+@media (max-width: 900px) {
+  .admin-tap-target {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* 简单的并排两栏在窄屏下堆叠成一列（用于没有"选中才显示"逻辑的固定双栏页面） */
+@media (max-width: 900px) {
+  .admin-flex-stack { flex-direction: column; }
+  .admin-flex-stack > * { width: 100% !important; }
+}
+
+/* 列表 + 详情面板并排布局（订单/客户页共用）：
+   窄屏下列表占满宽度，详情面板改成点开后盖满全屏的独立视图，带"返回"体验 */
+@media (max-width: 900px) {
+  .admin-master-detail { flex-direction: column; height: auto !important; }
+  .admin-detail-panel {
+    position: fixed !important; inset: 0; z-index: 40;
+    width: 100% !important; border-radius: 0 !important; border: none !important;
+  }
+}

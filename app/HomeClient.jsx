@@ -6,12 +6,12 @@ import { formatGBP } from '@/lib/pricing'
 import { subscribeEmail, isValidEmail } from '@/lib/client/subscribe'
 
 const COLLECTIONS = [
-  { name: 'Fine Silk Ribbons',  slug: 'fine-silk-ribbons',        count: '30 colourways', desc: 'Our signature collection. Ultra-fine 100% mulberry silk ribbons in hand-selected colourways, from 2mm to 10mm.' },
-  { name: 'Hand-Frayed',        slug: 'hand-frayed-silk-ribbons', count: '18 styles',     desc: 'Each ribbon is carefully hand-frayed to create an ethereal, softly textured edge — perfect for bouquets and fine craft.' },
-  { name: 'Adornments',         slug: 'handcrafted-adornments',   count: '12 designs',    desc: 'Silk scrunchies, bows and decorative pieces — each made by hand from the same pure mulberry silk as our ribbons.' },
-  { name: 'Patterned',          slug: 'patterned-ribbons',        count: '14 patterns',   desc: 'Botanical, geometric and heritage-inspired motifs printed on pure silk. Each design tells a story.' },
-  { name: 'Studio Tools',       slug: 'studio-tools',             count: '8 essentials',  desc: 'Curated essentials for the ribbon-maker and florist — scissors, spools, and everything for a well-appointed studio.' },
-  { name: 'Vintage-Inspired',   slug: 'vintage-inspired-ribbons', count: '16 styles',     desc: 'Heritage tones and antique-inspired textures, evoking the romance of a bygone era.' },
+  { name: 'Fine Silk Ribbons',  slug: 'fine-silk-ribbons',        count: 'Ultra-Fine Silk',      desc: 'Our signature collection. Ultra-fine 100% mulberry silk ribbons in hand-selected colourways, from 2mm to 10mm.' },
+  { name: 'Hand-Frayed',        slug: 'hand-frayed-silk-ribbons', count: 'Hand-Torn & Textured', desc: 'Each ribbon is carefully hand-frayed to create an ethereal, softly textured edge — perfect for bouquets and fine craft.' },
+  { name: 'Adornments',         slug: 'handcrafted-adornments',   count: 'Handmade Accessories', desc: 'Silk scrunchies, bows and decorative pieces — each made by hand from the same pure mulberry silk as our ribbons.' },
+  { name: 'Patterned',          slug: 'patterned-ribbons',        count: 'Botanical & Geometric', desc: 'Botanical, geometric and heritage-inspired motifs printed on pure silk. Each design tells a story.' },
+  { name: 'Studio Tools',       slug: 'studio-tools',             count: "Maker's Essentials",   desc: 'Curated essentials for the ribbon-maker and florist — scissors, spools, and everything for a well-appointed studio.' },
+  { name: 'Vintage-Inspired',   slug: 'vintage-inspired-ribbons', count: 'Antique-Inspired',     desc: 'Heritage tones and antique-inspired textures, evoking the romance of a bygone era.' },
 ]
 
 const COLLECTION_FALLBACK_BG = {

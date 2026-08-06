@@ -7,12 +7,12 @@ export const metadata = {
 }
 
 const COLLECTIONS = [
-  { name: 'Fine Silk Ribbons', slug: 'fine-silk-ribbons', desc: 'Our signature collection. Ultra-fine 100% mulberry silk ribbons in 30 hand-selected colourways, available in widths from 2mm to 10mm.', count: '30 colourways', bg: 'linear-gradient(160deg,#D4C5B0,#9A8878,#C4A882)' },
-  { name: 'Hand-Frayed Silk Ribbons', slug: 'hand-frayed-silk-ribbons', desc: 'Each ribbon is carefully hand-frayed to create an ethereal, softly textured edge — perfect for bouquets, invitations and fine craft.', count: '18 styles', bg: 'linear-gradient(160deg,#E8C9B8,#C9A48A,#9A7A66)' },
-  { name: 'Handcrafted Adornments', slug: 'handcrafted-adornments', desc: 'Silk scrunchies, bow ties, and decorative pieces — each made by hand from the same pure mulberry silk as our ribbons.', count: '12 designs', bg: 'linear-gradient(160deg,#B8A898,#7A6A5A,#4A3A30)' },
-  { name: 'Patterned Ribbons', slug: 'patterned-ribbons', desc: 'Woven and printed motifs inspired by botanical forms, geometric patterns and heritage textiles. Each design printed on pure silk.', count: '14 patterns', bg: 'linear-gradient(160deg,#C8D4C0,#8A9A80,#5A7050)' },
-  { name: 'Studio Tools', slug: 'studio-tools', desc: 'Curated essentials for the ribbon-maker and florist — scissors, wire, needles and everything you need for a well-appointed studio.', count: '8 essentials', bg: 'linear-gradient(160deg,#D0D0C8,#9A9A90,#5A5A54)' },
-  { name: 'Vintage-Inspired Ribbons', slug: 'vintage-inspired-ribbons', desc: 'Heritage tones and antique-inspired textures, evoking the romance of a bygone era. Ideal for weddings, gifts and botanical styling.', count: '16 styles', bg: 'linear-gradient(160deg,#D4B8C0,#9A7A84,#5A3A44)' },
+  { name: 'Fine Silk Ribbons', slug: 'fine-silk-ribbons', desc: 'Our signature collection. Ultra-fine 100% mulberry silk ribbons in 30 hand-selected colourways, available in widths from 2mm to 10mm.', count: 'Ultra-Fine Silk', bg: 'linear-gradient(160deg,#D4C5B0,#9A8878,#C4A882)' },
+  { name: 'Hand-Frayed Silk Ribbons', slug: 'hand-frayed-silk-ribbons', desc: 'Each ribbon is carefully hand-frayed to create an ethereal, softly textured edge — perfect for bouquets, invitations and fine craft.', count: 'Hand-Torn & Textured', bg: 'linear-gradient(160deg,#E8C9B8,#C9A48A,#9A7A66)' },
+  { name: 'Handcrafted Adornments', slug: 'handcrafted-adornments', desc: 'Silk scrunchies, bow ties, and decorative pieces — each made by hand from the same pure mulberry silk as our ribbons.', count: 'Handmade Accessories', bg: 'linear-gradient(160deg,#B8A898,#7A6A5A,#4A3A30)' },
+  { name: 'Patterned Ribbons', slug: 'patterned-ribbons', desc: 'Woven and printed motifs inspired by botanical forms, geometric patterns and heritage textiles. Each design printed on pure silk.', count: 'Botanical & Geometric', bg: 'linear-gradient(160deg,#C8D4C0,#8A9A80,#5A7050)' },
+  { name: 'Studio Tools', slug: 'studio-tools', desc: 'Curated essentials for the ribbon-maker and florist — scissors, wire, needles and everything you need for a well-appointed studio.', count: "Maker's Essentials", bg: 'linear-gradient(160deg,#D0D0C8,#9A9A90,#5A5A54)' },
+  { name: 'Vintage-Inspired Ribbons', slug: 'vintage-inspired-ribbons', desc: 'Heritage tones and antique-inspired textures, evoking the romance of a bygone era. Ideal for weddings, gifts and botanical styling.', count: 'Antique-Inspired', bg: 'linear-gradient(160deg,#D4B8C0,#9A7A84,#5A3A44)' },
 ]
 
 export default function CollectionsPage() {

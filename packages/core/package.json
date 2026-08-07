@@ -1,0 +1,16 @@
+{
+  "name": "@osr/core",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    "./lib/*": "./lib/*.js",
+    "./components/*": "./components/*.jsx"
+  },
+  "peerDependencies": {
+    "next": "14.2.0",
+    "react": "^18.3.0",
+    "@supabase/supabase-js": "^2.43.0",
+    "@supabase/ssr": "^0.5.0",
+    "@sentry/nextjs": "^8.0.0"
+  }
+}

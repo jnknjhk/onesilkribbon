@@ -1,0 +1,109 @@
+'use client'
+import { useState } from 'react'
+
+export default function Contact() {
+  const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' })
+  const [status, setStatus] = useState('idle') // idle | sending | sent | error
+
+  const handleChange = (e) => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
+
+  const handleSubmit = async () => {
+    if (!form.name || !form.email || !form.message) return
+    setStatus('sending')
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      const data = await res.json()
+      if (data.success) setStatus('sent')
+      else setStatus('error')
+    } catch {
+      setStatus('error')
+    }
+  }
+
+  return (
+    <>
+      <div style={{ paddingTop: 68, background: 'var(--cream)', minHeight: '100vh' }}>
+
+        {/* Hero */}
+        <div style={{ maxWidth: 780, margin: '0 auto', padding: '80px 60px 0' }}>
+          <p style={{ fontSize: 9, letterSpacing: '.38em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 14 }}>Get In Touch</p>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 42, fontWeight: 300, color: 'var(--ink)', lineHeight: 1.12, marginBottom: 20 }}>Contact Us</h1>
+          <p style={{ fontSize: 15, fontWeight: 400, lineHeight: 2.1, color: 'var(--taupe)', marginBottom: 56, paddingBottom: 48, borderBottom: '1px solid var(--sand)' }}>
+            We would love to hear from you — whether you have a question about an order, need help choosing a ribbon, or are interested in a bespoke commission. We aim to respond within 2 working days.
+          </p>
+        </div>
+
+        {/* Two columns: form + info */}
+        <div style={{ maxWidth: 780, margin: '0 auto', padding: '0 60px 120px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 64, alignItems: 'start' }} className="contact-grid">
+
+          {/* Form */}
+          <div>
+            <div style={{ marginBottom: 20 }}>
+              <label className="input-label">Your Name</label>
+              <input className="input" name="name" value={form.name} onChange={handleChange} placeholder="Jane Smith" />
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <label className="input-label">Email Address</label>
+              <input className="input" name="email" type="email" value={form.email} onChange={handleChange} placeholder="jane@example.com" />
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <label className="input-label">Subject <span style={{ color: 'var(--warm)' }}>(optional)</span></label>
+              <input className="input" name="subject" value={form.subject} onChange={handleChange} placeholder="Order enquiry, bespoke order…" />
+            </div>
+            <div style={{ marginBottom: 28 }}>
+              <label className="input-label">Message</label>
+              <textarea className="input" name="message" value={form.message} onChange={handleChange}
+                placeholder="Tell us how we can help…"
+                style={{ minHeight: 140, resize: 'vertical' }} />
+            </div>
+
+            <button onClick={handleSubmit} disabled={status === 'sending'} style={{
+              width: '100%', height: 50,
+              background: status === 'sent' ? 'var(--gold)' : 'var(--ink)',
+              color: '#fff', border: 'none',
+              fontFamily: 'var(--font-body)', fontSize: 9, letterSpacing: '.3em', textTransform: 'uppercase',
+              cursor: status === 'sending' ? 'wait' : 'pointer',
+              transition: 'background .28s',
+            }}>
+              {status === 'sending' ? 'Sending…' : status === 'sent' ? '✓  Message Sent' : 'Send Message'}
+            </button>
+            {status === 'sent' && (
+              <p style={{ fontSize: 11, color: 'var(--taupe)', marginTop: 12, lineHeight: 1.8 }}>
+                We&apos;ve received your message and sent a confirmation to your email. If you don&apos;t see it, feel free to reach us directly at <a href="mailto:hello@oneglassobject.com" style={{ color: 'var(--gold)' }}>hello@oneglassobject.com</a>.
+              </p>
+            )}
+          </div>
+
+          {/* Info panel */}
+          <div style={{ paddingTop: 4 }}>
+            {[
+              { label: 'Email', value: 'hello@oneglassobject.com', href: 'mailto:hello@oneglassobject.com' },
+              { label: 'Response Time', value: 'Within 2 working days' },
+              { label: 'Order Enquiries', value: 'Please have your order number ready' },
+              { label: 'Bespoke & Wholesale', value: 'We welcome custom and trade enquiries' },
+            ].map(({ label, value, href }) => (
+              <div key={label} style={{ padding: '18px 0', borderBottom: '1px solid var(--sand)' }}>
+                <p style={{ fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase', color: 'var(--taupe)', marginBottom: 6 }}>{label}</p>
+                {href
+                  ? <a href={href} style={{ fontSize: 15, color: 'var(--gold)', textDecoration: 'none' }}>{value}</a>
+                  : <p style={{ fontSize: 15, color: 'var(--ink)', lineHeight: 1.7 }}>{value}</p>
+                }
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        h1 { font-size: 42px !important; }
+        @media(max-width: 768px) {
+          .contact-grid { grid-template-columns: 1fr !important; padding: 0 24px 80px !important; }
+        }
+      ` }} />
+    </>
+  )
+}

@@ -1,0 +1,365 @@
+/* ═══════════════════════════════════
+   ONE SILK RIBBON — Design System
+   Mobile-First Responsive
+   ═══════════════════════════════════ */
+
+:root {
+  --cream:   #F7F3EE;
+  --sand:    #E8DDD0;
+  --warm:    #D4C5B0;
+  --taupe:   #9A8878;
+  --deep:    #3D3530;
+  --ink:     #1C1714;
+  --gold:    #B89B6A;
+  --blush:   #E8C9B8;
+  --mist:    #F2EEE9;
+
+  --radius-sm: 2px;
+  --radius:    4px;
+
+  --transition: 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --transition-slow: 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+
+  /* 响应式间距变量 */
+  --page-padding: 20px;
+  --section-padding-y: 60px;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --page-padding: 40px;
+    --section-padding-y: 80px;
+  }
+}
+@media (min-width: 1024px) {
+  :root {
+    --page-padding: 60px;
+    --section-padding-y: 120px;
+  }
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--cream);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-weight: 300;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* ── TYPOGRAPHY ── */
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 300;
+  line-height: 1.1;
+}
+
+a { color: inherit; text-decoration: none; }
+button { cursor: pointer; font-family: var(--font-body); }
+img { max-width: 100%; display: block; }
+input, textarea, select {
+  font-family: var(--font-body);
+  outline: none;
+}
+
+/* ── UTILITY CLASSES ── */
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--gold);
+  display: block;
+}
+
+.display-title {
+  font-family: var(--font-display);
+  font-size: clamp(32px, 4vw, 60px);
+  font-weight: 300;
+  color: var(--ink);
+}
+
+.display-title em {
+  font-style: italic;
+  color: var(--taupe);
+}
+
+.rule {
+  width: 40px;
+  height: 1px;
+  background: var(--gold);
+  margin: 24px auto 0;
+}
+
+.rule--left { margin-left: 0; }
+
+/* ── BUTTONS ── */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 40px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 11px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  border: none;
+  transition: background var(--transition);
+  width: 100%;
+  /* 移动端触控优化 */
+  min-height: 48px;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-primary:hover { background: var(--gold); }
+.btn-primary:disabled {
+  background: var(--warm);
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 15px 40px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 11px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  border: 1px solid var(--warm);
+  transition: border-color var(--transition);
+  width: 100%;
+  min-height: 48px;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-secondary:hover { border-color: var(--ink); }
+
+.btn-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: none;
+  border: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-text .line {
+  width: 36px;
+  height: 1px;
+  background: var(--gold);
+  transition: width var(--transition);
+}
+.btn-text:hover .line { width: 60px; }
+
+/* ── FORM INPUTS ── */
+.input {
+  width: 100%;
+  padding: 14px 18px;
+  border: 1px solid var(--warm);
+  background: transparent;
+  font-size: 16px; /* 防止iOS缩放 */
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  transition: border-color var(--transition);
+  -webkit-appearance: none;
+  border-radius: 0;
+  min-height: 48px;
+}
+.input:focus { border-color: var(--gold); }
+.input::placeholder { color: var(--taupe); }
+
+@media (min-width: 768px) {
+  .input { font-size: 15px; }
+}
+
+.input-label {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--deep);
+  display: block;
+  margin-bottom: 8px;
+}
+
+/* ── SECTION LAYOUT ── */
+.section-header {
+  text-align: center;
+  padding: var(--section-padding-y) var(--page-padding) 40px;
+}
+
+@media (min-width: 768px) {
+  .section-header { padding-bottom: 60px; }
+}
+
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 var(--page-padding);
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--cream); }
+::-webkit-scrollbar-thumb { background: var(--warm); }
+
+/* ── LOADING SKELETON ── */
+.skeleton {
+  background: linear-gradient(90deg, var(--sand) 25%, var(--warm) 50%, var(--sand) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-load 1.5s infinite;
+}
+@keyframes skeleton-load {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── PAGE TRANSITIONS ── */
+.page-enter {
+  opacity: 0;
+  transform: translateY(12px);
+}
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.5s, transform 0.5s;
+}
+
+/* ── TOAST NOTIFICATIONS ── */
+.toast {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--ink);
+  color: #fff;
+  padding: 14px 28px;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  z-index: 9999;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  white-space: nowrap;
+  max-width: calc(100vw - 40px);
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+/* ═══════════════════════════════════
+   MOBILE-SPECIFIC GLOBAL FIXES
+   ═══════════════════════════════════ */
+
+/* 通用响应式 padding 覆盖 */
+@media (max-width: 768px) {
+  /* 防止 iOS 表单缩放 */
+  input[type="text"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="number"],
+  input[type="password"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* 确保所有可点击元素有足够的触控区域 */
+  button, a, [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .container { padding: 0 20px; }
+  .section-header { padding: 60px 20px 40px; }
+}
+
+/* ══════════════════════════════════════════════════════════
+   ADMIN — 共用响应式工具类，供 app/admin/* 页面使用
+   ══════════════════════════════════════════════════════════ */
+
+/* 横向滚动容器：包住任何可能变宽的表格（比如 SKU 矩阵），
+   桌面端不影响布局，内容超宽时才出现横向滚动条 */
+.admin-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 两列表单网格，窄屏自动收成一列 */
+.admin-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* 列表表格：窄屏下从表格变成一张张卡片。
+   要求每个 <td> 带上 data-label="列名" 属性 */
+.admin-list-table { width: 100%; border-collapse: collapse; }
+
+@media (max-width: 768px) {
+  .admin-2col { grid-template-columns: 1fr !important; }
+
+  .admin-list-table thead { display: none; }
+  .admin-list-table, .admin-list-table tbody, .admin-list-table tr, .admin-list-table td {
+    display: block; width: 100%;
+  }
+  .admin-list-table tr {
+    padding: 12px 14px;
+    border-bottom: 1px solid #E8E4DF;
+  }
+  .admin-list-table td {
+    padding: 4px 0 !important;
+    border: none !important;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    text-align: right;
+  }
+  .admin-list-table td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-size: 10px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #A8A4A0;
+    text-align: left;
+  }
+  .admin-list-table td:empty,
+  .admin-list-table td[data-label=""] { display: none; }
+}
+
+/* 触控目标：手机上保证按钮/可点击元素至少 44px 高，方便手指点击 */
+@media (max-width: 900px) {
+  .admin-tap-target {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* 简单的并排两栏在窄屏下堆叠成一列（用于没有"选中才显示"逻辑的固定双栏页面） */
+@media (max-width: 900px) {
+  .admin-flex-stack { flex-direction: column; }
+  .admin-flex-stack > * { width: 100% !important; }
+}
+
+/* 列表 + 详情面板并排布局（订单/客户页共用）：
+   窄屏下列表占满宽度，详情面板改成点开后盖满全屏的独立视图，带"返回"体验 */
+@media (max-width: 900px) {
+  .admin-master-detail { flex-direction: column; height: auto !important; }
+  .admin-detail-panel {
+    position: fixed !important; inset: 0; z-index: 40;
+    width: 100% !important; border-radius: 0 !important; border: none !important;
+  }
+}

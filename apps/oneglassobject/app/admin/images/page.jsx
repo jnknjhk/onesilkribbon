@@ -1,0 +1,285 @@
+'use client'
+import { COLLECTIONS } from '@/config/site'
+import { useState, useEffect } from 'react'
+import { ConfirmDialog } from '@osr/core/components/admin/ConfirmDialog'
+import MediaLibraryModal from '@osr/core/components/admin/MediaLibraryModal'
+
+const C = {
+  bg: '#F5F3F0', card: '#FFFFFF', border: '#E8E4DF',
+  gold: '#B89B6A', goldDark: '#9A7E50', ink: '#1C1714',
+  sub: '#6B6460', muted: '#A8A4A0', red: '#D04040',
+  green: '#4CAF7D', light: '#EDE9E4',
+}
+
+const GROUPS = [
+  {
+    label: '首页轮播图',
+    desc: '首页全屏背景轮播图，上传几张就轮播几张，一张都没有则显示纯色背景。建议尺寸 1920×1080px 或以上，横向构图',
+    keys: [
+      { key: 'home_hero_1', label: '轮播图 1' },
+      { key: 'home_hero_2', label: '轮播图 2' },
+      { key: 'home_hero_3', label: '轮播图 3' },
+      { key: 'home_hero_4', label: '轮播图 4' },
+      { key: 'home_hero_5', label: '轮播图 5' },
+    ],
+  },
+  {
+    label: '首页系列图',
+    desc: '首页"Our Collections"区块每个系列的展示图，建议尺寸 800×600px。没有上传时自动使用该系列的商品图片',
+    keys: [
+      ...COLLECTIONS.map(c => ({ key: `home_col_${c.slug}`, label: c.name })),
+    ],
+  },
+  {
+    label: '首页品牌故事图',
+    desc: '首页"Our Story"区块左侧的图片，建议尺寸 800×900px，竖向构图',
+    keys: [
+      { key: 'home_story', label: '品牌故事图' },
+    ],
+  },
+  {
+    label: '系列封面图',
+    desc: '每个系列页顶部的 Hero 大图，建议尺寸 1600×900px 或以上，横向构图',
+    keys: [
+      ...COLLECTIONS.map(c => ({ key: `hero_${c.slug}`, label: c.name })),
+    ],
+  },
+  {
+    label: 'About 页图片',
+    desc: 'About 页面各区块的图片',
+    keys: [
+      { key: 'about_hero',    label: 'Hero 背景大图（建议 1920×1200px，横向）' },
+      { key: 'about_main',    label: 'Where it began 配图（建议 800×1000px，竖向）' },
+      { key: 'about_craft',   label: '工艺展示横幅图（建议 1600×686px，横向）' },
+      { key: 'about_colour',  label: 'A World of Colour 配图（建议 1000×800px）' },
+      { key: 'about_wedding', label: 'Made For · Weddings 配图（建议 800×600px）' },
+      { key: 'about_gifting', label: 'Made For · Gifting 配图（建议 800×600px）' },
+      { key: 'about_making',  label: 'Made For · Making 配图（建议 800×600px）' },
+    ],
+  },
+]
+
+export default function ImagesPage() {
+  const [images, setImages]     = useState({})   // key -> url
+  const [loading, setLoading]   = useState(true)
+  const [uploading, setUploading] = useState({}) // key -> bool
+  const [toast, setToast]       = useState(null)
+  const [confirmKey, setConfirmKey] = useState(null)
+  const [confirmLoading, setConfirmLoading] = useState(false)
+  const [pickerKey, setPickerKey] = useState(null) // 当前正在为哪个位置选图
+
+  useEffect(() => { load() }, [])
+
+  async function load() {
+    setLoading(true)
+    try {
+      const res  = await fetch('/api/admin/site-images')
+      const data = await res.json()
+      const map  = {}
+      for (const row of (Array.isArray(data) ? data : [])) {
+        map[row.key] = row.url || null
+      }
+      setImages(map)
+    } catch {}
+    setLoading(false)
+  }
+
+  function showToast(msg, ok = true) {
+    setToast({ msg, ok })
+    setTimeout(() => setToast(null), 3000)
+  }
+
+  // 从媒体库选中（或刚上传）一张图后，把它设成某个位置的图片——真正的文件上传
+  // 已经在 MediaLibraryModal 里通过 /api/admin/media 做完了，这里只是保存 { key -> url }
+  async function handlePicked(key, urls) {
+    const url = urls[0]
+    if (!url) return
+    setUploading(u => ({ ...u, [key]: true }))
+    try {
+      const res = await fetch('/api/admin/site-images', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, url }),
+      })
+      const data = await res.json()
+      if (data.url) {
+        setImages(prev => ({ ...prev, [key]: data.url }))
+        showToast('图片已更新')
+      } else {
+        showToast(data.error || '设置失败', false)
+      }
+    } catch {
+      showToast('设置失败', false)
+    }
+    setUploading(u => ({ ...u, [key]: false }))
+  }
+
+  async function handleDelete(key) {
+    setConfirmLoading(true)
+    setUploading(u => ({ ...u, [key]: true }))
+    try {
+      await fetch('/api/admin/site-images', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key }),
+      })
+      setImages(prev => ({ ...prev, [key]: null }))
+      showToast('图片已删除')
+    } catch {
+      showToast('删除失败', false)
+    }
+    setConfirmLoading(false)
+    setConfirmKey(null)
+    setUploading(u => ({ ...u, [key]: false }))
+  }
+
+  if (loading) return (
+    <div style={{ color: C.muted, fontSize: 13, padding: 40 }}>加载中…</div>
+  )
+
+  return (
+    <div>
+      <ConfirmDialog
+        open={!!confirmKey}
+        title="删除图片"
+        message="确定要删除这张图片吗？删除后该位置将显示默认渐变色。"
+        danger
+        loading={confirmLoading}
+        onConfirm={() => handleDelete(confirmKey)}
+        onCancel={() => setConfirmKey(null)}
+      />
+      <MediaLibraryModal
+        open={!!pickerKey}
+        namespace="site"
+        onClose={() => setPickerKey(null)}
+        onSelect={(urls) => handlePicked(pickerKey, urls)}
+      />
+
+      {/* 标题 */}
+      <div style={{ marginBottom: 32 }}>
+        <h1 style={{ color: C.ink, fontSize: 24, fontWeight: 300, marginBottom: 6 }}>图片管理</h1>
+        <p style={{ color: C.muted, fontSize: 13 }}>管理网站各页面的图片，支持 JPG、PNG、WebP 格式</p>
+      </div>
+
+      {/* 分组 */}
+      {GROUPS.map(group => (
+        <div key={group.label} style={{ marginBottom: 48 }}>
+          {/* 组标题 */}
+          <div style={{ marginBottom: 16, paddingBottom: 12, borderBottom: `1px solid ${C.border}` }}>
+            <h2 style={{ color: C.ink, fontSize: 15, fontWeight: 500, marginBottom: 4 }}>{group.label}</h2>
+            <p style={{ color: C.muted, fontSize: 12 }}>{group.desc}</p>
+          </div>
+
+          {/* 图片卡片网格 */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+            gap: 16,
+          }}>
+            {group.keys.map(({ key, label }) => {
+              const url  = images[key]
+              const busy = uploading[key]
+              return (
+                <div key={key} style={{
+                  background: C.card, border: `1px solid ${C.border}`,
+                  borderRadius: 10, overflow: 'hidden',
+                }}>
+                  {/* 图片预览区 */}
+                  <div style={{
+                    aspectRatio: '16/9', background: '#E8DDD0',
+                    position: 'relative', overflow: 'hidden',
+                  }}>
+                    {url ? (
+                      <img src={url} alt={label} style={{
+                        width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+                      }} />
+                    ) : (
+                      <div style={{
+                        width: '100%', height: '100%',
+                        background: 'linear-gradient(135deg, #E8DDD0, #C4A882)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <span style={{ fontSize: 11, color: '#9A8878', letterSpacing: '0.1em' }}>暂无图片</span>
+                      </div>
+                    )}
+
+                    {/* 上传中遮罩 */}
+                    {busy && (
+                      <div style={{
+                        position: 'absolute', inset: 0,
+                        background: 'rgba(28,23,20,0.6)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <span style={{ color: '#fff', fontSize: 12, letterSpacing: '0.1em' }}>上传中…</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 信息和操作 */}
+                  <div style={{ padding: '12px 14px' }}>
+                    <p style={{ fontSize: 13, color: C.ink, fontWeight: 500, marginBottom: 4 }}>{label}</p>
+                    <p style={{ fontSize: 11, color: C.muted, marginBottom: 12, wordBreak: 'break-all', lineHeight: 1.5 }}>
+                      {url ? '✓ 已上传' : '未设置，显示默认渐变色'}
+                    </p>
+
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {/* 上传/替换按钮 */}
+                      <button
+                        onClick={() => setPickerKey(key)}
+                        disabled={busy}
+                        style={{
+                          flex: 1, padding: '8px 0',
+                          background: C.gold, border: 'none', borderRadius: 6,
+                          color: '#fff', fontSize: 11, letterSpacing: '0.08em',
+                          cursor: busy ? 'not-allowed' : 'pointer',
+                          opacity: busy ? 0.6 : 1, transition: 'background 0.2s',
+                        }}
+                        onMouseEnter={e => { if (!busy) e.target.style.background = C.goldDark }}
+                        onMouseLeave={e => { if (!busy) e.target.style.background = C.gold }}
+                      >
+                        {url ? '替换图片' : '上传图片'}
+                      </button>
+
+                      {/* 删除按钮 */}
+                      {url && (
+                        <button
+                          onClick={() => setConfirmKey(key)}
+                          disabled={busy}
+                          style={{
+                            padding: '8px 12px',
+                            background: C.light, border: 'none', borderRadius: 6,
+                            color: C.red, fontSize: 11, cursor: busy ? 'not-allowed' : 'pointer',
+                            opacity: busy ? 0.6 : 1, transition: 'background 0.2s',
+                          }}
+                          onMouseEnter={e => { if (!busy) e.target.style.background = '#FAE8E8' }}
+                          onMouseLeave={e => { if (!busy) e.target.style.background = C.light }}
+                        >
+                          删除
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+
+      {/* Toast 提示 */}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: 32, right: 32,
+          background: toast.ok ? C.ink : C.red,
+          color: '#fff', padding: '12px 20px', borderRadius: 8,
+          fontSize: 13, zIndex: 9999,
+          animation: 'fadeIn 0.2s ease',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+        }}>
+          {toast.msg}
+        </div>
+      )}
+
+      <style dangerouslySetInnerHTML={{ __html: `@keyframes fadeIn { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }` }} />
+    </div>
+  )
+}

@@ -1,0 +1,96 @@
+'use client'
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+
+function StatCard({ label, value, sub, color }) {
+  return (
+    <div style={{ background: '#FFFFFF', border: '1px solid #E8E4DF', borderRadius: 12, padding: '24px 28px' }}>
+      <p style={{ color: '#A8A4A0', fontSize: 11, letterSpacing: '.15em', textTransform: 'uppercase', marginBottom: 12 }}>{label}</p>
+      <p style={{ color: color || '#1C1714', fontSize: 32, fontWeight: 300, marginBottom: 4 }}>{value}</p>
+      {sub && <p style={{ color: '#8A8480', fontSize: 12 }}>{sub}</p>}
+    </div>
+  )
+}
+
+export default function AdminDashboard() {
+  const [stats, setStats] = useState({ orders: 0, revenue: 0, products: 0, customers: 0, pending: 0, recentOrders: [] })
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch('/api/admin/dashboard')
+        const data = await res.json()
+        setStats({
+          orders: data.orders || 0,
+          revenue: data.revenue || 0,
+          products: data.products || 0,
+          customers: data.customers || 0,
+          pending: data.pending || 0,
+          recentOrders: data.recentOrders || [],
+        })
+      } catch {}
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  const fmt = n => `£${Number(n).toFixed(2)}`
+  const fmtDate = s => s ? new Date(s).toLocaleDateString('zh-CN') : '-'
+  const statusColor = s => ({ paid: '#4ade80', pending: '#facc15', shipped: '#60a5fa', cancelled: '#f87171', refunded: '#c084fc' }[s] || '#888')
+  const statusLabel = s => ({ paid: '已付款', pending: '待处理', shipped: '已发货', cancelled: '已取消', refunded: '已退款' }[s] || s)
+
+  return (
+    <div>
+      <div style={{ marginBottom: 40 }}>
+        <h1 style={{ color: '#1C1714', fontSize: 28, fontWeight: 300, marginBottom: 8 }}>总览</h1>
+        <p style={{ color: '#A8A4A0', fontSize: 13 }}>{new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 40 }}>
+        <StatCard label="总订单数" value={loading ? '…' : stats.orders} sub="全部时间" />
+        <StatCard label="总收入" value={loading ? '…' : fmt(stats.revenue)} sub="已付款+已发货" color="#B89B6A" />
+        <StatCard label="待处理订单" value={loading ? '…' : stats.pending} sub="需要跟进" color={stats.pending > 0 ? '#facc15' : '#1C1714'} />
+        <StatCard label="产品数量" value={stats.products} sub="上架中的产品" />
+      </div>
+
+      {/* Recent orders */}
+      <div style={{ background: '#FFFFFF', border: '1px solid #E8E4DF', borderRadius: 12, overflow: 'hidden' }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid #E8E4DF', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 style={{ color: '#1C1714', fontSize: 16, fontWeight: 400 }}>最近订单</h2>
+          <Link href="/admin/orders" style={{ color: '#B89B6A', fontSize: 12, textDecoration: 'none' }}>查看全部 →</Link>
+        </div>
+        {loading ? (
+          <p style={{ color: '#A8A4A0', padding: 24, fontSize: 13 }}>加载中…</p>
+        ) : stats.recentOrders.length === 0 ? (
+          <p style={{ color: '#A8A4A0', padding: 24, fontSize: 13 }}>暂无订单</p>
+        ) : (
+          <table className="admin-list-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid #E8E4DF' }}>
+                {['订单号', '客户邮箱', '金额', '状态', '日期'].map(h => (
+                  <th key={h} style={{ padding: '12px 24px', textAlign: 'left', color: '#8A8480', fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {stats.recentOrders.map(o => (
+                <tr key={o.id} style={{ borderBottom: '1px solid #F0EDE8' }}>
+                  <td data-label="订单号" style={{ padding: '14px 24px', color: '#8A8480', fontSize: 12 }}>{o.id.slice(0, 8)}…</td>
+                  <td data-label="客户邮箱" style={{ padding: '14px 24px', color: '#504C48', fontSize: 13 }}>{o.customer_email || '-'}</td>
+                  <td data-label="金额" style={{ padding: '14px 24px', color: '#B89B6A', fontSize: 13 }}>{fmt(o.total_gbp || 0)}</td>
+                  <td data-label="状态" style={{ padding: '14px 24px' }}>
+                    <span style={{ background: statusColor(o.status) + '22', color: statusColor(o.status), fontSize: 11, padding: '3px 10px', borderRadius: 20 }}>
+                      {statusLabel(o.status)}
+                    </span>
+                  </td>
+                  <td data-label="日期" style={{ padding: '14px 24px', color: '#A8A4A0', fontSize: 12 }}>{fmtDate(o.created_at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  )
+}

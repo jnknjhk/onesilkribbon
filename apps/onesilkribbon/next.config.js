@@ -43,9 +43,11 @@ const nextConfig = {
   },
 }
 
+// Sentry 的 org/project 走环境变量，这样每个站点各自上报到自己的 Sentry 项目，
+// 不配置时回退到 onesilkribbon（保持现有部署行为不变）
 module.exports = withSentryConfig(nextConfig, {
-  org:     'onesilkribbon',
-  project: 'onesilkribbon',
+  org:     process.env.SENTRY_ORG     || 'onesilkribbon',
+  project: process.env.SENTRY_PROJECT || 'onesilkribbon',
   silent:  true,
   widenClientFileUpload: true,
   hideSourceMaps: true,

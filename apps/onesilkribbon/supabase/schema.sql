@@ -173,9 +173,14 @@ create policy "Public read skus" on product_skus for select using (is_active = t
 --   · 客户端"我的订单"/物流查询都是服务端 API 校验完 auth token 后用 service role 查询
 -- 这里的策略只用来兜底：把 orders/order_items 的匿名公开可读堵死，只放行后台管理员。
 -- 如需增加管理员邮箱，请同步更新这里和 .env 中的 ADMIN_EMAILS。
+-- ⚠️ 建新站的数据库时，把下面这行的邮箱换成该站自己的管理员邮箱
+--    （多个邮箱写成 array['a@x.com','b@x.com']），并保持与该站
+--    .env 里的 ADMIN_EMAILS 一致，否则后台鉴权和 RLS 会对不上。
 create or replace function is_admin_user()
 returns boolean as $$
-  select coalesce(auth.jwt() ->> 'email', '') = any (array['song@onesilkribbon.com'])
+  select coalesce(auth.jwt() ->> 'email', '') = any (
+    array['song@onesilkribbon.com']  -- ← REPLACE_ME: 本站管理员邮箱
+  )
 $$ language sql stable;
 
 drop policy if exists "Own orders" on orders;

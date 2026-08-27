@@ -3,9 +3,9 @@
   "private": true,
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
-    "dev": "npm run dev -w apps/onesilkribbon",
-    "build": "npm run build -w apps/onesilkribbon",
-    "start": "npm run start -w apps/onesilkribbon",
-    "lint": "npm run lint -w apps/onesilkribbon"
+    "dev": "node scripts/site.js dev",
+    "build": "node scripts/site.js build",
+    "start": "node scripts/site.js start",
+    "lint": "node scripts/site.js lint"
   }
 }

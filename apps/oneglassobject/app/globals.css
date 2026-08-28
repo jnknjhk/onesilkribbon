@@ -1,43 +1,52 @@
-/* ═══════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
    ONE GLASS OBJECT — Design System
-   极简光影 · 白盒画廊 · Mobile-First
-   ═══════════════════════════════════ */
+   手工玻璃摆件 / 玻璃艺术品 · 白盒画廊 · Mobile-First
+
+   重写自 REBUILD.md 阶段 1。不是丝带站样式的改写版。
+   ═══════════════════════════════════════════════════════════ */
 
 :root {
-  /* ── 语义色板（新代码请用这一组）──────────────────────
-     白盒画廊：纯白打底，冷灰蓝点缀。玻璃件靠阴影和边缘高光呈现，
-     不靠背景压暗，所以中性色必须够干净、够冷。 */
-  --paper:        #FFFFFF;   /* 页面底色 */
-  --paper-sunk:   #FAFAF9;   /* 次级区块 / 图片占位底 */
-  --line:         #E5E7EB;   /* 常规 1px 细边框 */
-  --line-strong:  #D4D4D8;   /* 强调边框 / 禁用态 */
-  --ink:          #1F2937;   /* 主文字 */
-  --ink-soft:     #6B7280;   /* 次级文字 */
-  --ink-faint:    #9CA3AF;   /* 占位符 / 弱提示 */
-  --accent:       #64748B;   /* 点缀：eyebrow、分隔线、悬停高亮 */
-  --accent-deep:  #475569;   /* 点缀加深（小字上保证对比度）*/
-  --accent-soft:  #94A3B8;   /* 点缀减淡 */
+  /* ── 色板 ──────────────────────────────────────────────
+     白盒画廊。玻璃件靠阴影和边缘高光呈现，不靠背景压暗，
+     所以中性色必须够干净、够冷；点缀色用冷灰蓝而非金色，
+     避免滑向"奢侈品仿制"的观感。 */
+  --paper:       #FFFFFF;   /* 页面底色 */
+  --paper-sunk:  #FAFAF9;   /* 次级区块 / 图片占位底 */
+  --paper-deep:  #F1F5F9;   /* 更深一档，用于对比区块 */
 
-  /* ── 兼容别名 ────────────────────────────────────────
-     全站有 600+ 处仍在用旧站的变量名。这里把它们指到新色板上，
-     整站即刻换肤，不必逐文件改写。新代码不要再用这一组。
-     TODO: 后续逐步替换成上面的语义名，然后删掉本段。 */
-  --cream:  var(--paper);
-  --mist:   var(--paper-sunk);
-  --sand:   var(--line);
-  --warm:   var(--line-strong);
-  --taupe:  var(--ink-soft);
-  --deep:   #374151;
-  --gold:   var(--accent);
-  --blush:  var(--accent-soft);
+  --line:        #E5E7EB;   /* 常规 1px 细边框 */
+  --line-strong: #D4D4D8;   /* 强调边框 / 禁用态 */
 
-  /* ── 光影 ───────────────────────────────────────────
-     白底上玻璃的立体感全靠这几层阴影，比深色站要克制得多 */
+  --ink:         #1F2937;   /* 主文字 */
+  --ink-soft:    #6B7280;   /* 次级文字 */
+  --ink-faint:   #9CA3AF;   /* 占位符 / 弱提示 */
+
+  --accent:      #64748B;   /* eyebrow、分隔线、悬停高亮 */
+  --accent-deep: #475569;   /* 小字上保证对比度 */
+  --accent-soft: #94A3B8;
+
+  --danger:      #B91C1C;   /* 售罄 / 报错 */
+
+  /* ── 兼容别名 ──────────────────────────────────────────
+     结账、账户、后台仍在用旧站的变量名（保留区共 270 处）。
+     这些页面按 REBUILD.md 阶段 6 才重写视觉，在那之前别名必须留着。
+     ⚠️ 新写的前台代码一律用上面的语义名，不要再用这一组。 */
+  --cream: var(--paper);
+  --mist:  var(--paper-sunk);
+  --sand:  var(--line);
+  --warm:  var(--line-strong);
+  --taupe: var(--ink-soft);
+  --deep:  #374151;
+  --gold:  var(--accent);
+  --blush: var(--accent-soft);
+
+  /* ── 光影 ──────────────────────────────────────────────
+     白底上的立体感全靠这几层，比深色站要克制得多 */
   --shadow-sm:   0 1px 2px rgba(15,23,42,0.04);
   --shadow-card: 0 8px 24px -12px rgba(15,23,42,0.18);
   --shadow-lift: 0 20px 48px -20px rgba(15,23,42,0.26);
 
-  /* 毛玻璃：Navbar 及各类浮层 */
+  /* 毛玻璃：Navbar 及浮层 */
   --glass-bg:     rgba(255,255,255,0.72);
   --glass-bg-alt: rgba(255,255,255,0.88);
   --glass-blur:   saturate(180%) blur(20px);
@@ -46,32 +55,24 @@
   --radius-sm: 2px;
   --radius:    4px;
 
-  --transition: 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  --transition-slow: 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --transition:      0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --transition-slow: 0.7s  cubic-bezier(0.25, 0.46, 0.45, 0.94);
 
-  /* 响应式间距变量 */
+  --nav-h: 64px;
+
   --page-padding: 20px;
-  --section-padding-y: 60px;
+  --section-padding-y: 72px;
 }
 
 @media (min-width: 768px) {
-  :root {
-    --page-padding: 40px;
-    --section-padding-y: 80px;
-  }
+  :root { --page-padding: 40px; --section-padding-y: 96px; --nav-h: 72px; }
 }
 @media (min-width: 1024px) {
-  :root {
-    --page-padding: 60px;
-    --section-padding-y: 120px;
-  }
+  :root { --page-padding: 60px; --section-padding-y: 128px; }
 }
 
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+/* ── RESET ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html {
   scroll-behavior: smooth;
@@ -80,7 +81,7 @@ html {
 }
 
 body {
-  background: var(--cream);
+  background: var(--paper);
   color: var(--ink);
   font-family: var(--font-body);
   font-weight: 400;
@@ -88,92 +89,100 @@ body {
   overflow-x: hidden;
 }
 
-/* ── TYPOGRAPHY ── */
-h1, h2, h3, h4 {
-  font-family: var(--font-display);
-  font-weight: 300;
-  line-height: 1.1;
-}
+/* 导航是 fixed 的，内容要让开它的高度。
+   ShellWrapper 把前台页面包在 <main> 里，后台不经过它，所以不受影响。 */
+main { padding-top: var(--nav-h); }
 
 a { color: inherit; text-decoration: none; }
 button { cursor: pointer; font-family: var(--font-body); }
 img { max-width: 100%; display: block; }
-input, textarea, select {
-  font-family: var(--font-body);
-  outline: none;
+input, textarea, select { font-family: var(--font-body); outline: none; }
+
+/* ── TYPOGRAPHY ──
+   标题用 Cormorant，字重压到 300：字号越大越要轻，才有图录感 */
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 300;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  color: var(--ink);
 }
 
-/* ── UTILITY CLASSES ── */
+/* ── 布局 ── */
+.container { max-width: 1360px; margin: 0 auto; padding: 0 var(--page-padding); }
+.container--narrow { max-width: 860px; }
+.container--text   { max-width: 680px; }
+
+.section { padding: var(--section-padding-y) 0; }
+.section--sunk { background: var(--paper-sunk); }
+
+.section-header { text-align: center; margin-bottom: 48px; }
+@media (min-width: 768px) { .section-header { margin-bottom: 64px; } }
+
+/* ── 排版工具 ── */
 .eyebrow {
+  display: block;
   font-size: 10px;
   letter-spacing: 0.35em;
   text-transform: uppercase;
-  color: var(--gold);
-  display: block;
+  color: var(--accent);
 }
 
 .display-title {
   font-family: var(--font-display);
-  font-size: clamp(32px, 4vw, 60px);
+  font-size: clamp(30px, 4vw, 56px);
   font-weight: 300;
   color: var(--ink);
 }
+.display-title em { font-style: italic; color: var(--accent-deep); }
 
-.display-title em {
-  font-style: italic;
-  color: var(--taupe);
+.lede {
+  font-family: var(--font-serif-alt);
+  font-size: clamp(15px, 1.4vw, 18px);
+  line-height: 1.75;
+  color: var(--ink-soft);
 }
 
-.rule {
-  width: 40px;
-  height: 1px;
-  background: var(--gold);
-  margin: 24px auto 0;
-}
-
+.rule { width: 40px; height: 1px; background: var(--accent); margin: 20px auto 0; }
 .rule--left { margin-left: 0; }
 
-/* ── BUTTONS ── */
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px 40px;
-  background: var(--ink);
-  color: #fff;
-  font-size: 11px;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  border: none;
-  transition: background var(--transition);
-  width: 100%;
-  /* 移动端触控优化 */
-  min-height: 48px;
-  -webkit-tap-highlight-color: transparent;
-}
-.btn-primary:hover { background: var(--accent-deep); }
-.btn-primary:disabled {
-  background: var(--warm);
-  cursor: not-allowed;
-}
-
+/* ── BUTTONS ──
+   保留区（结账/账户/后台）仍在用这三个类，阶段 6 之前不能改名 */
+.btn-primary,
 .btn-secondary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 15px 40px;
-  background: transparent;
-  color: var(--ink);
+  width: 100%;
+  min-height: 48px;
+  padding: 16px 40px;
   font-size: 11px;
   letter-spacing: 0.28em;
   text-transform: uppercase;
-  border: 1px solid var(--warm);
-  transition: border-color var(--transition);
-  width: 100%;
-  min-height: 48px;
+  border-radius: var(--radius-sm);
   -webkit-tap-highlight-color: transparent;
 }
-.btn-secondary:hover { border-color: var(--ink); }
+
+.btn-primary {
+  background: var(--ink);
+  color: #fff;
+  border: 1px solid var(--ink);
+  transition: background var(--transition), border-color var(--transition);
+}
+.btn-primary:hover { background: var(--accent-deep); border-color: var(--accent-deep); }
+.btn-primary:disabled {
+  background: var(--line-strong);
+  border-color: var(--line-strong);
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  transition: border-color var(--transition), color var(--transition);
+}
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent-deep); }
 
 .btn-text {
   display: inline-flex;
@@ -190,65 +199,42 @@ input, textarea, select {
 .btn-text .line {
   width: 36px;
   height: 1px;
-  background: var(--gold);
+  background: var(--accent);
   transition: width var(--transition);
 }
 .btn-text:hover .line { width: 60px; }
 
-/* ── FORM INPUTS ── */
+/* ── FORMS ── */
 .input {
   width: 100%;
-  padding: 14px 18px;
-  border: 1px solid var(--warm);
-  background: transparent;
-  font-size: 16px; /* 防止iOS缩放 */
-  letter-spacing: 0.04em;
+  min-height: 48px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
   color: var(--ink);
+  font-size: 16px;              /* 低于 16px 时 iOS 会自动放大整个页面 */
+  letter-spacing: 0.02em;
   transition: border-color var(--transition);
   -webkit-appearance: none;
-  border-radius: 0;
-  min-height: 48px;
 }
-.input:focus { border-color: var(--gold); }
-.input::placeholder { color: var(--taupe); }
+.input:focus { border-color: var(--accent); }
+.input::placeholder { color: var(--ink-faint); }
 
-@media (min-width: 768px) {
-  .input { font-size: 15px; }
-}
+@media (min-width: 768px) { .input { font-size: 15px; } }
 
 .input-label {
+  display: block;
+  margin-bottom: 8px;
   font-size: 10px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--deep);
-  display: block;
-  margin-bottom: 8px;
+  color: var(--ink-soft);
 }
 
-/* ── SECTION LAYOUT ── */
-.section-header {
-  text-align: center;
-  padding: var(--section-padding-y) var(--page-padding) 40px;
-}
-
-@media (min-width: 768px) {
-  .section-header { padding-bottom: 60px; }
-}
-
-.container {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 0 var(--page-padding);
-}
-
-/* ── SCROLLBAR ── */
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: var(--cream); }
-::-webkit-scrollbar-thumb { background: var(--warm); }
-
-/* ── LOADING SKELETON ── */
+/* ── 骨架屏 ── */
 .skeleton {
-  background: linear-gradient(90deg, var(--sand) 25%, var(--warm) 50%, var(--sand) 75%);
+  background: linear-gradient(90deg, var(--paper-sunk) 25%, var(--paper-deep) 50%, var(--paper-sunk) 75%);
   background-size: 200% 100%;
   animation: skeleton-load 1.5s infinite;
 }
@@ -257,94 +243,76 @@ input, textarea, select {
   100% { background-position: -200% 0; }
 }
 
-/* ── PAGE TRANSITIONS ── */
-.page-enter {
-  opacity: 0;
-  transform: translateY(12px);
-}
-.page-enter-active {
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 0.5s, transform 0.5s;
-}
-
-/* ── TOAST NOTIFICATIONS ── */
+/* ── TOAST ── */
 .toast {
   position: fixed;
   bottom: 32px;
   left: 50%;
   transform: translateX(-50%) translateY(80px);
+  max-width: calc(100vw - 40px);
+  padding: 14px 28px;
   background: var(--ink);
   color: #fff;
-  padding: 14px 28px;
   font-size: 12px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
   z-index: 9999;
   transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  white-space: nowrap;
-  max-width: calc(100vw - 40px);
 }
 .toast.show { transform: translateX(-50%) translateY(0); }
 
-/* ═══════════════════════════════════
-   MOBILE-SPECIFIC GLOBAL FIXES
-   ═══════════════════════════════════ */
+/* ── 入场动画 ── */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              transform 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.reveal.is-in { opacity: 1; transform: translateY(0); }
 
-/* 通用响应式 padding 覆盖 */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    /* ⚠️ 这里必须是 transition: none，不能用 transition-duration: 0.01ms。
+       后者会让 max-height / grid-template-rows 这类"靠过渡揭示内容"的属性
+       卡在起始值上——页脚手风琴就会点了没反应。none 让属性变化直接生效。 */
+    transition: none !important;
+  }
+}
+
+/* ── 移动端全局修正 ── */
 @media (max-width: 768px) {
-  /* 防止 iOS 表单缩放 */
-  input[type="text"],
-  input[type="email"],
-  input[type="tel"],
-  input[type="number"],
-  input[type="password"],
-  select,
-  textarea {
+  input[type="text"], input[type="email"], input[type="tel"],
+  input[type="number"], input[type="password"], select, textarea {
     font-size: 16px !important;
   }
-
-  /* 确保所有可点击元素有足够的触控区域 */
-  button, a, [role="button"] {
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .container { padding: 0 20px; }
-  .section-header { padding: 60px 20px 40px; }
+  button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
 }
 
-/* ══════════════════════════════════════════════════════════
-   ADMIN — 共用响应式工具类，供 app/admin/* 页面使用
-   ══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   ADMIN — 后台响应式工具类
+   纯布局管道，与视觉风格无关，重建中原样保留（阶段 8 再评估）。
+   ═══════════════════════════════════════════════════════════ */
 
-/* 横向滚动容器：包住任何可能变宽的表格（比如 SKU 矩阵），
-   桌面端不影响布局，内容超宽时才出现横向滚动条 */
-.admin-table-scroll {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
+/* 横向滚动容器：包住可能变宽的表格（如 SKU 矩阵） */
+.admin-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
-/* 两列表单网格，窄屏自动收成一列 */
-.admin-2col {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
+/* 两列表单网格，窄屏收成一列 */
+.admin-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 
-/* 列表表格：窄屏下从表格变成一张张卡片。
-   要求每个 <td> 带上 data-label="列名" 属性 */
+/* 列表表格：窄屏下从表格变成卡片。要求每个 <td> 带 data-label="列名" */
 .admin-list-table { width: 100%; border-collapse: collapse; }
 
 @media (max-width: 768px) {
   .admin-2col { grid-template-columns: 1fr !important; }
 
   .admin-list-table thead { display: none; }
-  .admin-list-table, .admin-list-table tbody, .admin-list-table tr, .admin-list-table td {
-    display: block; width: 100%;
-  }
-  .admin-list-table tr {
-    padding: 12px 14px;
-    border-bottom: 1px solid var(--line);
-  }
+  .admin-list-table, .admin-list-table tbody,
+  .admin-list-table tr, .admin-list-table td { display: block; width: 100%; }
+  .admin-list-table tr { padding: 12px 14px; border-bottom: 1px solid var(--line); }
   .admin-list-table td {
     padding: 4px 0 !important;
     border: none !important;
@@ -367,7 +335,7 @@ input, textarea, select {
   .admin-list-table td[data-label=""] { display: none; }
 }
 
-/* 触控目标：手机上保证按钮/可点击元素至少 44px 高，方便手指点击 */
+/* 触控目标：手机上保证至少 44px 高 */
 @media (max-width: 900px) {
   .admin-tap-target {
     min-height: 44px;
@@ -377,14 +345,13 @@ input, textarea, select {
   }
 }
 
-/* 简单的并排两栏在窄屏下堆叠成一列（用于没有"选中才显示"逻辑的固定双栏页面） */
+/* 并排两栏在窄屏堆叠 */
 @media (max-width: 900px) {
   .admin-flex-stack { flex-direction: column; }
   .admin-flex-stack > * { width: 100% !important; }
 }
 
-/* 列表 + 详情面板并排布局（订单/客户页共用）：
-   窄屏下列表占满宽度，详情面板改成点开后盖满全屏的独立视图，带"返回"体验 */
+/* 列表 + 详情面板（订单/客户页）：窄屏下详情盖满全屏 */
 @media (max-width: 900px) {
   .admin-master-detail { flex-direction: column; height: auto !important; }
   .admin-detail-panel {

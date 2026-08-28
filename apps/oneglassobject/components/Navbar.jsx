@@ -1,341 +1,400 @@
 'use client'
-import { COLLECTIONS } from '@/config/site'
+
+/**
+ * 顶部导航。
+ *
+ * 白盒画廊风：始终是半透明毛玻璃，滚动后加深并浮出细分隔线。
+ * 不做"深色 Hero 上透明 + 白字"那一套——新站所有页面都是亮底，
+ * 那个分支只会带来两套配色的维护负担。
+ */
+
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { COLLECTIONS } from '@/config/site'
 import { useCart } from '@/lib/cart'
 import { useAuth } from '@osr/core/lib/auth'
 
 export function Navbar() {
-  const [scrolled, setScrolled] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [scrolled, setScrolled]     = useState(false)
+  const [menuOpen, setMenuOpen]     = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState([])
-  const [searching, setSearching] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
-  const searchInputRef = useRef(null)
-  const searchTimerRef = useRef(null)
-  const accountRef = useRef(null)
+  const [query, setQuery] = useState('')
+
   const pathname = usePathname()
-  const router = useRouter()
+  const router   = useRouter()
+  const accountRef = useRef(null)
+  const searchInputRef = useRef(null)
 
   const { toggleCart, getItemCount } = useCart()
-  const { user, loading, signOut } = useAuth()
+  const { user, signOut } = useAuth()
   const itemCount = getItemCount ? getItemCount() : 0
 
-  // 白盒画廊风：Hero 已改为亮底，导航不再需要"深色 Hero 上透明 + 白字"那一套。
-  // 现在任何页面都是半透明毛玻璃，滚动后加深并浮出细分隔线。
-  const isLight = false
-
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 50)
-    window.addEventListener('scroll', onScroll)
+    const onScroll = () => setScrolled(window.scrollY > 40)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
+  // 路由一变就收起所有浮层，否则点导航后菜单会挂在那里
   useEffect(() => {
-    if (menuOpen || searchOpen) document.body.style.overflow = 'hidden'
-    else document.body.style.overflow = ''
+    setMenuOpen(false)
+    setSearchOpen(false)
+    setAccountOpen(false)
+  }, [pathname])
+
+  // 移动端菜单展开时锁住滚动，避免背后页面跟着动
+  useEffect(() => {
+    document.body.style.overflow = menuOpen ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
-  }, [menuOpen, searchOpen])
+  }, [menuOpen])
 
+  // 点击外部关闭账户下拉
   useEffect(() => {
-    if (searchOpen && searchInputRef.current) {
-      setTimeout(() => searchInputRef.current?.focus(), 100)
+    if (!accountOpen) return
+    const onDown = e => {
+      if (accountRef.current && !accountRef.current.contains(e.target)) setAccountOpen(false)
     }
-    if (!searchOpen) { setSearchQuery(''); setSearchResults([]) }
-  }, [searchOpen])
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [accountOpen])
 
+  // Esc 关闭浮层
   useEffect(() => {
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
-    if (searchQuery.trim().length < 2) { setSearchResults([]); return }
-    setSearching(true)
-    searchTimerRef.current = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery.trim())}`)
-        const data = await res.json()
-        setSearchResults(Array.isArray(data) ? data : [])
-      } catch { setSearchResults([]) }
-      setSearching(false)
-    }, 300)
-    return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current) }
-  }, [searchQuery])
-
-  useEffect(() => {
-    const handler = (e) => {
-      if (accountRef.current && !accountRef.current.contains(e.target)) {
-        setAccountOpen(false)
-      }
+    const onKey = e => {
+      if (e.key !== 'Escape') return
+      setMenuOpen(false); setSearchOpen(false); setAccountOpen(false)
     }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
   }, [])
 
-  const handleSearchClick = (collection, slug) => {
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus()
+  }, [searchOpen])
+
+  function submitSearch(e) {
+    e.preventDefault()
+    const q = query.trim()
+    if (!q) return
     setSearchOpen(false)
-    router.push(`/collections/${collection}/${slug}`)
-  }
-
-  const handleSignOut = async () => {
-    setAccountOpen(false)
-    await signOut()
-  }
-
-  const textColor = isLight ? '#fff' : 'var(--deep)'
-  const logoSrc = isLight ? '/images/logo-white.png' : '/images/logo.png'
-  const iconStroke = isLight ? '#fff' : 'var(--deep)'
-  const shadow = isLight ? '0 1px 8px rgba(0,0,0,0.3)' : 'none'
-
-  const navLinks = [
-    { href: '/collections', label: 'Shop' },
-    { href: '/about',       label: 'About' },
-    { href: '/bespoke',     label: 'Bespoke' },
-  ]
-
-  const mobileCollections = [
-    ...COLLECTIONS,
-  ]
-
-  const mobileLinks = [
-    { name: 'Our Story',       href: '/about' },
-    { name: 'Bespoke & Trade', href: '/bespoke' },
-    { name: 'Contact',         href: '/contact' },
-  ]
-
-  const getInitial = () => {
-    if (!user) return ''
-    if (user.name) return user.name.charAt(0).toUpperCase()
-    if (user.email) return user.email.charAt(0).toUpperCase()
-    return '?'
+    setQuery('')
+    router.push(`/collections?q=${encodeURIComponent(q)}`)
   }
 
   return (
     <>
-      <nav className="site-nav" style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-        padding: scrolled ? '8px 0' : '14px 0',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        background: (scrolled || menuOpen || searchOpen) ? 'var(--glass-bg-alt)' : 'var(--glass-bg)',
-        backdropFilter: 'var(--glass-blur)',
-        WebkitBackdropFilter: 'var(--glass-blur)',
-        borderBottom: `1px solid `,
-        transition: 'all 0.4s ease',
-      }}>
-        <Link href="/" onClick={() => { setMenuOpen(false); setSearchOpen(false) }} className="nav-brand">
-          <img src={logoSrc} alt="One Glass Object" className="nav-logo" style={{ transition: 'opacity 0.3s' }} />
-          <span className="nav-brand-text" style={{
-            color: isLight ? '#fff' : 'var(--ink)',
-            textShadow: shadow,
-            transition: 'color 0.4s, text-shadow 0.4s',
-          }}>
-            One <em>Glass</em> Object
-          </span>
-        </Link>
-
-        <ul className="nav-desktop nav-links">
-          {navLinks.map(l => (
-            <li key={l.href}>
-              <Link href={l.href} className="nav-link" style={{
-                color: textColor,
-                textShadow: isLight ? '0 1px 6px rgba(0,0,0,0.25)' : 'none',
-                transition: 'color 0.4s, text-shadow 0.4s',
-              }}>
-                {l.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-
-        <div className="nav-icons">
-          {/* 搜索 */}
-          <button onClick={() => { setSearchOpen(!searchOpen); setMenuOpen(false) }} className="nav-icon-btn" aria-label="Search">
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none"
-              stroke={searchOpen ? 'var(--deep)' : iconStroke} strokeWidth="1.4"
-              style={{ transition: 'stroke 0.4s', filter: isLight ? 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))' : 'none' }}>
-              <circle cx="11" cy="11" r="8"/>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
+      <nav className={`nav ${scrolled ? 'nav--scrolled' : ''}`}>
+        <div className="nav-inner">
+          {/* 左：移动端汉堡 */}
+          <button
+            className="nav-burger"
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen(v => !v)}
+          >
+            <span className={`burger-bar ${menuOpen ? 'burger-bar--x1' : ''}`} />
+            <span className={`burger-bar ${menuOpen ? 'burger-bar--hide' : ''}`} />
+            <span className={`burger-bar ${menuOpen ? 'burger-bar--x2' : ''}`} />
           </button>
 
-          {/* 账户（桌面端） */}
-          {!loading && (
-            <div className="nav-desktop" ref={accountRef} style={{ position: 'relative' }}>
+          {/* 中/左：品牌字标。用文字而非图片，玻璃站的调性不需要圆形头像式 logo */}
+          <Link href="/" className="nav-brand" aria-label="One Glass Object — home">
+            One <em>Glass</em> Object
+          </Link>
+
+          {/* 桌面端主导航 */}
+          <ul className="nav-links">
+            <li><Link href="/collections" className="nav-link">Collections</Link></li>
+            {COLLECTIONS.slice(0, 3).map(c => (
+              <li key={c.slug}>
+                <Link href={`/collections/${c.slug}`} className="nav-link">{c.name}</Link>
+              </li>
+            ))}
+            <li><Link href="/about" className="nav-link">Studio</Link></li>
+          </ul>
+
+          {/* 右：搜索 / 账户 / 购物袋 */}
+          <div className="nav-actions">
+            <button className="nav-icon" aria-label="Search" onClick={() => setSearchOpen(v => !v)}>
+              <SearchIcon />
+            </button>
+
+            <div className="nav-account" ref={accountRef}>
               {user ? (
-                <button onClick={() => setAccountOpen(!accountOpen)} className="nav-icon-btn" aria-label="My account" style={{ padding: 4 }}>
-                  {user.avatar ? (
-                    <img src={user.avatar} alt={user.name || user.email} style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', display: 'block', border: '1.5px solid var(--gold)' }} />
-                  ) : (
-                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--gold)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 400 }}>
-                      {getInitial()}
+                <>
+                  <button
+                    className="nav-avatar"
+                    aria-label="Account menu"
+                    aria-expanded={accountOpen}
+                    onClick={() => setAccountOpen(v => !v)}
+                  >
+                    {(user.email || '?')[0].toUpperCase()}
+                  </button>
+                  {accountOpen && (
+                    <div className="nav-dropdown">
+                      <p className="nav-dropdown-email">{user.email}</p>
+                      <Link href="/account" className="nav-dropdown-item">Account</Link>
+                      <Link href="/account/orders" className="nav-dropdown-item">Orders</Link>
+                      <Link href="/account/addresses" className="nav-dropdown-item">Addresses</Link>
+                      <button className="nav-dropdown-signout" onClick={() => { setAccountOpen(false); signOut() }}>
+                        Sign out
+                      </button>
                     </div>
                   )}
-                </button>
+                </>
               ) : (
-                <Link href="/login" className="nav-icon-btn" aria-label="Sign in" style={{ display: 'flex', padding: 6 }}>
-                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke={iconStroke} strokeWidth="1.4" style={{ transition: 'stroke 0.4s', filter: isLight ? 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))' : 'none' }}>
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                    <circle cx="12" cy="7" r="4"/>
-                  </svg>
-                </Link>
-              )}
-
-              {user && accountOpen && (
-                <div style={{ position: 'absolute', top: 'calc(100% + 10px)', right: 0, width: 220, background: '#fff', border: '1px solid var(--sand)', boxShadow: '0 8px 32px rgba(28,23,20,0.10)', zIndex: 200, animation: 'fadeInDown 0.18s ease' }}>
-                  <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid var(--mist)' }}>
-                    <p style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 400, marginBottom: 2 }}>{user.name || 'My Account'}</p>
-                    <p style={{ fontSize: 11, color: 'var(--taupe)', wordBreak: 'break-all' }}>{user.email}</p>
-                  </div>
-                  {[
-                    { href: '/account', label: 'My Account' },
-                    { href: '/account/orders', label: 'My Orders' },
-                    { href: '/account/addresses', label: 'Saved Addresses' },
-                    { href: '/account/profile', label: 'Edit Profile' },
-                  ].map(item => (
-                    <Link key={item.href} href={item.href} onClick={() => setAccountOpen(false)}
-                      style={{ display: 'block', padding: '10px 16px', fontSize: 12, color: 'var(--deep)', letterSpacing: '.03em', borderBottom: '1px solid var(--mist)', transition: 'background 0.15s' }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'var(--mist)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                      {item.label}
-                    </Link>
-                  ))}
-                  <button onClick={handleSignOut} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 16px', fontSize: 11, color: 'var(--taupe)', letterSpacing: '.08em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'color 0.15s' }}
-                    onMouseEnter={e => e.currentTarget.style.color = 'var(--ink)'}
-                    onMouseLeave={e => e.currentTarget.style.color = 'var(--taupe)'}>
-                    Sign out
-                  </button>
-                </div>
+                <Link href="/login" className="nav-icon" aria-label="Sign in"><UserIcon /></Link>
               )}
             </div>
-          )}
 
-          {/* 购物车 */}
-          <button onClick={toggleCart} className="nav-icon-btn" aria-label="Basket" style={{ position: 'relative' }}>
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke={iconStroke} strokeWidth="1.4" style={{ transition: 'stroke 0.4s', filter: isLight ? 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))' : 'none' }}>
-              <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
-              <line x1="3" y1="6" x2="21" y2="6"/>
-              <path d="M16 10a4 4 0 01-8 0"/>
-            </svg>
-            {itemCount > 0 && (
-              <span style={{ position: 'absolute', top: 0, right: 0, background: 'var(--gold)', color: '#fff', width: 15, height: 15, borderRadius: '50%', fontSize: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 400 }}>
-                {itemCount}
-              </span>
-            )}
-          </button>
-
-          {/* 汉堡（移动端） */}
-          <button onClick={() => { setMenuOpen(!menuOpen); setSearchOpen(false) }} className="nav-mobile nav-icon-btn" aria-label="Menu">
-            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke={menuOpen ? 'var(--ink)' : iconStroke} strokeWidth="1.3" style={{ transition: 'stroke 0.4s' }}>
-              {menuOpen ? (
-                <><line x1="4" y1="4" x2="18" y2="18"/><line x1="18" y1="4" x2="4" y2="18"/></>
-              ) : (
-                <><line x1="3" y1="7" x2="19" y2="7"/><line x1="3" y1="11" x2="19" y2="11"/><line x1="3" y1="15" x2="19" y2="15"/></>
-              )}
-            </svg>
-          </button>
+            <button className="nav-icon nav-bag" aria-label={`Basket, ${itemCount} items`} onClick={toggleCart}>
+              <BagIcon />
+              {itemCount > 0 && <span className="nav-bag-count">{itemCount}</span>}
+            </button>
+          </div>
         </div>
+
+        {/* 搜索条：压在导航下方展开，不遮挡品牌字标 */}
+        {searchOpen && (
+          <form className="nav-search" onSubmit={submitSearch}>
+            <div className="nav-search-inner">
+              <SearchIcon />
+              <input
+                ref={searchInputRef}
+                className="nav-search-input"
+                type="search"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="Search the collection"
+                aria-label="Search"
+              />
+              <button type="button" className="nav-search-close" onClick={() => setSearchOpen(false)} aria-label="Close search">✕</button>
+            </div>
+          </form>
+        )}
       </nav>
 
-      {/* 搜索弹出层 */}
-      {searchOpen && (
-        <>
-          <div onClick={() => setSearchOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 98, background: 'rgba(28,23,20,0.4)', backdropFilter: 'blur(2px)', animation: 'fadeIn 0.2s ease' }} />
-          <div className="search-panel">
-            <div className="search-inner">
-              <div className="search-input-wrap">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--taupe)" strokeWidth="1.4" style={{ flexShrink: 0 }}>
-                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                </svg>
-                <input ref={searchInputRef} type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search products…" className="search-input" />
-                <button onClick={() => setSearchOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--taupe)', fontSize: 18, cursor: 'pointer', padding: 4, lineHeight: 1 }}>✕</button>
-              </div>
-              <div className="search-results">
-                {searching && <p style={{ padding: '20px 0', fontSize: 12, color: 'var(--taupe)', textAlign: 'center' }}>Searching…</p>}
-                {!searching && searchQuery.length >= 2 && searchResults.length === 0 && (
-                  <p style={{ padding: '20px 0', fontSize: 13, color: 'var(--taupe)', textAlign: 'center' }}>No products found for &quot;{searchQuery}&quot;</p>
-                )}
-                {searchResults.map(p => {
-                  const img = Array.isArray(p.images) ? p.images[0] : null
-                  return (
-                    <button key={p.id} onClick={() => handleSearchClick(p.collection, p.slug)} className="search-result-item">
-                      <div className="search-result-img">
-                        {img ? <img src={img} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : null}
-                      </div>
-                      <div>
-                        <p style={{ fontSize: 13, color: 'var(--ink)', marginBottom: 3, textAlign: 'left' }}>{p.name}</p>
-                        <p style={{ fontSize: 10, color: 'var(--taupe)', letterSpacing: '.08em', textTransform: 'uppercase', textAlign: 'left' }}>{(p.collection || '').replace(/-/g, ' ')}</p>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* 移动端菜单 */}
+      {/* 移动端全屏菜单 */}
       {menuOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 99, background: 'var(--cream)', paddingTop: 72, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
-          <div style={{ padding: '20px 32px 40px', display: 'flex', flexDirection: 'column' }}>
-            <p style={{ fontSize: 9, letterSpacing: '.32em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid var(--sand)' }}>Shop</p>
-            {mobileCollections.map(c => (
-              <Link key={c.slug} href={`/collections/${c.slug}`} onClick={() => setMenuOpen(false)} style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 300, color: 'var(--ink)', padding: '12px 0', borderBottom: '1px solid var(--mist)' }}>
+        <div className="nav-sheet">
+          <nav className="nav-sheet-inner">
+            <Link href="/collections" className="nav-sheet-link">All Collections</Link>
+            <div className="nav-sheet-rule" />
+            {COLLECTIONS.map(c => (
+              <Link key={c.slug} href={`/collections/${c.slug}`} className="nav-sheet-link nav-sheet-link--sub">
                 {c.name}
               </Link>
             ))}
-            <div style={{ height: 1, width: '100%', background: 'var(--sand)', margin: '24px 0 20px' }} />
-            <p style={{ fontSize: 9, letterSpacing: '.32em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 16 }}>Explore</p>
-            {mobileLinks.map(l => (
-              <Link key={l.href} href={l.href} onClick={() => setMenuOpen(false)} style={{ fontSize: 15, fontWeight: 300, color: 'var(--deep)', padding: '10px 0', letterSpacing: '0.04em' }}>
-                {l.name}
-              </Link>
-            ))}
-            <div style={{ height: 1, width: '100%', background: 'var(--sand)', margin: '24px 0 20px' }} />
-            <Link href="/track-order" onClick={() => setMenuOpen(false)} style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe)', padding: '10px 0' }}>Track Order</Link>
-            <Link href="/faq" onClick={() => setMenuOpen(false)} style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe)', padding: '10px 0' }}>FAQ & Help</Link>
-            <div style={{ height: 1, width: '100%', background: 'var(--sand)', margin: '24px 0 20px' }} />
+            <div className="nav-sheet-rule" />
+            <Link href="/about" className="nav-sheet-link">Studio</Link>
+            <Link href="/bespoke" className="nav-sheet-link">Commissions</Link>
+            <Link href="/care-guide" className="nav-sheet-link">Care</Link>
+            <Link href="/contact" className="nav-sheet-link">Contact</Link>
+            <div className="nav-sheet-rule" />
             {user ? (
               <>
-                <Link href="/account" onClick={() => setMenuOpen(false)} style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--gold)', padding: '10px 0' }}>My Account</Link>
-                <Link href="/account/orders" onClick={() => setMenuOpen(false)} style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe)', padding: '10px 0' }}>My Orders</Link>
-                <button onClick={() => { setMenuOpen(false); signOut() }} style={{ background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe)', padding: '10px 0', fontFamily: 'var(--font-body)' }}>Sign out</button>
+                <Link href="/account" className="nav-sheet-link">Account</Link>
+                <button className="nav-sheet-link nav-sheet-signout" onClick={() => { setMenuOpen(false); signOut() }}>
+                  Sign out
+                </button>
               </>
             ) : (
-              <Link href="/login" onClick={() => setMenuOpen(false)} style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--gold)', padding: '10px 0' }}>Sign in / Register</Link>
+              <Link href="/login" className="nav-sheet-link">Sign in</Link>
             )}
-          </div>
+          </nav>
         </div>
       )}
 
-      <style dangerouslySetInnerHTML={{ __html: `
-        .site-nav { padding-left: clamp(28px, 5vw, 60px) !important; padding-right: clamp(28px, 5vw, 60px) !important; }
-        .nav-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; z-index: 101; flex-shrink: 0; }
-        .nav-logo { height: 34px; width: 34px; border-radius: 50%; object-fit: cover; display: block; position: relative; top: -1px; }
-        .nav-brand-text { font-family: var(--font-display); font-size: 16px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 300; }
-        .nav-brand-text em { font-style: italic; font-weight: 300; }
-        .nav-links { display: flex; gap: 40px; list-style: none; margin: 0; position: absolute; left: 50%; transform: translateX(-50%); align-items: center; }
-        .nav-link { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; position: relative; padding-bottom: 2px; }
-        .nav-link::after { content: ''; position: absolute; bottom: 0; left: 0; width: 0; height: 1px; background: var(--gold); transition: width 0.4s ease; }
+      <style jsx>{`
+        .nav {
+          position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+          background: var(--glass-bg);
+          backdrop-filter: var(--glass-blur);
+          -webkit-backdrop-filter: var(--glass-blur);
+          border-bottom: 1px solid transparent;
+          transition: background var(--transition), border-color var(--transition);
+        }
+        .nav--scrolled { background: var(--glass-bg-alt); border-bottom-color: var(--line); }
+
+        .nav-inner {
+          height: var(--nav-h);
+          max-width: 1360px; margin: 0 auto;
+          padding: 0 var(--page-padding);
+          display: flex; align-items: center; gap: 16px;
+        }
+
+        .nav-brand {
+          font-family: var(--font-display);
+          font-size: 19px; font-weight: 300; letter-spacing: 0.02em;
+          color: var(--ink); white-space: nowrap;
+        }
+        .nav-brand em { font-style: italic; color: var(--accent-deep); }
+
+        .nav-links {
+          display: none;
+          list-style: none; margin: 0 auto; padding: 0;
+          gap: 32px; align-items: center;
+        }
+        .nav-link {
+          position: relative; padding-bottom: 3px;
+          font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+          color: var(--ink-soft); transition: color var(--transition);
+        }
+        .nav-link::after {
+          content: ''; position: absolute; left: 0; bottom: 0;
+          width: 0; height: 1px; background: var(--accent);
+          transition: width var(--transition);
+        }
+        .nav-link:hover { color: var(--ink); }
         .nav-link:hover::after { width: 100%; }
-        .nav-icons { display: flex; align-items: center; gap: clamp(12px, 2vw, 20px); z-index: 101; }
-        .nav-icon-btn { background: none; border: none; cursor: pointer; padding: 6px; display: flex; align-items: center; -webkit-tap-highlight-color: transparent; }
-        .search-panel { position: fixed; top: 0; left: 0; right: 0; z-index: 99; background: var(--cream); border-bottom: 1px solid var(--sand); padding-top: 72px; animation: slideDown 0.25s ease; }
-        .search-inner { max-width: 640px; margin: 0 auto; padding: 20px clamp(24px, 5vw, 60px) 24px; }
-        .search-input-wrap { display: flex; align-items: center; gap: 12; border-bottom: 1px solid var(--warm); padding-bottom: 14px; margin-bottom: 8px; }
-        .search-input { flex: 1; background: none; border: none; outline: none; font-family: var(--font-body); font-size: 16px; color: var(--ink); letter-spacing: 0.03em; }
-        .search-input::placeholder { color: var(--warm); }
-        .search-results { max-height: 400px; overflow-y: auto; }
-        .search-result-item { display: flex; align-items: center; gap: 14; width: 100%; padding: 12px 0; border-bottom: 1px solid var(--mist); background: none; border-left: none; border-right: none; border-top: none; cursor: pointer; transition: opacity 0.2s; }
-        .search-result-item:hover { opacity: 0.7; }
-        .search-result-img { width: 48px; height: 48px; border-radius: 4px; background: var(--sand); flex-shrink: 0; overflow: hidden; }
-        @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
-        @keyframes slideDown { from { transform: translateY(-20px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
-        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-8px) } to { opacity: 1; transform: translateY(0) } }
-        @media (max-width: 900px) { .nav-desktop { display: none !important; } .nav-links { position: static; transform: none; } }
-        @media (min-width: 901px) { .nav-mobile { display: none !important; } }
-        @media (max-width: 480px) { .nav-brand-text { font-size: 14px; } .nav-logo { height: 32px; width: 32px; } }
-      ` }} />
+
+        .nav-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+
+        .nav-icon {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 40px; height: 40px;
+          background: none; border: none; color: var(--ink);
+          -webkit-tap-highlight-color: transparent;
+          transition: color var(--transition);
+        }
+        .nav-icon:hover { color: var(--accent-deep); }
+
+        .nav-account { position: relative; display: flex; align-items: center; }
+        .nav-avatar {
+          width: 30px; height: 30px; border-radius: 50%;
+          background: var(--accent); color: #fff; border: none;
+          font-size: 12px; font-family: var(--font-body);
+          display: inline-flex; align-items: center; justify-content: center;
+        }
+
+        .nav-dropdown {
+          position: absolute; top: calc(100% + 12px); right: 0;
+          width: 224px; background: var(--paper);
+          border: 1px solid var(--line); border-radius: var(--radius-sm);
+          box-shadow: var(--shadow-card); overflow: hidden;
+        }
+        .nav-dropdown-email {
+          padding: 12px 16px; font-size: 11px; color: var(--ink-faint);
+          border-bottom: 1px solid var(--line);
+          overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .nav-dropdown-item {
+          display: block; padding: 11px 16px; font-size: 12px;
+          color: var(--ink); transition: background var(--transition);
+        }
+        .nav-dropdown-item:hover { background: var(--paper-sunk); }
+        .nav-dropdown-signout {
+          display: block; width: 100%; text-align: left;
+          padding: 11px 16px; background: none; border: none;
+          border-top: 1px solid var(--line);
+          font-family: var(--font-body); font-size: 10px;
+          letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-soft);
+        }
+        .nav-dropdown-signout:hover { color: var(--ink); }
+
+        .nav-bag { position: relative; }
+        .nav-bag-count {
+          position: absolute; top: 4px; right: 2px;
+          min-width: 16px; height: 16px; padding: 0 4px;
+          border-radius: 8px; background: var(--accent); color: #fff;
+          font-size: 9px; line-height: 16px; text-align: center;
+        }
+
+        .nav-search { border-top: 1px solid var(--line); }
+        .nav-search-inner {
+          max-width: 1360px; margin: 0 auto;
+          padding: 14px var(--page-padding);
+          display: flex; align-items: center; gap: 12px;
+          color: var(--ink-faint);
+        }
+        .nav-search-input {
+          flex: 1; background: none; border: none; outline: none;
+          font-family: var(--font-body); font-size: 16px;
+          color: var(--ink); letter-spacing: 0.02em;
+        }
+        .nav-search-input::placeholder { color: var(--ink-faint); }
+        .nav-search-close {
+          background: none; border: none; color: var(--ink-faint);
+          font-size: 16px; line-height: 1; padding: 4px;
+        }
+
+        /* 汉堡 */
+        .nav-burger {
+          display: inline-flex; flex-direction: column; justify-content: center;
+          gap: 5px; width: 40px; height: 40px; margin-left: -10px;
+          background: none; border: none;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .burger-bar {
+          display: block; width: 20px; height: 1px; background: var(--ink);
+          transition: transform var(--transition), opacity var(--transition);
+        }
+        .burger-bar--x1 { transform: translateY(6px) rotate(45deg); }
+        .burger-bar--x2 { transform: translateY(-6px) rotate(-45deg); }
+        .burger-bar--hide { opacity: 0; }
+
+        /* 移动端全屏菜单 */
+        .nav-sheet {
+          position: fixed; inset: 0; z-index: 99;
+          padding-top: var(--nav-h);
+          background: var(--paper);
+          overflow-y: auto; -webkit-overflow-scrolling: touch;
+        }
+        .nav-sheet-inner {
+          display: flex; flex-direction: column;
+          padding: 24px var(--page-padding) 64px;
+        }
+        .nav-sheet-link {
+          padding: 13px 0; text-align: left;
+          font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
+          color: var(--ink); background: none; border: none;
+          font-family: var(--font-body);
+        }
+        .nav-sheet-link--sub {
+          padding-left: 16px; font-size: 11px;
+          letter-spacing: 0.16em; color: var(--ink-soft); text-transform: none;
+        }
+        .nav-sheet-signout { color: var(--ink-soft); }
+        .nav-sheet-rule { height: 1px; background: var(--line); margin: 16px 0; }
+
+        @media (min-width: 1024px) {
+          .nav-burger { display: none; }
+          .nav-links  { display: flex; }
+          .nav-brand  { font-size: 21px; }
+        }
+      `}</style>
     </>
+  )
+}
+
+/* ── 图标：内联 SVG，避免为几个描边图形引入整个图标库 ── */
+
+function SearchIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+      <circle cx="11" cy="11" r="7" />
+      <path d="M20 20l-3.5-3.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function UserIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function BagIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+      <path d="M5 8h14l-1 12H6L5 8z" strokeLinejoin="round" />
+      <path d="M9 8V6a3 3 0 0 1 6 0v2" strokeLinecap="round" />
+    </svg>
   )
 }

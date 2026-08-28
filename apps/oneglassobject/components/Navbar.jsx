@@ -24,8 +24,9 @@ export function Navbar() {
   const { user, loading, signOut } = useAuth()
   const itemCount = getItemCount ? getItemCount() : 0
 
-  const isDarkHero = pathname === '/'
-  const isLight = isDarkHero && !scrolled && !menuOpen && !searchOpen
+  // 白盒画廊风：Hero 已改为亮底，导航不再需要"深色 Hero 上透明 + 白字"那一套。
+  // 现在任何页面都是半透明毛玻璃，滚动后加深并浮出细分隔线。
+  const isLight = false
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50)
@@ -115,9 +116,10 @@ export function Navbar() {
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
         padding: scrolled ? '8px 0' : '14px 0',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        background: (scrolled || menuOpen || searchOpen) ? 'rgba(247,243,238,0.95)' : 'transparent',
-        backdropFilter: (scrolled || menuOpen || searchOpen) ? 'blur(12px)' : 'none',
-        borderBottom: scrolled ? '1px solid var(--sand)' : 'none',
+        background: (scrolled || menuOpen || searchOpen) ? 'var(--glass-bg-alt)' : 'var(--glass-bg)',
+        backdropFilter: 'var(--glass-blur)',
+        WebkitBackdropFilter: 'var(--glass-blur)',
+        borderBottom: `1px solid `,
         transition: 'all 0.4s ease',
       }}>
         <Link href="/" onClick={() => { setMenuOpen(false); setSearchOpen(false) }} className="nav-brand">

@@ -1,6 +1,6 @@
 import './globals.css'
 import { Suspense } from 'react'
-import { Playfair_Display, Lora, Jost } from 'next/font/google'
+import { Cormorant_Garamond, Inter } from 'next/font/google'
 import { Footer } from '@/components/Footer'
 import { CartProvider } from '@/components/CartProvider'
 import { CartDrawer } from '@/components/CartDrawer'
@@ -9,27 +9,30 @@ import CookieBanner from '@/components/CookieBanner'
 import { AuthProvider } from '@osr/core/lib/auth'
 import { Navbar } from '@/components/Navbar'
 
-const playfairDisplay = Playfair_Display({
+const cormorant = Cormorant_Garamond({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+  weight: ['300', '400', '500', '600'],
   style: ['normal', 'italic'],
+  // 标题字体。比 Playfair 更轻、字怀更开，接近美术馆图录的观感
   variable: '--font-display',
   fallback: ['Georgia', 'serif'],
   display: 'swap',
 })
 
-const lora = Lora({
+// 站内多处引用 --font-serif-alt（Hero 副文案、引言段）。这里复用同一套
+// Cormorant，只是换个变量名挂上去，避免为此多加载一套字体拖慢首屏。
+const cormorantAlt = Cormorant_Garamond({
   subsets: ['latin'],
-  weight: ['400', '500', '600'],
+  weight: ['300', '400', '500'],
   style: ['normal', 'italic'],
   variable: '--font-serif-alt',
   fallback: ['Georgia', 'serif'],
   display: 'swap',
 })
 
-const jost = Jost({
+const inter = Inter({
   subsets: ['latin'],
-  weight: ['200', '300', '400', '500'],
+  weight: ['300', '400', '500', '600'],
   variable: '--font-body',
   fallback: ['system-ui', 'sans-serif'],
   display: 'swap',
@@ -98,7 +101,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en-GB" className={`${playfairDisplay.variable} ${lora.variable} ${jost.variable}`}>
+    <html lang="en-GB" className={`${cormorant.variable} ${cormorantAlt.variable} ${inter.variable}`}>
       <body>
         <script
           type="application/ld+json"

@@ -238,13 +238,18 @@ function ProductCard({ product: p }) {
       onMouseLeave={() => setHovered(false)}
     >
       <div style={{
-        transform: hovered ? 'translateY(-5px)' : 'translateY(0)',
-        transition: 'transform 0.5s cubic-bezier(0.25,0.46,0.45,0.94)',
+        transform: hovered ? 'translateY(-6px)' : 'translateY(0)',
+        transition: 'transform 0.5s cubic-bezier(0.25,0.46,0.45,0.94), box-shadow 0.5s ease',
+        boxShadow: hovered ? 'var(--shadow-lift)' : 'var(--shadow-sm)',
+        background: 'var(--paper)',
+        border: '1px solid var(--line)',
+        borderRadius: 'var(--radius-sm)',
+        padding: 10,
       }}>
         {/* 图片 */}
         <div style={{
           aspectRatio: '1/1', overflow: 'hidden',
-          background: 'var(--sand)', marginBottom: 14,
+          background: 'var(--paper-sunk)', marginBottom: 14,
           position: 'relative',
         }}>
           {img ? (
@@ -256,29 +261,31 @@ function ProductCard({ product: p }) {
           ) : (
             <div style={{
               width: '100%', height: '100%',
-              background: 'linear-gradient(170deg,#E8DDD0,#C4A882)',
+              background: 'linear-gradient(170deg,#F1F5F9,#CBD5E1)',
               transform: hovered ? 'scale(1.07)' : 'scale(1)',
               transition: 'transform 1.2s cubic-bezier(0.25,0.46,0.45,0.94)',
             }} />
           )}
 
-          {/* 金色光晕 */}
+          {/* 折射高光：悬停时一道窄亮带斜掠过图片，模拟光线扫过玻璃表面。
+              比原来压深的色罩更贴合"通透"，也不会把商品图压暗。 */}
           <div style={{
-            position: 'absolute', inset: 0,
-            background: 'linear-gradient(135deg, rgba(184,155,106,0.18) 0%, rgba(28,23,20,0.32) 100%)',
-            opacity: hovered ? 1 : 0,
-            transition: 'opacity 0.6s ease',
-            pointerEvents: 'none',
-          }} />
+            position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden',
+          }}>
+            <div style={{
+              position: 'absolute', top: 0, bottom: 0, width: '55%',
+              background: 'linear-gradient(105deg, transparent 0%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0.85) 50%, rgba(255,255,255,0.55) 55%, transparent 100%)',
+              transform: hovered ? 'translateX(230%)' : 'translateX(-120%)',
+              transition: hovered
+                ? 'transform 0.9s cubic-bezier(0.22,0.61,0.36,1)'
+                : 'transform 0s',
+              mixBlendMode: 'screen',
+            }} />
+          </div>
         </div>
 
         {/* 文字 */}
-        <div style={{
-          paddingBottom: 16,
-          borderBottom: '1px solid',
-          borderColor: hovered ? 'var(--gold)' : 'var(--sand)',
-          transition: 'border-color 0.4s ease',
-        }}>
+        <div style={{ padding: '14px 4px 6px' }}>
           <h3 style={{
             fontFamily: 'var(--font-display)',
             fontSize: 'clamp(14px,1.4vw,17px)',
@@ -289,9 +296,9 @@ function ProductCard({ product: p }) {
             {name}
           </h3>
           <p style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: 'clamp(14px,1.3vw,17px)',
-            color: 'var(--gold)', fontWeight: 300,
+            fontFamily: 'var(--font-body)',
+            fontSize: 'clamp(13px,1.1vw,15px)',
+            color: 'var(--ink-soft)', fontWeight: 400, letterSpacing: '0.02em',
           }}>
             {price > 0 ? `From £${price.toFixed(2)}` : ''}
           </p>

@@ -1,19 +1,48 @@
 /* ═══════════════════════════════════
-   ONE SILK RIBBON — Design System
-   Mobile-First Responsive
+   ONE GLASS OBJECT — Design System
+   极简光影 · 白盒画廊 · Mobile-First
    ═══════════════════════════════════ */
 
 :root {
-  --cream:   #F7F3EE;
-  --sand:    #E8DDD0;
-  --warm:    #D4C5B0;
-  --taupe:   #9A8878;
-  --deep:    #3D3530;
-  --ink:     #1C1714;
-  --gold:    #B89B6A;
-  --blush:   #E8C9B8;
-  --mist:    #F2EEE9;
+  /* ── 语义色板（新代码请用这一组）──────────────────────
+     白盒画廊：纯白打底，冷灰蓝点缀。玻璃件靠阴影和边缘高光呈现，
+     不靠背景压暗，所以中性色必须够干净、够冷。 */
+  --paper:        #FFFFFF;   /* 页面底色 */
+  --paper-sunk:   #FAFAF9;   /* 次级区块 / 图片占位底 */
+  --line:         #E5E7EB;   /* 常规 1px 细边框 */
+  --line-strong:  #D4D4D8;   /* 强调边框 / 禁用态 */
+  --ink:          #1F2937;   /* 主文字 */
+  --ink-soft:     #6B7280;   /* 次级文字 */
+  --ink-faint:    #9CA3AF;   /* 占位符 / 弱提示 */
+  --accent:       #64748B;   /* 点缀：eyebrow、分隔线、悬停高亮 */
+  --accent-deep:  #475569;   /* 点缀加深（小字上保证对比度）*/
+  --accent-soft:  #94A3B8;   /* 点缀减淡 */
 
+  /* ── 兼容别名 ────────────────────────────────────────
+     全站有 600+ 处仍在用旧站的变量名。这里把它们指到新色板上，
+     整站即刻换肤，不必逐文件改写。新代码不要再用这一组。
+     TODO: 后续逐步替换成上面的语义名，然后删掉本段。 */
+  --cream:  var(--paper);
+  --mist:   var(--paper-sunk);
+  --sand:   var(--line);
+  --warm:   var(--line-strong);
+  --taupe:  var(--ink-soft);
+  --deep:   #374151;
+  --gold:   var(--accent);
+  --blush:  var(--accent-soft);
+
+  /* ── 光影 ───────────────────────────────────────────
+     白底上玻璃的立体感全靠这几层阴影，比深色站要克制得多 */
+  --shadow-sm:   0 1px 2px rgba(15,23,42,0.04);
+  --shadow-card: 0 8px 24px -12px rgba(15,23,42,0.18);
+  --shadow-lift: 0 20px 48px -20px rgba(15,23,42,0.26);
+
+  /* 毛玻璃：Navbar 及各类浮层 */
+  --glass-bg:     rgba(255,255,255,0.72);
+  --glass-bg-alt: rgba(255,255,255,0.88);
+  --glass-blur:   saturate(180%) blur(20px);
+
+  /* 画廊质感：直角为主，圆角极小 */
   --radius-sm: 2px;
   --radius:    4px;
 
@@ -54,7 +83,7 @@ body {
   background: var(--cream);
   color: var(--ink);
   font-family: var(--font-body);
-  font-weight: 300;
+  font-weight: 400;
   line-height: 1.6;
   overflow-x: hidden;
 }
@@ -122,7 +151,7 @@ input, textarea, select {
   min-height: 48px;
   -webkit-tap-highlight-color: transparent;
 }
-.btn-primary:hover { background: var(--gold); }
+.btn-primary:hover { background: var(--accent-deep); }
 .btn-primary:disabled {
   background: var(--warm);
   cursor: not-allowed;
@@ -314,7 +343,7 @@ input, textarea, select {
   }
   .admin-list-table tr {
     padding: 12px 14px;
-    border-bottom: 1px solid #E8E4DF;
+    border-bottom: 1px solid var(--line);
   }
   .admin-list-table td {
     padding: 4px 0 !important;
@@ -331,7 +360,7 @@ input, textarea, select {
     font-size: 10px;
     letter-spacing: .08em;
     text-transform: uppercase;
-    color: #A8A4A0;
+    color: var(--ink-faint);
     text-align: left;
   }
   .admin-list-table td:empty,

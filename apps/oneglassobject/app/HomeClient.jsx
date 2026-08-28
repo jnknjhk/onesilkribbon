@@ -58,73 +58,84 @@ function Hero({ heroImages }) {
 
   return (
     <section className="hero">
-      {heroImages.length > 0 ? (
-        heroImages.map((src, i) => (
-          <div key={src} className={`hero-slide ${i === currentIndex ? 'hero-slide-active' : ''}`}>
-            {i === 0 ? (
-              /* 第1张：优先加载，影响 LCP */
-              <Image
-                src={src} alt="" fill
-                style={{ objectFit: 'cover' }}
-                priority
-                fetchPriority="high"
-                sizes="100vw"
-              />
-            ) : (
-              /* 其余：懒加载 */
-              <Image
-                src={src} alt="" fill
-                style={{ objectFit: 'cover' }}
-                loading="lazy"
-                sizes="100vw"
-              />
-            )}
-          </div>
-        ))
-      ) : (
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(160deg,#2C2420,#1C1714)' }} />
-      )}
-      <div className="hero-overlay" />
-      <div className="hero-gradient" />
-
-      <div className="hero-content">
-        <p className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.1s', fontSize: 10, letterSpacing: '0.4em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 32 }}>
-          100% Pure Mulberry Silk · Handcrafted
+      {/* 白盒画廊排版：文字居中在上，横版海报居中在下。
+          不再用满屏深色背景图 + 白字，因为深色罩会把玻璃的通透压没。 */}
+      <div className="hero-copy">
+        <p className={`hero-anim ${loaded ? 'hero-in' : ''}`}
+           style={{ transitionDelay: '0.1s', fontSize: 10, letterSpacing: '0.4em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 28 }}>
+          Hand-Blown Glass · Made in Britain
         </p>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(48px, 8.5vw, 96px)', fontWeight: 600, lineHeight: 1.08, color: '#fff', marginBottom: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', letterSpacing: '-0.02em' }}>
-          <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.3s', display: 'block', fontWeight: 500 }}>Woven from</span>
-          <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.55s', display: 'block', fontStyle: 'italic', color: 'var(--gold)', fontWeight: 600 }}>nature&apos;s finest</span>
-          <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.8s', display: 'block', fontWeight: 500 }}>thread</span>
+        <h1 className="hero-title">
+          <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.3s', display: 'block' }}>Light, held</span>
+          <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.55s', display: 'block', fontStyle: 'italic', color: 'var(--accent-deep)' }}>in solid form</span>
         </h1>
-        <p className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '1.1s', fontSize: 15, lineHeight: 1.75, color: 'rgba(255,255,255,0.72)', maxWidth: 460, marginBottom: 52, textAlign: 'center', fontFamily: 'var(--font-serif-alt)', fontWeight: 400, letterSpacing: '0.01em' }}>
-          Each ribbon carries the quiet beauty of silk in its most natural form — carefully chosen, beautifully made, made to last.
+        <p className={`hero-anim ${loaded ? 'hero-in' : ''}`}
+           style={{ transitionDelay: '0.85s', fontSize: 16, lineHeight: 1.75, color: 'var(--ink-soft)', maxWidth: 480, margin: '0 auto 40px', textAlign: 'center', fontFamily: 'var(--font-serif-alt)' }}>
+          Each piece is shaped by breath and gravity — no two alike, all made to be picked up, poured from, and lived with.
         </p>
-        <div className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '1.4s' }}>
+        <div className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '1.1s' }}>
           <Link href="/collections"><button className="hero-btn"><span className="hero-btn-line" />Explore Collections<span className="hero-btn-line" /></button></Link>
-        </div>
-        <div className={`hero-scroll-wrap hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '1.8s' }}>
-          <div className="hero-scroll-line" />
         </div>
       </div>
 
+      {/* 横版海报。用 16:9 的画框把商品图裱起来，细边框 + 柔和投影，
+          让它看起来像挂在白墙上的一幅作品，而不是网页背景。 */}
+      <div className={`hero-stage hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '1.35s' }}>
+        <div className="hero-frame">
+          {heroImages.length > 0 ? (
+            heroImages.map((src, i) => (
+              <div key={src} className={`hero-slide ${i === currentIndex ? 'hero-slide-active' : ''}`}>
+                <Image
+                  src={src} alt="" fill
+                  style={{ objectFit: 'cover' }}
+                  {...(i === 0
+                    ? { priority: true, fetchPriority: 'high' }   /* 第1张影响 LCP，优先加载 */
+                    : { loading: 'lazy' })}
+                  sizes="(max-width: 1240px) 100vw, 1200px"
+                />
+              </div>
+            ))
+          ) : (
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(120deg,#F8FAFC,#E2E8F0 45%,#CBD5E1)' }} />
+          )}
+          {/* 玻璃面反光：一道极淡的斜向高光压在画框上 */}
+          <div className="hero-sheen" />
+        </div>
+
+        {heroImages.length > 1 && (
+          <div className="hero-dots">
+            {heroImages.map((src, i) => (
+              <span key={src} className={`hero-dot ${i === currentIndex ? 'hero-dot-on' : ''}`} />
+            ))}
+          </div>
+        )}
+      </div>
+
       <style dangerouslySetInnerHTML={{ __html: `
-        .hero { position: relative; height: 100vh; height: 100dvh; min-height: 600px; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #1C1714; }
-        .hero-slide { position: absolute; inset: 0; z-index: 0; opacity: 0; transition: opacity 1.5s ease-in-out; }
+        .hero { position: relative; background: var(--paper); padding: 140px var(--page-padding) var(--section-padding-y); display: flex; flex-direction: column; align-items: center; }
+        .hero-copy { position: relative; z-index: 2; text-align: center; max-width: 760px; display: flex; flex-direction: column; align-items: center; }
+        .hero-title { font-family: var(--font-display); font-size: clamp(44px, 7vw, 88px); font-weight: 300; line-height: 1.05; color: var(--ink); margin-bottom: 32px; letter-spacing: -0.01em; }
+        .hero-stage { width: 100%; max-width: 1200px; margin-top: 64px; }
+        .hero-frame { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-sm); box-shadow: var(--shadow-card); background: var(--paper-sunk); }
+        .hero-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 1.5s ease-in-out; }
         .hero-slide-active { opacity: 1; animation: kenBurns 18s ease-out forwards; }
-        @keyframes kenBurns { 0% { transform: scale(1.08); } 100% { transform: scale(1); } }
-        .hero-overlay { position: absolute; inset: 0; z-index: 1; background: rgba(28,23,20,0.45); }
-        .hero-gradient { position: absolute; bottom: 0; left: 0; right: 0; z-index: 1; height: 40%; background: linear-gradient(to top, rgba(28,23,20,0.6), transparent); }
-        .hero-content { position: relative; z-index: 2; text-align: center; padding: 0 24px; max-width: 800px; display: flex; flex-direction: column; align-items: center; }
-        .hero-anim { opacity: 0; transform: translateY(28px); transition: opacity 0.9s cubic-bezier(0.25,0.46,0.45,0.94), transform 0.9s cubic-bezier(0.25,0.46,0.45,0.94); }
+        @keyframes kenBurns { 0% { transform: scale(1.06); } 100% { transform: scale(1); } }
+        .hero-sheen { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(115deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0) 38%, rgba(255,255,255,0) 62%, rgba(255,255,255,0.14) 100%); }
+        .hero-dots { display: flex; gap: 8px; justify-content: center; margin-top: 20px; }
+        .hero-dot { width: 18px; height: 1px; background: var(--line-strong); transition: background 0.4s ease; }
+        .hero-dot-on { background: var(--accent); }
+        .hero-anim { opacity: 0; transform: translateY(24px); transition: opacity 0.9s cubic-bezier(0.25,0.46,0.45,0.94), transform 0.9s cubic-bezier(0.25,0.46,0.45,0.94); }
         .hero-in { opacity: 1 !important; transform: translateY(0) !important; }
-        .hero-btn { background: none; border: 1px solid rgba(255,255,255,0.3); color: #fff; font-family: var(--font-body); font-size: 10px; letter-spacing: 0.32em; text-transform: uppercase; padding: 18px 48px; display: inline-flex; align-items: center; gap: 20px; cursor: pointer; transition: all 0.4s ease; }
-        .hero-btn:hover { background: rgba(255,255,255,0.08); border-color: var(--gold); color: var(--gold); }
-        .hero-btn-line { display: block; width: 28px; height: 1px; background: var(--gold); transition: width 0.4s ease; }
+        .hero-btn { background: none; border: 1px solid var(--line-strong); color: var(--ink); font-family: var(--font-body); font-size: 10px; letter-spacing: 0.32em; text-transform: uppercase; padding: 18px 48px; display: inline-flex; align-items: center; gap: 20px; cursor: pointer; transition: border-color 0.4s ease, color 0.4s ease; }
+        .hero-btn:hover { border-color: var(--accent); color: var(--accent-deep); }
+        .hero-btn-line { display: block; width: 28px; height: 1px; background: var(--accent); transition: width 0.4s ease; }
         .hero-btn:hover .hero-btn-line { width: 40px; }
-        .hero-scroll-wrap { position: absolute; bottom: 40px; left: 50%; margin-left: -0.5px; }
-        .hero-scroll-line { width: 1px; height: 48px; background: linear-gradient(to bottom, var(--gold), transparent); animation: scrollPulse 2s ease-in-out infinite; }
-        @keyframes scrollPulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
-        @media (max-width: 768px) { .hero-btn { padding: 16px 32px; font-size: 9px; } .hero-scroll-wrap { bottom: 24px; } .hero-scroll-line { height: 32px; } }
+        @media (max-width: 768px) {
+          .hero { padding-top: 104px; }
+          .hero-stage { margin-top: 44px; }
+          .hero-frame { aspect-ratio: 4 / 3; }
+          .hero-btn { padding: 16px 32px; font-size: 9px; }
+        }
       ` }} />
     </section>
   )

@@ -293,6 +293,103 @@ h1, h2, h3, h4 {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   CATALOGUE — 图录版式语言
+   全白配色下，层次全部来自：可见版心、发丝线、编号、字号级差、非对称。
+   这几个件在首页、系列页、商品页共用，不要在各页面里另写一份。
+   ═══════════════════════════════════════════════════════════ */
+
+/* 12 栏版心。非对称就靠把元素放在不同起止列上实现，
+   窄屏统一塌成单栏——手机上强撑多栏只会两边都不好看。 */
+.grid12 {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 24px;
+}
+@media (max-width: 899px) {
+  .grid12 { grid-template-columns: 1fr; gap: 32px; }
+  /* 塌成单栏后，所有列定位失效，否则元素会挤在第 1 栏 */
+  .grid12 > * { grid-column: 1 / -1 !important; }
+}
+
+/* 编号：图录里每个条目的序号。等宽字保证 01/02 竖排对齐 */
+.num {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 章节分隔线：一条发丝线 + 左侧编号 + 右侧标签。
+   这是图录感最主要的来源，比任何颜色都管用。 */
+.index-rule {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 40px;
+}
+.index-rule-label {
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.index-rule-end {
+  margin-left: auto;
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+/* 标本标签：博物馆展签式的参数块。
+   dt 是极小的全大写标签，dd 是值，靠发丝线分行。 */
+.spec { margin: 0; }
+.spec-row {
+  display: flex;
+  gap: 16px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+.spec-row:first-child { border-top: 1px solid var(--line); }
+.spec-key {
+  flex: 0 0 38%;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-size: 10px;
+  padding-top: 1px;
+}
+.spec-val { color: var(--ink); }
+
+/* 画框内的两个通用层，配合 position: relative 的画框容器使用。
+   .frame-empty  没有图时的冷调占位，避免出现空白破洞
+   .frame-sheen  压在图上的极淡斜向反光，模拟玻璃表面 */
+.frame-empty {
+  position: absolute; inset: 0;
+  background: linear-gradient(150deg, #F8FAFC, #E2E8F0 50%, #CBD5E1);
+}
+.frame-sheen {
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg,
+    rgba(255,255,255,.26) 0%, rgba(255,255,255,0) 38%,
+    rgba(255,255,255,0) 62%, rgba(255,255,255,.13) 100%);
+}
+
+/* 超大标题：图录里字号级差要拉到极端，中间档位反而显得平庸 */
+.type-xl {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: clamp(52px, 9vw, 132px);
+  line-height: 0.94;
+  letter-spacing: -0.025em;
+}
+.type-xl em { font-style: italic; color: var(--accent-deep); }
+
+/* ═══════════════════════════════════════════════════════════
    ADMIN — 后台响应式工具类
    纯布局管道，与视觉风格无关，重建中原样保留（阶段 8 再评估）。
    ═══════════════════════════════════════════════════════════ */

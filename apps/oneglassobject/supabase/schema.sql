@@ -253,7 +253,7 @@ on conflict (id) do nothing;
 create or replace function is_admin_user()
 returns boolean as $fn$
   select coalesce(auth.jwt() ->> 'email', '') = any (
-    array['hello@oneglassobject.com']  -- ← REPLACE_ME: 本站管理员邮箱
+    array['jnknjhk@gmail.com']  -- 本站管理员邮箱
   )
 $fn$ language sql stable;
 

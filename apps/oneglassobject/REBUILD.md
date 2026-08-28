@@ -62,7 +62,7 @@
 
 - [x] **阶段 0** — 计划文件（本文件）
 - [x] **阶段 1** — 设计系统 + 外壳：`globals.css` / `layout.jsx` / `Navbar` / `Footer`
-- [ ] **阶段 2** — 首页：Hero + 精选作品 + 系列入口 + 工作室简介
+- [x] **阶段 2** — 首页：Hero + 精选作品 + 系列入口 + 工作室 + 定制邀约
 - [ ] **阶段 3** — 系列总览页 + 单系列页
 - [ ] **阶段 4** — 商品详情页（重点：孤品感、尺寸参数、易碎说明、单 SKU 不显示选择器）
 - [ ] **阶段 5** — 内容页：about / faq / care-guide / bespoke / contact / shipping-returns
@@ -85,10 +85,26 @@
 会让 `max-height` 这类"靠过渡揭示内容"的属性卡在起始值，导致**开了"减少动态效果"的用户
 点页脚手风琴没反应**。已改成 `transition: none !important`。
 
-**下一步：阶段 2 — 首页**
+阶段 2 交付（`app/page.jsx` + `app/HomeClient.jsx` 全部删除重写）：
+- 区块顺序：Hero → 精选作品 → 系列入口 → 工作室 → 定制邀约
+- 删掉了跑马灯、"Our Favourites" 网格这些靠 SKU 数量取胜的丝带式结构
+- 数据层去掉 `swatches`（色卡是丝带概念），加 `skuCount`：
+  只有真存在多个价位才显示 "From £x"，单 SKU 直接写确定价格
+- 精选作品无数据时整段不渲染，不留空壳
+- 全站文案已无 silk / ribbon 痕迹，占位处标了 `TODO(文案)`
 
-⚠️ 当前 `app/HomeClient.jsx` 仍是丝带站的旧首页（跑马灯写着 FINE SILK RIBBONS、
-"Six expressions of pure silk"），阶段 2 会整个删掉重写。
+阶段 2 修掉的一个真实 bug：
+`.reveal` 初始 `opacity: 0`，靠 IntersectionObserver 加 `is-in` 才显示。
+两种情况下会导致**整段内容对用户永久不可见**：
+  1. 元素被跳过去（锚点、浏览器返回恢复滚动位置、Ctrl+End）——观察器只报"不相交"；
+     已加 `boundingClientRect.top < 0` 判断。
+  2. 观察器在某些环境根本不触发（不合成帧的无头浏览器、部分内嵌 WebView）；
+     已加 1 秒兜底：一次回调都没有就直接显示，宁可不要动画。
+⚠️ 后续阶段再写入场动画时，务必沿用 `useReveal`，不要另写一份没有兜底的。
+
+**下一步：阶段 3 — 系列总览页 + 单系列页**
+
+⚠️ `app/collections/**` 目前仍是丝带站旧代码。
 
 ## 待业主提供（不阻塞骨架，但阻塞最终文案）
 

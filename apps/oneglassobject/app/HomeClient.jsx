@@ -1,356 +1,504 @@
 'use client'
-import { COLLECTIONS, COLLECTION_BG } from '@/config/site'
-import { useState, useEffect } from 'react'
+
+/**
+ * 首页。
+ *
+ * 按玻璃摆件 / 艺术品的生意结构编排，不是丝带站那套：
+ * 少而大的作品展示、留白、单件叙事，而不是密集商品网格 + 卖点跑马灯。
+ *
+ * 区块顺序：
+ *   Hero（主视觉海报）→ 精选作品 → 系列入口 → 工作室 → 定制邀约
+ *
+ * 文案一律是中性占位，标了 TODO(文案)，等业主确认工艺/产地/价位后重写。
+ */
+
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { formatGBP } from '@/lib/pricing'
-import { subscribeEmail, isValidEmail } from '@osr/core/lib/client/subscribe'
+import { site, COLLECTIONS } from '@/config/site'
 
-const COLLECTION_FALLBACK_BG = COLLECTION_BG
-
-export default function HomeClient({ heroImages, storyImage, collectionImages, featuredProducts, freeThreshold = '45', freeEnabled = true }) {
+/* 滚动入场：元素进入视口后加 is-in，只触发一次。
+ *
+ * ⚠️ 这里的首要目标是"内容永远不会看不见"，动画是次要的。
+ * .reveal 的初始状态是 opacity: 0，所以任何让 is-in 加不上的路径
+ * 都会导致整段内容对用户永久消失。已知的两个坑：
+ *
+ *   1. 元素被"跳过去"——锚点跳转、浏览器返回时恢复滚动位置、Ctrl+End。
+ *      观察器只报告"当前不相交"，元素已在视口上方，永远等不到进入。
+ *      所以要额外判断 boundingClientRect.top < 0（已滚过）直接显示。
+ *   2. IntersectionObserver 不可用或构造抛错。此时直接显示，不做动画。
+ */
+function useReveal() {
+  const ref = useRef(null)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      const els = document.querySelectorAll('.reveal')
-      const obs = new IntersectionObserver(entries => {
-        entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target) } })
-      }, { threshold: 0.08 })
-      els.forEach(el => obs.observe(el))
-      return () => obs.disconnect()
-    }, 100)
-    return () => clearTimeout(timer)
-  }, [])
+    const el = ref.current
+    if (!el) return
 
+    const show = () => el.classList.add('is-in')
+
+    if (typeof IntersectionObserver === 'undefined') {
+      show()
+      return
+    }
+
+    let io
+    let everFired = false
+    try {
+      io = new IntersectionObserver(
+        entries => {
+          everFired = true
+          for (const e of entries) {
+            // 进入视口，或已经被滚过去了（在视口上方），都算数
+            if (e.isIntersecting || e.boundingClientRect.top < 0) {
+              e.target.classList.add('is-in')
+              io.unobserve(e.target)
+            }
+          }
+        },
+        { rootMargin: '0px 0px -10% 0px', threshold: 0.05 }
+      )
+      io.observe(el)
+    } catch {
+      show()
+      return
+    }
+
+    /* 兜底：正常浏览器里 observe() 之后一定会有一次初始回调（哪怕是"不相交"）。
+       一次都没有，说明观察器在这个环境里不工作——比如页面不合成帧的无头浏览器、
+       某些内嵌 WebView。这种情况下宁可不要动画，也不能让整段内容留在 opacity: 0。 */
+    const failsafe = setTimeout(() => { if (!everFired) show() }, 1000)
+
+    return () => {
+      clearTimeout(failsafe)
+      io.disconnect()
+    }
+  }, [])
+  return ref
+}
+
+function price(value, skuCount) {
+  if (!value || value <= 0) return ''
+  const amount = `${site.currencySymbol}${Number(value).toFixed(2)}`
+  // 只有真的有多个价位才写 From，否则一件孤品写 "From" 会显得含糊
+  return skuCount > 1 ? `From ${amount}` : amount
+}
+
+export default function HomeClient({
+  heroImages = [],
+  storyImage = null,
+  collectionImages = {},
+  featuredProducts = [],
+  freeThreshold = '45',
+  freeEnabled = true,
+}) {
   return (
     <>
-      <Hero heroImages={heroImages} />
-      <Marquee freeThreshold={freeThreshold} freeEnabled={freeEnabled} />
-      <Collections collectionImages={collectionImages} />
-      <StorySection storyImage={storyImage} />
-      <FeaturedProducts products={featuredProducts} />
-      <NewsletterSection />
-      <style dangerouslySetInnerHTML={{ __html: `
-        .reveal { opacity: 0; transform: translateY(32px); transition: opacity 0.9s ease, transform 0.9s ease; }
-        .reveal.visible { opacity: 1; transform: translateY(0); }
-        .prod-card:hover .prod-img-inner { transform: scale(1.04); }
-      ` }} />
+      <Hero images={heroImages} />
+      <FeaturedWorks products={featuredProducts} />
+      <Collections images={collectionImages} />
+      <Studio image={storyImage} />
+      <Commissions freeThreshold={freeThreshold} freeEnabled={freeEnabled} />
     </>
   )
 }
 
-/* ═══ HERO ═══ */
-function Hero({ heroImages }) {
+/* ═══ HERO ═══
+   居中文案在上，横版海报在下。不用满屏深色底图压白字——
+   深色罩会把玻璃的通透感抹掉，而通透正是这门生意要卖的东西。 */
+function Hero({ images }) {
   const [loaded, setLoaded] = useState(false)
-  const [currentIndex, setCurrentIndex] = useState(0)
+  const [index, setIndex] = useState(0)
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoaded(true), 200)
-    return () => clearTimeout(timer)
+    const t = setTimeout(() => setLoaded(true), 120)
+    return () => clearTimeout(t)
   }, [])
 
   useEffect(() => {
-    if (heroImages.length <= 1) return
-    const interval = setInterval(() => {
-      setCurrentIndex(prev => (prev + 1) % heroImages.length)
-    }, 6000)
-    return () => clearInterval(interval)
-  }, [heroImages])
+    if (images.length <= 1) return
+    const id = setInterval(() => setIndex(i => (i + 1) % images.length), 6000)
+    return () => clearInterval(id)
+  }, [images])
+
+  const on = loaded ? 'is-in' : ''
 
   return (
     <section className="hero">
-      {/* 白盒画廊排版：文字居中在上，横版海报居中在下。
-          不再用满屏深色背景图 + 白字，因为深色罩会把玻璃的通透压没。 */}
       <div className="hero-copy">
-        <p className={`hero-anim ${loaded ? 'hero-in' : ''}`}
-           style={{ transitionDelay: '0.1s', fontSize: 10, letterSpacing: '0.4em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 28 }}>
-          Hand-Blown Glass · Made in Britain
+        {/* TODO(文案)：确认工艺与产地后重写 */}
+        <p className={`reveal ${on}`} style={{ transitionDelay: '.05s' }}>
+          <span className="eyebrow">Hand-blown glass · One at a time</span>
         </p>
+
         <h1 className="hero-title">
-          <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.3s', display: 'block' }}>Light, held</span>
-          <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.55s', display: 'block', fontStyle: 'italic', color: 'var(--accent-deep)' }}>in solid form</span>
+          <span className={`reveal ${on}`} style={{ transitionDelay: '.2s' }}>Light, held</span>
+          <span className={`reveal ${on}`} style={{ transitionDelay: '.4s' }}><em>in solid form</em></span>
         </h1>
-        <p className={`hero-anim ${loaded ? 'hero-in' : ''}`}
-           style={{ transitionDelay: '0.85s', fontSize: 16, lineHeight: 1.75, color: 'var(--ink-soft)', maxWidth: 480, margin: '0 auto 40px', textAlign: 'center', fontFamily: 'var(--font-serif-alt)' }}>
-          Each piece is shaped by breath and gravity — no two alike, all made to be picked up, poured from, and lived with.
+
+        <p className={`lede hero-lede reveal ${on}`} style={{ transitionDelay: '.6s' }}>
+          Objects shaped by breath and gravity — each one a little different from the last,
+          made to be lived with rather than looked after.
         </p>
-        <div className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '1.1s' }}>
-          <Link href="/collections"><button className="hero-btn"><span className="hero-btn-line" />Explore Collections<span className="hero-btn-line" /></button></Link>
+
+        <div className={`reveal ${on}`} style={{ transitionDelay: '.8s' }}>
+          <Link href="/collections" className="hero-cta">
+            <span className="hero-cta-line" />
+            View the collection
+            <span className="hero-cta-line" />
+          </Link>
         </div>
       </div>
 
-      {/* 横版海报。用 16:9 的画框把商品图裱起来，细边框 + 柔和投影，
-          让它看起来像挂在白墙上的一幅作品，而不是网页背景。 */}
-      <div className={`hero-stage hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '1.35s' }}>
+      {/* 海报画框：细边 + 柔和投影，像挂在白墙上的作品，而不是网页背景 */}
+      <div className={`hero-stage reveal ${on}`} style={{ transitionDelay: '1s' }}>
         <div className="hero-frame">
-          {heroImages.length > 0 ? (
-            heroImages.map((src, i) => (
-              <div key={src} className={`hero-slide ${i === currentIndex ? 'hero-slide-active' : ''}`}>
+          {images.length > 0 ? (
+            images.map((src, i) => (
+              <div key={src} className={`hero-slide ${i === index ? 'is-active' : ''}`}>
                 <Image
-                  src={src} alt="" fill
+                  src={src}
+                  alt=""
+                  fill
                   style={{ objectFit: 'cover' }}
-                  {...(i === 0
-                    ? { priority: true, fetchPriority: 'high' }   /* 第1张影响 LCP，优先加载 */
-                    : { loading: 'lazy' })}
-                  sizes="(max-width: 1240px) 100vw, 1200px"
+                  sizes="(max-width: 1280px) 100vw, 1200px"
+                  {...(i === 0 ? { priority: true, fetchPriority: 'high' } : { loading: 'lazy' })}
                 />
               </div>
             ))
           ) : (
-            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(120deg,#F8FAFC,#E2E8F0 45%,#CBD5E1)' }} />
+            <div className="hero-empty" />
           )}
-          {/* 玻璃面反光：一道极淡的斜向高光压在画框上 */}
           <div className="hero-sheen" />
         </div>
 
-        {heroImages.length > 1 && (
-          <div className="hero-dots">
-            {heroImages.map((src, i) => (
-              <span key={src} className={`hero-dot ${i === currentIndex ? 'hero-dot-on' : ''}`} />
+        {images.length > 1 && (
+          <div className="hero-dots" role="tablist" aria-label="Hero images">
+            {images.map((src, i) => (
+              <button
+                key={src}
+                className={`hero-dot ${i === index ? 'is-on' : ''}`}
+                aria-label={`Show image ${i + 1}`}
+                aria-selected={i === index}
+                role="tab"
+                onClick={() => setIndex(i)}
+              />
             ))}
           </div>
         )}
       </div>
 
-      <style dangerouslySetInnerHTML={{ __html: `
-        .hero { position: relative; background: var(--paper); padding: 140px var(--page-padding) var(--section-padding-y); display: flex; flex-direction: column; align-items: center; }
-        .hero-copy { position: relative; z-index: 2; text-align: center; max-width: 760px; display: flex; flex-direction: column; align-items: center; }
-        .hero-title { font-family: var(--font-display); font-size: clamp(44px, 7vw, 88px); font-weight: 300; line-height: 1.05; color: var(--ink); margin-bottom: 32px; letter-spacing: -0.01em; }
-        .hero-stage { width: 100%; max-width: 1200px; margin-top: 64px; }
-        .hero-frame { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-sm); box-shadow: var(--shadow-card); background: var(--paper-sunk); }
-        .hero-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 1.5s ease-in-out; }
-        .hero-slide-active { opacity: 1; animation: kenBurns 18s ease-out forwards; }
-        @keyframes kenBurns { 0% { transform: scale(1.06); } 100% { transform: scale(1); } }
-        .hero-sheen { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(115deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0) 38%, rgba(255,255,255,0) 62%, rgba(255,255,255,0.14) 100%); }
-        .hero-dots { display: flex; gap: 8px; justify-content: center; margin-top: 20px; }
-        .hero-dot { width: 18px; height: 1px; background: var(--line-strong); transition: background 0.4s ease; }
-        .hero-dot-on { background: var(--accent); }
-        .hero-anim { opacity: 0; transform: translateY(24px); transition: opacity 0.9s cubic-bezier(0.25,0.46,0.45,0.94), transform 0.9s cubic-bezier(0.25,0.46,0.45,0.94); }
-        .hero-in { opacity: 1 !important; transform: translateY(0) !important; }
-        .hero-btn { background: none; border: 1px solid var(--line-strong); color: var(--ink); font-family: var(--font-body); font-size: 10px; letter-spacing: 0.32em; text-transform: uppercase; padding: 18px 48px; display: inline-flex; align-items: center; gap: 20px; cursor: pointer; transition: border-color 0.4s ease, color 0.4s ease; }
-        .hero-btn:hover { border-color: var(--accent); color: var(--accent-deep); }
-        .hero-btn-line { display: block; width: 28px; height: 1px; background: var(--accent); transition: width 0.4s ease; }
-        .hero-btn:hover .hero-btn-line { width: 40px; }
-        @media (max-width: 768px) {
-          .hero { padding-top: 104px; }
-          .hero-stage { margin-top: 44px; }
-          .hero-frame { aspect-ratio: 4 / 3; }
-          .hero-btn { padding: 16px 32px; font-size: 9px; }
+      <style jsx>{`
+        .hero {
+          display: flex; flex-direction: column; align-items: center;
+          padding: 72px var(--page-padding) var(--section-padding-y);
+          background: var(--paper);
         }
-      ` }} />
+        .hero-copy { max-width: 760px; text-align: center; }
+        .hero-title {
+          font-family: var(--font-display);
+          font-size: clamp(44px, 7vw, 88px);
+          font-weight: 300; line-height: 1.06;
+          margin: 26px 0 28px;
+        }
+        .hero-title span { display: block; }
+        .hero-title em { font-style: italic; color: var(--accent-deep); }
+        .hero-lede { max-width: 480px; margin: 0 auto 40px; }
+
+        .hero-cta {
+          display: inline-flex; align-items: center; gap: 18px;
+          padding: 17px 44px;
+          border: 1px solid var(--line-strong);
+          border-radius: var(--radius-sm);
+          font-size: 10px; letter-spacing: .3em; text-transform: uppercase;
+          color: var(--ink);
+          transition: border-color var(--transition), color var(--transition);
+        }
+        .hero-cta:hover { border-color: var(--accent); color: var(--accent-deep); }
+        .hero-cta-line {
+          width: 26px; height: 1px; background: var(--accent);
+          transition: width var(--transition);
+        }
+        .hero-cta:hover .hero-cta-line { width: 38px; }
+
+        .hero-stage { width: 100%; max-width: 1200px; margin-top: 60px; }
+        .hero-frame {
+          position: relative; aspect-ratio: 16 / 9; overflow: hidden;
+          border: 1px solid var(--line); border-radius: var(--radius-sm);
+          box-shadow: var(--shadow-card); background: var(--paper-sunk);
+        }
+        .hero-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 1.4s ease-in-out; }
+        .hero-slide.is-active { opacity: 1; animation: kenBurns 18s ease-out forwards; }
+        @keyframes kenBurns { from { transform: scale(1.06); } to { transform: scale(1); } }
+
+        .hero-empty {
+          position: absolute; inset: 0;
+          background: linear-gradient(120deg, #F8FAFC, #E2E8F0 45%, #CBD5E1);
+        }
+        /* 玻璃面反光：极淡的斜向高光压在画框上 */
+        .hero-sheen {
+          position: absolute; inset: 0; pointer-events: none;
+          background: linear-gradient(115deg,
+            rgba(255,255,255,.26) 0%, rgba(255,255,255,0) 38%,
+            rgba(255,255,255,0) 62%, rgba(255,255,255,.13) 100%);
+        }
+
+        .hero-dots { display: flex; gap: 8px; justify-content: center; margin-top: 20px; }
+        .hero-dot {
+          width: 20px; height: 10px; padding: 0;
+          background: none; border: none; position: relative;
+        }
+        .hero-dot::after {
+          content: ''; position: absolute; left: 0; top: 50%;
+          width: 20px; height: 1px; background: var(--line-strong);
+          transition: background var(--transition);
+        }
+        .hero-dot.is-on::after { background: var(--accent); }
+
+        @media (min-width: 768px) { .hero { padding-top: 96px; } }
+        @media (max-width: 767px) {
+          .hero-stage { margin-top: 40px; }
+          .hero-frame { aspect-ratio: 4 / 3; }
+          .hero-cta { padding: 15px 30px; font-size: 9px; }
+        }
+      `}</style>
     </section>
   )
 }
 
-function Marquee({ freeThreshold = '45', freeEnabled = true }) {
-  const items = ['Fine Silk Ribbons','Hand-Frayed Collection','Handcrafted Adornments','Patterned Ribbons','Studio Tools','Vintage-Inspired','200+ Colourways', freeEnabled ? `Free Worldwide Shipping over £${freeThreshold}` : 'Worldwide Shipping Available']
+/* ═══ 精选作品 ═══
+   三件，大图，一行。玻璃件靠体量和留白说话，不适合密集网格。 */
+function FeaturedWorks({ products }) {
+  const ref = useReveal()
+  if (!products || products.length === 0) return null
+
   return (
-    <div style={{ background: 'var(--deep)', padding: '14px 0', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-      <div style={{ display: 'inline-flex', animation: 'marquee 24s linear infinite' }}>
-        {[...items, ...items].map((item, i) => (
-          <span key={i} style={{ fontSize: 10, letterSpacing: '0.28em', textTransform: 'uppercase', color: 'var(--warm)', padding: '0 40px' }}>{item} ·</span>
-        ))}
+    <section className="section works reveal" ref={ref}>
+      <div className="container">
+        <header className="section-header">
+          <span className="eyebrow">Selected works</span>
+          <h2 className="display-title" style={{ marginTop: 14 }}>Currently in the studio</h2>
+        </header>
+
+        <div className="works-grid">
+          {products.map(p => (
+            <Link key={p.id} href={`/collections/${p.collection}/${p.slug}`} className="work">
+              <div className="work-frame">
+                {p.image ? (
+                  <Image src={p.image} alt={p.name} fill sizes="(max-width: 767px) 100vw, 33vw" style={{ objectFit: 'cover' }} />
+                ) : (
+                  <div className="work-empty" />
+                )}
+                <span className="work-sheen" />
+              </div>
+              <h3 className="work-name">{p.name}</h3>
+              <p className="work-price">{price(p.price, p.skuCount)}</p>
+            </Link>
+          ))}
+        </div>
       </div>
-      <style dangerouslySetInnerHTML={{ __html: `@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}` }} />
-    </div>
+
+      <style jsx>{`
+        .works-grid { display: grid; grid-template-columns: 1fr; gap: 44px; }
+
+        .work-frame {
+          position: relative; aspect-ratio: 4 / 5; overflow: hidden;
+          background: var(--paper-sunk);
+          border: 1px solid var(--line); border-radius: var(--radius-sm);
+          box-shadow: var(--shadow-sm);
+          transition: box-shadow var(--transition), transform var(--transition);
+        }
+        .work:hover .work-frame { box-shadow: var(--shadow-lift); transform: translateY(-6px); }
+        .work-empty {
+          position: absolute; inset: 0;
+          background: linear-gradient(160deg, #F1F5F9, #CBD5E1);
+        }
+        /* 悬停时一道窄高光斜掠过——光线扫过玻璃，而不是把图片压暗 */
+        .work-sheen {
+          position: absolute; top: 0; bottom: 0; width: 55%;
+          background: linear-gradient(105deg,
+            transparent 0%, rgba(255,255,255,.5) 45%, rgba(255,255,255,.8) 50%,
+            rgba(255,255,255,.5) 55%, transparent 100%);
+          transform: translateX(-130%);
+          mix-blend-mode: screen; pointer-events: none;
+        }
+        .work:hover .work-sheen {
+          transform: translateX(240%);
+          transition: transform .9s cubic-bezier(.22,.61,.36,1);
+        }
+
+        .work-name {
+          margin-top: 18px;
+          font-family: var(--font-display);
+          font-size: clamp(19px, 1.8vw, 23px); font-weight: 300;
+          transition: color var(--transition);
+        }
+        .work:hover .work-name { color: var(--accent-deep); }
+        .work-price { margin-top: 5px; font-size: 14px; color: var(--ink-soft); }
+
+        @media (min-width: 768px) {
+          .works-grid { grid-template-columns: repeat(3, 1fr); gap: 32px; }
+        }
+      `}</style>
+    </section>
   )
 }
 
-/* ═══ COLLECTIONS ═══ */
-function Collections({ collectionImages }) {
+/* ═══ 系列入口 ═══ */
+function Collections({ images }) {
+  const ref = useReveal()
+
   return (
-    <section style={{ padding: 'var(--section-padding-y, 100px) 0' }}>
-      <div style={{ textAlign: 'center', marginBottom: 'clamp(48px, 6vw, 80px)', padding: '0 var(--page-padding, 60px)' }} className="reveal">
-        <span className="eyebrow">Our Collections</span>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 300, marginTop: 20 }}>
-          Six expressions of <em style={{ fontStyle: 'italic', color: 'var(--taupe)' }}>pure silk</em>
-        </h2>
-      </div>
+    <section className="section section--sunk cols reveal" ref={ref}>
+      <div className="container">
+        <header className="section-header">
+          <span className="eyebrow">Collections</span>
+          <h2 className="display-title" style={{ marginTop: 14 }}>
+            {COLLECTIONS.length} ways into the material
+          </h2>
+        </header>
 
-      <div style={{ maxWidth: 1360, margin: '0 auto', padding: '0 var(--page-padding, 60px)' }}>
-        {COLLECTIONS.map((c, i) => {
-          const img = collectionImages[c.slug]
-          const fallback = COLLECTION_FALLBACK_BG[c.slug]
-          const isEven = i % 2 === 1
-
-          return (
-            <Link key={c.slug} href={`/collections/${c.slug}`} style={{ textDecoration: 'none', display: 'block' }}>
-              <div className={`reveal col-row ${isEven ? 'col-row-reverse' : ''}`}>
-                <div className="col-row-img" style={{ background: fallback }}>
-                  {img && (
-                    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                      <Image
-                        src={img} alt={c.name} fill
-                        style={{ objectFit: 'cover', transition: 'transform 0.8s cubic-bezier(0.25,0.46,0.45,0.94)' }}
-                        className="col-row-img-inner"
-                        loading="lazy"
-                        sizes="(max-width: 768px) 100vw, 40vw"
-                      />
-                    </div>
-                  )}
-                </div>
-                <div className="col-row-text">
-                  <span style={{ fontSize: 9, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 16, display: 'block' }}>{c.count}</span>
-                  <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(30px, 3.5vw, 42px)', fontWeight: 300, color: 'var(--ink)', marginBottom: 20, lineHeight: 1.2 }}>{c.name}</h3>
-                  <p style={{ fontSize: 15, color: 'var(--taupe)', lineHeight: 2, marginBottom: 28 }}>{c.desc}</p>
-                  <span className="col-row-cta"><span className="col-row-cta-line" />Shop Collection</span>
-                </div>
+        <div className="cols-grid">
+          {COLLECTIONS.map(c => (
+            <Link key={c.slug} href={`/collections/${c.slug}`} className="col">
+              <div className="col-frame">
+                {images[c.slug] ? (
+                  <Image src={images[c.slug]} alt={c.name} fill sizes="(max-width: 767px) 100vw, 50vw" style={{ objectFit: 'cover' }} />
+                ) : (
+                  <div className="col-empty" style={{ background: c.bg }} />
+                )}
+              </div>
+              <div className="col-meta">
+                <span className="eyebrow">{c.count}</span>
+                <h3 className="col-name">{c.name}</h3>
+                <p className="col-desc">{c.desc}</p>
               </div>
             </Link>
-          )
-        })}
+          ))}
+        </div>
       </div>
 
-      <style dangerouslySetInnerHTML={{ __html: `
-        .col-row { display: grid; grid-template-columns: 2fr 3fr; gap: 0; margin-bottom: clamp(16px, 3vw, 32px); overflow: hidden; min-height: 220px; }
-        .col-row-reverse { direction: rtl; }
-        .col-row-reverse > * { direction: ltr; }
-        .col-row-img { overflow: hidden; position: relative; min-height: 200px; }
-        .col-row:hover .col-row-img-inner { transform: scale(1.05) !important; }
-        .col-row-text { display: flex; flex-direction: column; justify-content: center; padding: clamp(32px, 5vw, 72px); }
-        .col-row-cta { display: inline-flex; align-items: center; gap: 14px; font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--deep); }
-        .col-row-cta-line { width: 28px; height: 1px; background: var(--gold); display: inline-block; transition: width 0.4s ease; }
-        .col-row:hover .col-row-cta-line { width: 48px; }
-        .col-row:hover .col-row-cta { color: var(--gold); }
-        @media (max-width: 768px) { .col-row { grid-template-columns: 1fr; min-height: auto; } .col-row-reverse { direction: ltr; } .col-row-img { min-height: 180px; } .col-row-text { padding: 28px 24px 36px; } }
-      ` }} />
+      <style jsx>{`
+        .cols-grid { display: grid; grid-template-columns: 1fr; gap: 40px; }
+        .col-frame {
+          position: relative; aspect-ratio: 3 / 2; overflow: hidden;
+          border: 1px solid var(--line); border-radius: var(--radius-sm);
+          background: var(--paper);
+          transition: box-shadow var(--transition);
+        }
+        .col:hover .col-frame { box-shadow: var(--shadow-card); }
+        .col-empty { position: absolute; inset: 0; }
+        .col-meta { padding-top: 18px; }
+        .col-name {
+          margin: 8px 0 8px;
+          font-family: var(--font-display);
+          font-size: clamp(22px, 2.2vw, 28px); font-weight: 300;
+          transition: color var(--transition);
+        }
+        .col:hover .col-name { color: var(--accent-deep); }
+        .col-desc { font-size: 14px; line-height: 1.7; color: var(--ink-soft); max-width: 44ch; }
+
+        @media (min-width: 768px) {
+          .cols-grid { grid-template-columns: repeat(2, 1fr); gap: 48px 40px; }
+        }
+      `}</style>
     </section>
   )
 }
 
-/* ═══ STORY ═══ */
-function StorySection({ storyImage }) {
+/* ═══ 工作室 ═══ */
+function Studio({ image }) {
+  const ref = useReveal()
+
   return (
-    <section style={{ background: 'var(--sand)', overflow: 'hidden' }}>
-      <div className="story-row reveal">
-        <div className="story-img">
-          {storyImage ? (
-            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-              <Image src={storyImage} alt="Our Story" fill style={{ objectFit: 'cover' }} loading="lazy" sizes="(max-width: 768px) 100vw, 50vw" />
-            </div>
+    <section className="section studio reveal" ref={ref}>
+      <div className="container studio-grid">
+        <div className="studio-media">
+          {image ? (
+            <Image src={image} alt="" fill sizes="(max-width: 899px) 100vw, 50vw" style={{ objectFit: 'cover' }} />
           ) : (
-            <div style={{ width: '100%', height: '100%', background: 'linear-gradient(160deg, #D4C5B0, #9A8878, #C4A882)' }} />
+            <div className="studio-empty" />
           )}
         </div>
-        <div className="story-text">
-          <span className="eyebrow" style={{ marginBottom: 20 }}>Our Story</span>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(28px, 3.5vw, 42px)', fontWeight: 300, marginBottom: 28, lineHeight: 1.2, color: 'var(--ink)' }}>
-            Made by hand.<br /><em style={{ fontStyle: 'italic' }}>Made with intention.</em>
-          </h2>
-          <p style={{ fontSize: 14, color: 'var(--taupe)', lineHeight: 2, marginBottom: 20 }}>
-            One Glass Object began with a simple frustration: the impossibility of finding a ribbon that felt truly beautiful. We started with a single bolt of Grade 6A mulberry silk and a pair of hands.
-          </p>
-          <p style={{ fontSize: 14, color: 'var(--taupe)', lineHeight: 2, marginBottom: 40 }}>
-            Today we offer over 200 colourways across six collections — all made with the same quiet care as that very first yard.
-          </p>
-          <Link href="/about" className="btn-text"><span className="line" />Read Our Story</Link>
-        </div>
-      </div>
-      <style dangerouslySetInnerHTML={{ __html: `
-        .story-row { display: grid; grid-template-columns: 1fr 1fr; max-width: 1360px; margin: 0 auto; min-height: 560px; }
-        .story-img { overflow: hidden; }
-        .story-text { display: flex; flex-direction: column; justify-content: center; padding: clamp(40px, 6vw, 80px); }
-        @media (max-width: 768px) { .story-row { grid-template-columns: 1fr; } .story-img { min-height: 300px; } .story-text { padding: 40px 24px 60px; } }
-      ` }} />
-    </section>
-  )
-}
 
-/* ═══ FEATURED PRODUCTS ═══ */
-function FeaturedProducts({ products }) {
-  return (
-    <section className="featured-section">
-      <div className="featured-header reveal">
-        <div>
-          <span className="eyebrow" style={{ marginBottom: 16 }}>Artisan Picks</span>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(28px, 3.5vw, 42px)', fontWeight: 300 }}>
-            Our <em style={{ fontStyle: 'italic', color: 'var(--taupe)' }}>Favourites</em>
+        <div className="studio-copy">
+          <span className="eyebrow">The studio</span>
+          <h2 className="display-title" style={{ marginTop: 14 }}>
+            Made by hand.<br />Made one at a time.
           </h2>
-        </div>
-        <Link href="/collections" className="btn-text"><span className="line" />View All</Link>
-      </div>
-      <div className="featured-grid">
-        {products.map(p => (
-          <Link key={p.id} href={`/collections/${p.collection}/${p.slug}`} style={{ textDecoration: 'none' }} className="prod-card reveal">
-            <div style={{ aspectRatio: '1/1', background: 'var(--sand)', marginBottom: 16, overflow: 'hidden', position: 'relative' }}>
-              {p.images?.[0] && (
-                <Image
-                  src={p.images[0]} alt={p.name} fill
-                  className="prod-img-inner"
-                  style={{ objectFit: 'cover', transition: 'transform 0.8s ease' }}
-                  loading="lazy"
-                  sizes="(max-width: 768px) 50vw, 25vw"
-                />
-              )}
-            </div>
-            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(15px, 1.5vw, 18px)', color: 'var(--ink)' }}>{p.name}</h3>
-            <p style={{ fontSize: 14, color: 'var(--taupe)', marginTop: 8 }}>From {formatGBP(p.price)}</p>
-            <div style={{ display: 'flex', gap: 4, marginTop: 12 }}>
-              {p.swatches.map((hex, i) => (
-                <div key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: hex, border: '1px solid rgba(0,0,0,0.05)' }} />
-              ))}
-            </div>
+          <div className="rule rule--left" />
+          {/* TODO(文案)：等业主确认工艺（吹制/铸造）、是否自制、产地后整段重写 */}
+          <p className="lede" style={{ marginTop: 26 }}>
+            Every piece begins as molten glass and ends as something with its own
+            slight asymmetries — a thickness that catches light on one side, a rim
+            that is never quite perfectly round.
+          </p>
+          <p className="lede" style={{ marginTop: 16 }}>
+            Those marks are not flaws to be corrected. They are the record of how
+            the object was made, and the reason no two are the same.
+          </p>
+          <Link href="/about" className="btn-text studio-link">
+            <span className="line" />Read our story
           </Link>
-        ))}
+        </div>
       </div>
-      <style dangerouslySetInnerHTML={{ __html: `
-        .featured-section { padding: var(--section-padding-y, 100px) var(--page-padding, 60px); background: var(--cream); }
-        .featured-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 48px; flex-wrap: wrap; gap: 16px; }
-        .featured-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; }
-        @media (max-width: 1024px) { .featured-grid { grid-template-columns: repeat(3, 1fr); } }
-        @media (max-width: 768px) { .featured-grid { grid-template-columns: repeat(2, 1fr); gap: 20px; } .featured-header { margin-bottom: 32px; } }
-      ` }} />
+
+      <style jsx>{`
+        .studio-grid { display: grid; grid-template-columns: 1fr; gap: 40px; align-items: center; }
+        .studio-media {
+          position: relative; aspect-ratio: 4 / 5; overflow: hidden;
+          border: 1px solid var(--line); border-radius: var(--radius-sm);
+          box-shadow: var(--shadow-card); background: var(--paper-sunk);
+        }
+        .studio-empty {
+          position: absolute; inset: 0;
+          background: linear-gradient(150deg, #F8FAFC, #E2E8F0 50%, #CBD5E1);
+        }
+        .studio-link { margin-top: 30px; }
+
+        @media (min-width: 900px) {
+          .studio-grid { grid-template-columns: 1fr 1fr; gap: 72px; }
+          .studio-media { aspect-ratio: 4 / 5; }
+        }
+      `}</style>
     </section>
   )
 }
 
-/* ═══ NEWSLETTER ═══ */
-function NewsletterSection() {
-  const [email, setEmail] = useState('')
-  const [status, setStatus] = useState('')
-  const [msg, setMsg] = useState('')
-
-  const handleSubscribe = async () => {
-    if (!isValidEmail(email)) { setMsg('Please enter a valid email'); setStatus('error'); return }
-    setStatus('loading')
-    const result = await subscribeEmail(email, 'home_newsletter')
-    if (result.ok) {
-      setStatus('success')
-      setMsg(result.already ? "You're already subscribed — thank you!" : 'Thank you! Please check your inbox to confirm.')
-      setEmail('')
-    } else {
-      setStatus('error')
-      setMsg(result.error)
-    }
-  }
+/* ═══ 定制邀约 ═══
+   代替丝带站的跑马灯。运费信息放在这里安静地说一次就够，
+   不需要滚动横幅反复喊。 */
+function Commissions({ freeThreshold, freeEnabled }) {
+  const ref = useReveal()
 
   return (
-    <section className="newsletter-section">
-      <div className="newsletter-inner reveal">
-        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(24px, 3vw, 32px)', fontWeight: 300, marginBottom: 20 }}>Join the Atelier</h2>
-        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 40, letterSpacing: '0.05em' }}>Receive seasonal palette updates and artisan stories.</p>
-        {status === 'success' ? (
-          <p style={{ fontSize: 13, color: 'var(--gold)', letterSpacing: '0.05em' }}>{msg}</p>
-        ) : (
-          <>
-            <div className="newsletter-form">
-              <input type="email" value={email} onChange={e => { setEmail(e.target.value); setStatus(''); setMsg('') }}
-                onKeyDown={e => e.key === 'Enter' && handleSubscribe()}
-                placeholder="Email Address" style={{ background: 'none', border: 'none', color: '#fff', flex: 1, outline: 'none', fontSize: 16, minWidth: 0 }} />
-              <button onClick={handleSubscribe} disabled={status === 'loading'}
-                style={{ background: 'none', border: 'none', color: 'var(--gold)', textTransform: 'uppercase', fontSize: 10, letterSpacing: '0.2em', whiteSpace: 'nowrap', padding: '8px 0', cursor: 'pointer' }}>
-                {status === 'loading' ? '…' : 'Subscribe'}
-              </button>
-            </div>
-            {status === 'error' && <p style={{ fontSize: 11, color: '#f87171', marginTop: 8 }}>{msg}</p>}
-          </>
-        )}
+    <section className="section section--sunk comm reveal" ref={ref}>
+      <div className="container container--text comm-inner">
+        <span className="eyebrow">Commissions</span>
+        <h2 className="display-title" style={{ marginTop: 14 }}>
+          Something made for <em>one place</em>
+        </h2>
+        {/* TODO(文案)：等业主确认是否接定制、范围与交期后重写 */}
+        <p className="lede" style={{ marginTop: 22 }}>
+          Pieces can be made to a size, a colour, or a particular quality of light.
+          Tell us the room and we will tell you what is possible.
+        </p>
+        <Link href="/bespoke" className="btn-secondary comm-btn">Enquire</Link>
+
+        <p className="comm-note">
+          {freeEnabled
+            ? `Carefully packed and insured. Free UK shipping over ${site.currencySymbol}${freeThreshold}.`
+            : 'Carefully packed and insured. Shipping calculated at checkout.'}
+        </p>
       </div>
-      <style dangerouslySetInnerHTML={{ __html: `
-        .newsletter-section { padding: var(--section-padding-y, 100px) var(--page-padding, 60px); background: var(--deep); color: #fff; text-align: center; }
-        .newsletter-inner { max-width: 500px; margin: 0 auto; }
-        .newsletter-form { display: flex; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 12px; gap: 12px; }
-        @media (max-width: 480px) { .newsletter-form { flex-direction: column; border-bottom: none; gap: 16px; } .newsletter-form input { border-bottom: 1px solid rgba(255,255,255,0.2) !important; padding-bottom: 12px; } .newsletter-form button { border: 1px solid rgba(255,255,255,0.2) !important; padding: 14px !important; } }
-      ` }} />
+
+      <style jsx>{`
+        .comm-inner { text-align: center; }
+        .comm-btn { width: auto; margin-top: 32px; }
+        .comm-note {
+          margin-top: 28px;
+          font-size: 12px; letter-spacing: .04em; color: var(--ink-faint);
+        }
+      `}</style>
     </section>
   )
 }

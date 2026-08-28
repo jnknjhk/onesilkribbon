@@ -62,7 +62,7 @@ export const COLLECTIONS = [
   {
     slug: 'lighting',
     name: 'Lighting',
-    count: 'Light, Held',
+    count: 'A Contained Glow',
     adminLabel: '灯具 Lighting',
     desc: 'Shades, votives and pendants that turn light into something you can almost touch.',
     bg: 'linear-gradient(160deg,#EDE2CE,#CDB68C,#96794E)',

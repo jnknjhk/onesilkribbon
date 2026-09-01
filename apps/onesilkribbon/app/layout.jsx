@@ -1,6 +1,7 @@
 import './globals.css'
 import { Suspense } from 'react'
 import { Playfair_Display, Lora, Jost } from 'next/font/google'
+import { GoogleAnalytics } from '@next/third-parties/google'
 import { Footer } from '@/components/Footer'
 import { CartProvider } from '@/components/CartProvider'
 import { CartDrawer } from '@/components/CartDrawer'
@@ -116,6 +117,7 @@ export default function RootLayout({ children }) {
           </AuthProvider>
         </CartProvider>
       </body>
+      <GoogleAnalytics gaId="G-D48ERTWLOR" />
     </html>
   )
 }

@@ -1,22 +1,29 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { CONSENT_KEY, setConsent } from '@/lib/consent'
 
 export default function CookieBanner() {
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
-    const consent = localStorage.getItem('osr_cookie_consent')
-    if (!consent) setVisible(true)
+    try {
+      if (!localStorage.getItem(CONSENT_KEY)) setVisible(true)
+    } catch {
+      // localStorage 不可用（隐私模式）——存不住选择，就别反复弹横幅烦人了。
+      // Analytics 那边同样读不到同意状态，默认不会加载 GA。
+    }
   }, [])
 
+  // 选择要经过 setConsent()，它会派发事件让 Analytics 立即响应，
+  // 不用刷新页面 GA 就能开始/继续保持关闭
   const accept = () => {
-    localStorage.setItem('osr_cookie_consent', 'accepted')
+    setConsent('accepted')
     setVisible(false)
   }
 
   const decline = () => {
-    localStorage.setItem('osr_cookie_consent', 'declined')
+    setConsent('declined')
     setVisible(false)
   }
 

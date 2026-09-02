@@ -65,6 +65,44 @@ export async function GET(req) {
       'Exception': 3, 'Expired': 1,
     }
 
+    // 把 AfterShip 返回的节点存进 tracking_events，这样即使以后停用 AfterShip、
+    // 或者它清掉了历史数据，轨迹在自己库里仍然查得到。
+    // 存档失败不影响本次查询结果的返回。
+    if (tracking?.checkpoints?.length) {
+      try {
+        const { data: known } = await supabaseAdmin
+          .from('tracking_events').select('event_time, message').eq('order_id', order.id)
+        const seen = new Set((known || []).map(e => `${e.event_time}|${e.message}`))
+
+        const fresh = tracking.checkpoints
+          .map(cp => ({
+            order_id:        order.id,
+            tracking_number: order.tracking_number,
+            carrier:         order.tracking_carrier,
+            status:          cp.tag || tracking.tag || null,
+            message:         cp.message || null,
+            location:        cp.location || cp.country_name || null,
+            event_time:      cp.checkpoint_time ? new Date(cp.checkpoint_time).toISOString() : null,
+          }))
+          .filter(e => e.event_time && !seen.has(`${e.event_time}|${e.message}`))
+
+        if (fresh.length) await supabaseAdmin.from('tracking_events').insert(fresh)
+
+        // 物流商说已签收就把送达时间落库——delivered_at 字段一直存在
+        // 但从来没有被写入过，导致系统里无法区分"在途"和"已完成"
+        if (tracking.tag === 'Delivered' && !order.delivered_at) {
+          const deliveredCp = [...tracking.checkpoints].reverse().find(cp => cp.tag === 'Delivered')
+          await supabaseAdmin.from('orders').update({
+            delivered_at: deliveredCp?.checkpoint_time
+              ? new Date(deliveredCp.checkpoint_time).toISOString()
+              : new Date().toISOString(),
+          }).eq('id', order.id)
+        }
+      } catch (e) {
+        console.error('[tracking] 轨迹存档失败（不影响查询）:', e.message)
+      }
+    }
+
     const events = tracking ? (tracking.checkpoints || []).map(cp => ({
       date: new Date(cp.checkpoint_time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
       location: cp.location || cp.country_name || '',

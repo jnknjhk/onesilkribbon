@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { verifyAdmin } from '@osr/core/lib/admin-auth'
 import { errorResponse } from '@osr/core/lib/api-error'
+import { logEmail } from '@/lib/email-log'
 
 const RESEND_API = 'https://api.resend.com/emails'
 const FROM = 'One Silk Ribbon <song@onesilkribbon.com>'
@@ -70,8 +71,12 @@ export async function POST(req) {
     })
 
     const data = await res.json()
-    if (!res.ok) throw new Error(data.message || 'Send failed')
+    if (!res.ok) {
+      await logEmail({ kind: 'marketing', to, subject, status: 'failed', error: data.message || 'Send failed' })
+      throw new Error(data.message || 'Send failed')
+    }
 
+    await logEmail({ kind: 'marketing', to, subject, status: 'sent', providerId: data.id })
     return Response.json({ success: true })
   } catch (err) {
     return errorResponse(err, { tag: 'admin-send-email' })

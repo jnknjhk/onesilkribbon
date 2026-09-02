@@ -1,3 +1,5 @@
+import { logEmail } from '@/lib/email-log'
+
 const RESEND_API = 'https://api.resend.com/emails'
 const FROM = 'One Silk Ribbon <song@onesilkribbon.com>'
 
@@ -57,18 +59,36 @@ export async function POST(req) {
       </div>
     </div></body></html>`
 
-    await Promise.all([
-      fetch(RESEND_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.RESEND_API_KEY}` },
-        body: JSON.stringify({ from: FROM, to: 'song@onesilkribbon.com', reply_to: email, subject: `New Enquiry: ${subject || 'Website Contact'} — ${name}`, html: ownerHtml }),
-      }),
-      fetch(RESEND_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.RESEND_API_KEY}` },
-        body: JSON.stringify({ from: FROM, to: email, subject: 'We received your message — One Silk Ribbon', html: replyHtml }),
-      }),
+    // 之前这两个 fetch 的响应完全没检查——Resend 返回错误也会被当成发送成功，
+    // 客户看到"已收到你的留言"，而你那边其实什么都没收到。现在逐封检查并落库。
+    async function send({ to, replyTo, subject: subj, html, kind }) {
+      try {
+        const res = await fetch(RESEND_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.RESEND_API_KEY}` },
+          body: JSON.stringify({ from: FROM, to, ...(replyTo ? { reply_to: replyTo } : {}), subject: subj, html }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.message || 'Email send failed')
+        await logEmail({ kind, to, subject: subj, status: 'sent', providerId: data.id })
+        return true
+      } catch (e) {
+        await logEmail({ kind, to, subject: subj, status: 'failed', error: e.message })
+        return false
+      }
+    }
+
+    const [ownerSent, replySent] = await Promise.all([
+      send({ to: 'song@onesilkribbon.com', replyTo: email, subject: `New Enquiry: ${subject || 'Website Contact'} — ${name}`, html: ownerHtml, kind: 'contact' }),
+      send({ to: email, subject: 'We received your message — One Silk Ribbon', html: replyHtml, kind: 'contact_autoreply' }),
     ])
+
+    // 给站主的那封才是关键——它没发出去就等于这条留言丢了，必须让客户知道
+    if (!ownerSent) {
+      return Response.json({ error: 'Failed to send message' }, { status: 500 })
+    }
+    // 自动回复失败不影响留言本身已送达，不用打扰客户
+    if (!replySent) console.error('[contact] 自动回复发送失败，但留言已送达站主')
 
     return Response.json({ success: true })
   } catch (err) {

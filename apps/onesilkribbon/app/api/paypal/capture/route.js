@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/nextjs'
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { sendOrderConfirmation, sendOwnerNotification } from '@/lib/email'
 import { deductStock } from '@/lib/stock-check'
+import { saveCheckoutDetailsToAccount } from '@/lib/user-records'
 import { redirect } from 'next/navigation'
 
 const PAYPAL_BASE = process.env.PAYPAL_MODE === 'live'
@@ -118,7 +119,9 @@ export async function GET(req) {
         } else {
           // 写入订单商品（包含 sku_id 和 product_id）
           if (items.length > 0) {
-            await supabaseAdmin.from('order_items').insert(
+            // 钱已经收了，这里再失败就是"有订单但不知道客户买了什么"——发不了货，
+            // 事后也无从补救，所以必须报警而不是静默跳过
+            const { error: itemsError } = await supabaseAdmin.from('order_items').insert(
               items.map(i => ({
                 order_id:        order.id,
                 product_id:      i.productId || null,
@@ -130,10 +133,20 @@ export async function GET(req) {
                 line_total_gbp:  (parseFloat(i.price) * i.qty).toFixed(2),
               }))
             )
+            if (itemsError) {
+              Sentry.captureMessage('PayPal 已收款但订单明细写入失败，该订单无法发货', {
+                level: 'error',
+                tags: { api: 'paypal-capture', orderNumber },
+                extra: { itemsError: itemsError.message, items },
+              })
+            }
 
             // 扣减库存
             await deductStock(items)
           }
+
+          // 登录用户：把收货信息补进账户
+          await saveCheckoutDetailsToAccount({ userId, form })
 
           // 优惠码使用次数递增
           const couponCode = totals.couponCode

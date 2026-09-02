@@ -1,5 +1,6 @@
 import { supabase, supabaseAdmin } from '@osr/core/lib/supabase'
 import { NextResponse } from 'next/server'
+import { ensureUserProfile } from '@/lib/user-records'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,11 +51,16 @@ export async function GET(request) {
     // 同时拉取 profile 补充信息——注意 supabase.auth.getUser(token) 只是校验了 token，
     // 并不会让后续 .from() 查询带上这个用户的身份（anon client 不会自动 setSession），
     // 所以这里必须用 service role 查，不能指望 user_profiles 的 RLS 替它做权限校验。
-    const { data: profile } = await supabaseAdmin
+    // maybeSingle 而不是 single：老账号可能还没有档案，single 查不到行会抛错。
+    // 这里也是全站唯一每次访问都必经的登录态检查，所以顺便作为建档的兜底点——
+    // 任何登录用户第一次访问站点时，档案就会被补上。
+    let { data: profile } = await supabaseAdmin
       .from('user_profiles')
       .select('first_name, last_name, avatar_url')
       .eq('id', user.id)
-      .single()
+      .maybeSingle()
+
+    if (!profile) profile = await ensureUserProfile(user)
 
     return NextResponse.json({
       user: {

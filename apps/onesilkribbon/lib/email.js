@@ -1,20 +1,31 @@
 // ─── Email sender via Resend ──────────────────────────────────────────────────
+import { logEmail } from '@/lib/email-log'
+
 const RESEND_API = 'https://api.resend.com/emails'
 const FROM       = `One Silk Ribbon <${process.env.EMAIL_FROM || 'song@onesilkribbon.com'}>`
 const OWNER      = 'song@onesilkribbon.com'
 
-async function sendEmail({ to, subject, html }) {
-  const res = await fetch(RESEND_API, {
-    method: 'POST',
-    headers: {
-      'Content-Type':  'application/json',
-      'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-    },
-    body: JSON.stringify({ from: FROM, to, subject, html }),
-  })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.message || 'Email send failed')
-  return data
+// kind / orderNumber 只用于写「邮件记录」，不影响邮件内容本身。
+// 成功和失败都落库，后台才能看出"这封到底发出去没有"。
+async function sendEmail({ to, subject, html, kind = 'other', orderNumber = null }) {
+  try {
+    const res = await fetch(RESEND_API, {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({ from: FROM, to, subject, html }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.message || 'Email send failed')
+
+    await logEmail({ kind, to, subject, orderNumber, status: 'sent', providerId: data.id })
+    return data
+  } catch (err) {
+    await logEmail({ kind, to, subject, orderNumber, status: 'failed', error: err.message })
+    throw err
+  }
 }
 
 // ─── Brand styles ─────────────────────────────────────────────────────────────
@@ -129,6 +140,8 @@ export async function sendOrderConfirmation({ order, items, form, totals }) {
     to: form.email,
     subject: `Order Confirmed — ${order.order_number} | One Silk Ribbon`,
     html,
+    kind: 'order_confirmation',
+    orderNumber: order.order_number,
   })
 }
 
@@ -162,6 +175,8 @@ export async function sendOwnerNotification({ order, items, form, totals }) {
     to: OWNER,
     subject: `New Order £${totals.total} — ${order.order_number}`,
     html,
+    kind: 'owner_notification',
+    orderNumber: order.order_number,
   })
 }
 
@@ -199,5 +214,7 @@ export async function sendShippingNotification({ order, trackingNumber, carrier,
     to: order.customer_email,
     subject: `Your order is on its way — ${order.order_number} | One Silk Ribbon`,
     html,
+    kind: 'shipping',
+    orderNumber: order.order_number,
   })
 }

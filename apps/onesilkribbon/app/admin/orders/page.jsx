@@ -1,9 +1,9 @@
 'use client'
 import { useState, useEffect } from 'react'
 
-const STATUS_OPTIONS = ['all','pending','paid','shipped','cancelled','refunded']
-const STATUS_LABEL   = { all:'全部', pending:'待处理', paid:'已付款', shipped:'已发货', cancelled:'已取消', refunded:'已退款' }
-const STATUS_COLOR   = { paid:'#4ade80', pending:'#facc15', shipped:'#60a5fa', cancelled:'#f87171', refunded:'#c084fc' }
+const STATUS_OPTIONS = ['all','pending','paid','shipped','delivered','cancelled','refunded']
+const STATUS_LABEL   = { all:'全部', pending:'待处理', paid:'已付款', shipped:'已发货', delivered:'已送达', cancelled:'已取消', refunded:'已退款' }
+const STATUS_COLOR   = { paid:'#4ade80', pending:'#facc15', shipped:'#60a5fa', delivered:'#22c55e', cancelled:'#f87171', refunded:'#c084fc' }
 const C = { bg:'#F5F3F0', white:'#fff', border:'#E8E4DF', gold:'#B89B6A', ink:'#1C1714', muted:'#A8A4A0', sub:'#6B6460' }
 
 const fmt     = n => `£${Number(n||0).toFixed(2)}`
@@ -88,17 +88,22 @@ export default function OrdersPage() {
           trackingUrl: shipForm.trackingUrl || '',
         }),
       })
+      const data = await res.json().catch(() => ({}))
       if (res.ok) {
-        // /api/email 已经用 service-role 权限把 status/tracking 字段写库并发送了通知邮件，
+        // /api/email 已经用 service-role 权限把 status/tracking 字段写库、记了物流轨迹并发送了通知邮件，
         // 这里只需要把本地状态同步一下，不需要（也不应该）再用匿名端 supabase 客户端写一次库。
         const updated = { ...selected, status:'shipped', tracking_number:shipForm.trackingNumber, tracking_carrier:shipForm.carrier, tracking_url:shipForm.trackingUrl || null, shipped_at:new Date().toISOString() }
         setOrders(prev => prev.map(o => o.id === selected.id ? updated : o))
         setSelected(updated)
         setShowShipModal(false)
         setShipForm({ trackingNumber:'', carrier:'', trackingUrl:'' })
-        setActionMsg('✅ 发货成功，通知邮件已发送')
+        // 区分"发货成功"和"发货成功但邮件没发出去"——以前邮件一失败就提示
+        // "发送邮件失败，请重试"，而订单其实已经标记为已发货了，容易重复操作
+        setActionMsg(data.emailSent === false
+          ? '⚠️ 订单已标记发货，但通知邮件发送失败（可在「邮件记录」查看原因）'
+          : '✅ 发货成功，通知邮件已发送')
       } else {
-        setActionMsg('❌ 发送邮件失败，请重试')
+        setActionMsg('❌ 发货失败：' + (data.error || '请重试'))
       }
     } catch (e) { setActionMsg('❌ 操作失败：' + e.message) }
     setActionLoading(false)
@@ -146,6 +151,27 @@ export default function OrdersPage() {
         setActionMsg('✅ 订单已取消')
       } else {
         setActionMsg('❌ 取消失败：' + (data.error || ''))
+      }
+    } catch (e) { setActionMsg('❌ 操作失败：' + e.message) }
+    setActionLoading(false)
+  }
+
+  // ── 确认送达 ──────────────────────────────────────────────────────────────
+  async function handleDeliver() {
+    setActionLoading(true)
+    try {
+      const res = await fetch('/api/admin/orders', {
+        method:'PATCH', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ id: selected.id, action:'deliver' }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        const updated = { ...selected, status:'delivered', delivered_at: data.order?.delivered_at }
+        setOrders(prev => prev.map(o => o.id === selected.id ? updated : o))
+        setSelected(updated)
+        setActionMsg('✅ 已标记为送达')
+      } else {
+        setActionMsg('❌ 操作失败：' + (data.error || ''))
       }
     } catch (e) { setActionMsg('❌ 操作失败：' + e.message) }
     setActionLoading(false)
@@ -453,6 +479,15 @@ export default function OrdersPage() {
                   <button onClick={() => { setShowShipModal(true); setActionMsg('') }}
                     style={{ padding:'10px', background:'#1e3a5f', border:'none', borderRadius:8, color:'#fff', fontSize:12, cursor:'pointer' }}>
                     ✏️ 更新快递信息
+                  </button>
+                )}
+
+                {/* 确认送达。接了 AfterShip 的话物流商回传签收会自动标记，
+                    没接或物流商不回传时用这个手动确认，否则订单会永远停在"已发货" */}
+                {selected.status === 'shipped' && (
+                  <button onClick={handleDeliver} disabled={actionLoading}
+                    style={{ padding:'10px', background:'#22c55e', border:'none', borderRadius:8, color:'#fff', fontSize:12, cursor: actionLoading ? 'not-allowed' : 'pointer', opacity: actionLoading ? 0.6 : 1 }}>
+                    ✅ 确认已送达
                   </button>
                 )}
 

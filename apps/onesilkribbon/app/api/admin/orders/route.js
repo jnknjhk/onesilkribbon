@@ -45,6 +45,29 @@ export async function PATCH(req) {
       return Response.json({ success: true, order: data })
     }
 
+    // 手动标记送达。接了 AfterShip 的话物流商说签收就会自动写 delivered_at，
+    // 但没接 / 物流商不回传时需要能手动确认，否则订单永远停在"已发货"。
+    if (action === 'deliver') {
+      const deliveredAt = new Date().toISOString()
+      const { data, error } = await supabaseAdmin.from('orders').update({
+        status:       'delivered',
+        delivered_at: deliveredAt,
+      }).eq('id', id).select().single()
+      if (error) return errorResponse(error, { tag: 'admin-orders-deliver' })
+
+      await supabaseAdmin.from('tracking_events').insert({
+        order_id:        id,
+        tracking_number: data.tracking_number || null,
+        carrier:         data.tracking_carrier || null,
+        status:          'Delivered',
+        message:         '已确认送达（后台手动标记）',
+        location:        data.shipping_city || null,
+        event_time:      deliveredAt,
+      })
+
+      return Response.json({ success: true, order: data })
+    }
+
     return Response.json({ error: 'Unknown action' }, { status: 400 })
   } catch (err) {
     return errorResponse(err, { tag: 'admin-orders-patch' })

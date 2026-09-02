@@ -16,6 +16,8 @@ const NAV = [
   { href: '/admin/subscribers', label: '订阅用户', icon: '▧' },
   { href: '/admin/marketing', label: '营销',   icon: '◇' },
   { href: '/admin/email',     label: '发邮件', icon: '✉' },
+  { href: '/admin/emails',    label: '邮件记录', icon: '❐' },
+  { href: '/admin/maintenance', label: '数据维护', icon: '⚙' },
 ]
 
 const C = {

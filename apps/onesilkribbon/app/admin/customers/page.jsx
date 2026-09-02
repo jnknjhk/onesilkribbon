@@ -15,6 +15,7 @@ export default function CustomersPage() {
   const [filter, setFilter] = useState('all') // all | registered | guest
   const [selected, setSelected] = useState(null)
   const [page, setPage] = useState(1)
+  const [degraded, setDegraded] = useState(null) // { total, limit } — 见下方提示条
 
   useEffect(() => { load() }, [])
 
@@ -24,6 +25,7 @@ export default function CustomersPage() {
       const res = await fetch('/api/admin/customers')
       const data = await res.json()
       setCustomers(data.customers || [])
+      setDegraded(data.degraded ? { total: data.total || 0, limit: data.limit || 0 } : null)
     } catch { setCustomers([]) }
     setLoading(false)
   }
@@ -50,6 +52,19 @@ export default function CustomersPage() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <div style={{ marginBottom: 20 }}>
           <h1 style={{ color: C.ink, fontSize: 24, fontWeight: 300, marginBottom: 16 }}>客户管理</h1>
+
+          {/* customer_summary 视图不存在时会退回内存聚合。这条提示必须比普通的"数据被截断"
+              更醒目：截断只是看不到人，而内存聚合触顶后，看得到的人身上的累计消费和订单数
+              是**算少的**，页面却显示得像是准确值。 */}
+          {degraded && (
+            <div style={{ padding: '10px 14px', marginBottom: 16, borderRadius: 6, fontSize: 12, lineHeight: 1.7, background: '#FFF7E8', border: '1px solid #E8C98A', color: '#8A6410' }}>
+              ⚠ 客户汇总视图尚未创建，当前数字由最近 {degraded.limit} 笔订单在内存中聚合得出。
+              {degraded.total > degraded.limit
+                ? <> 目前共 <strong>{degraded.total}</strong> 笔订单，已超过上限，<strong>累计消费与订单数正在少算</strong>。</>
+                : <> 订单数（{degraded.total}）尚未触顶，数字暂时是准的。</>}
+              {' '}请在 Supabase SQL Editor 执行 <code>supabase/migrations/2026-09-02-customer-summary.sql</code>。
+            </div>
+          )}
 
           {/* 统计 */}
           <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>

@@ -2,6 +2,8 @@ import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { verifyAdmin } from '@osr/core/lib/admin-auth'
 import { errorResponse } from '@osr/core/lib/api-error'
 
+const ORDERS_CAP = 2000
+
 // GET /api/admin/orders            — 订单列表
 // GET /api/admin/orders?itemsFor=<orderId> — 单个订单的商品明细
 export async function GET(req) {
@@ -19,11 +21,20 @@ export async function GET(req) {
   }
 
   // 兜底上限，防止订单量增长后单次查询/响应体无限膨胀；管理页目前是整表拉取后前端筛选分页，
-  // 真正的服务端分页+筛选需要同步改造前端筛选逻辑，这里先加一个安全上限
-  const { data, error } = await supabaseAdmin
-    .from('orders').select('*').order('created_at', { ascending: false }).limit(2000)
+  // 真正的服务端分页+筛选需要同步改造前端筛选逻辑，这里先加一个安全上限。
+  // 同时带上精确总数：触顶时最老的订单会静默消失（页面不报错、搜索也搜不到），
+  // 前端靠 total > limit 显示提示，好让"该上服务端分页了"这件事被看见。
+  const { data, error, count } = await supabaseAdmin
+    .from('orders')
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .limit(ORDERS_CAP)
   if (error) return errorResponse(error, { tag: 'admin-orders-get' })
-  return Response.json({ orders: data || [] })
+  return Response.json({
+    orders: data || [],
+    total:  count ?? (data || []).length,
+    limit:  ORDERS_CAP,
+  })
 }
 
 // PATCH /api/admin/orders — { id, action:'cancel', reason }

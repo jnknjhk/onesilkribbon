@@ -10,8 +10,11 @@ import ProductEditor from './ProductEditor'
 export default function ProductsPage() {
   const [products, setProducts] = useState([])
   const [skuMap, setSkuMap] = useState({})
+  const [cap, setCap] = useState({ total: 0, limit: 0 })
   const [loading, setLoading] = useState(true)
-  const [editing, setEditing] = useState(null)          // null | 'new' | product
+  const [opening, setOpening] = useState(null)          // 正在为编辑取完整产品的 id
+  const [editing, setEditing] = useState(null)          // null | 'new' | 完整产品对象
+  const [editingSkus, setEditingSkus] = useState(null)  // 与 editing 一同取回的 SKU
   const [confirmState, setConfirmState] = useState(null) // { type: 'delete'|'duplicate', product }
   const [confirmLoading, setConfirmLoading] = useState(false)
   const [infoState, setInfoState] = useState(null)       // { title, message }
@@ -26,6 +29,7 @@ export default function ProductsPage() {
       const res = await fetch('/api/admin/products')
       const data = await res.json()
       setProducts(Array.isArray(data.products) ? data.products : [])
+      setCap({ total: data.total || 0, limit: data.limit || 0 })
 
       const map = {}
       for (const sku of (data.skus || [])) {
@@ -35,6 +39,25 @@ export default function ProductsPage() {
       setSkuMap(map)
     } catch { setProducts([]) }
     setLoading(false)
+  }
+
+  // 列表接口只返回列表要渲染的那几列（不含 description / specifications 等富文本），
+  // 所以打开编辑器前必须按 id 取一次完整产品——否则表单会拿到 undefined，
+  // 保存时就把描述和规格一起清空了。
+  async function openEditor(p) {
+    if (p === 'new') { setEditingSkus(null); setEditing('new'); return }
+    setOpening(p.id)
+    try {
+      const res = await fetch(`/api/admin/products?id=${p.id}`)
+      const data = await res.json()
+      if (!data.product) throw new Error(data.error || '读取产品失败')
+      setEditing(data.product)
+      setEditingSkus(data.skus || [])
+    } catch (e) {
+      // 宁可不进编辑器，也不能拿着残缺的产品进去——那样一保存就会丢数据
+      setInfoState({ title: '打开失败', message: `${e.message}，请刷新后重试` })
+    }
+    setOpening(null)
   }
 
   async function handleConfirm() {
@@ -123,6 +146,7 @@ export default function ProductsPage() {
         <ProductEditor
           key={editing === 'new' ? 'new' : editing.id}
           product={editing}
+          initialSkus={editingSkus}
           onCancel={() => setEditing(null)}
           onSaved={() => { setEditing(null); loadProducts() }}
           onDelete={p => setConfirmState({ type: 'delete', product: p })}
@@ -148,7 +172,9 @@ export default function ProductsPage() {
         products={products}
         skuMap={skuMap}
         loading={loading}
-        onEdit={setEditing}
+        cap={cap}
+        opening={opening}
+        onEdit={openEditor}
         onDuplicate={p => setConfirmState({ type: 'duplicate', product: p })}
         onDelete={p => setConfirmState({ type: 'delete', product: p })}
       />

@@ -1,11 +1,12 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { Pagination } from '@osr/core/components/admin/Pagination'
+import { CapNotice } from '@osr/core/components/admin/CapNotice'
 import { C, inp, COLLECTIONS, PAGE_SIZE, collectionLabel } from './ui'
 
 // 产品列表：搜索、按系列筛选、分页，以及每行的编辑/复制/删除入口。
 // 搜索和分页都是纯前端的——列表数据由父组件一次性拉好后传进来。
-export default function ProductList({ products, skuMap, loading, onEdit, onDuplicate, onDelete }) {
+export default function ProductList({ products, skuMap, loading, cap, opening, onEdit, onDuplicate, onDelete }) {
   const [search, setSearch] = useState('')
   const [filterCol, setFilterCol] = useState('all')
   const [page, setPage] = useState(1)
@@ -25,10 +26,12 @@ export default function ProductList({ products, skuMap, loading, onEdit, onDupli
       <div className="admin-products-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ color: C.ink, fontSize: 24, fontWeight: 300, marginBottom: 8 }}>产品管理</h1>
-          <p style={{ color: C.muted, fontSize: 13 }}>共 {products.length} 个产品</p>
+          <p style={{ color: C.muted, fontSize: 13 }}>共 {cap?.total || products.length} 个产品</p>
         </div>
         <button onClick={() => onEdit('new')} className="admin-tap-target" style={{ background: C.gold, border: 'none', borderRadius: 8, color: '#fff', fontSize: 12, padding: '10px 24px', cursor: 'pointer' }}>+ 新建产品</button>
       </div>
+
+      <CapNotice total={cap?.total} limit={cap?.limit} noun="产品" />
 
       <div className="admin-products-filters" style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索产品名称…" style={{ flex: 1, ...inp }} />
@@ -66,7 +69,7 @@ export default function ProductList({ products, skuMap, loading, onEdit, onDupli
                 const isActive = p.is_active !== false
                 const attrs = p.attribute_config || []
                 return (
-                  <tr key={p.id} style={{ borderBottom: '1px solid #F0EDE8', cursor: 'pointer' }} onClick={() => onEdit(p)}>
+                  <tr key={p.id} style={{ borderBottom: '1px solid #F0EDE8', cursor: 'pointer', opacity: opening === p.id ? 0.5 : 1 }} onClick={() => onEdit(p)}>
                     <td data-label="图片" style={{ padding: '10px 16px' }}>
                       {imgs[0]
                         ? <img src={imgs[0]} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4, display: 'block' }} />
@@ -95,7 +98,7 @@ export default function ProductList({ products, skuMap, loading, onEdit, onDupli
                     </td>
                     <td data-label="操作" style={{ padding: '10px 16px' }} onClick={e => e.stopPropagation()}>
                       <div style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={() => onEdit(p)} className="admin-tap-target" style={{ background: C.light, border: 'none', borderRadius: 4, color: C.gold, fontSize: 11, padding: '5px 12px', cursor: 'pointer' }}>编辑</button>
+                        <button onClick={() => onEdit(p)} disabled={!!opening} className="admin-tap-target" style={{ background: C.light, border: 'none', borderRadius: 4, color: C.gold, fontSize: 11, padding: '5px 12px', cursor: opening ? 'wait' : 'pointer' }}>{opening === p.id ? '打开中…' : '编辑'}</button>
                         <button onClick={() => onDuplicate(p)} className="admin-tap-target" style={{ background: C.light, border: 'none', borderRadius: 4, color: C.sub, fontSize: 11, padding: '5px 12px', cursor: 'pointer' }}>复制</button>
                         <button onClick={() => onDelete(p)} className="admin-tap-target" style={{ background: C.light, border: 'none', borderRadius: 4, color: C.red, fontSize: 11, padding: '5px 12px', cursor: 'pointer' }}>删除</button>
                       </div>

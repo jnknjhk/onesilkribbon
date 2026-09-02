@@ -3,6 +3,9 @@ import { verifyAdmin } from '@osr/core/lib/admin-auth'
 import { NextResponse } from 'next/server'
 import { errorResponse } from '@osr/core/lib/api-error'
 
+const PRODUCTS_CAP = 5000
+const SKUS_CAP = 20000
+
 // 获取产品（?id=xxx 拿单个产品+其全部 SKU，否则拿产品列表+全部 SKU）
 // 全部用 service role 查，不受 product_skus 的 "is_active=true 才公开可见" 这条 RLS 限制——
 // 之前前端直接用 anon key 查 product_skus，后台会看不到已下架 SKU 的库存/价格
@@ -20,21 +23,28 @@ export async function GET(req) {
     return NextResponse.json({ product, skus: skus || [] })
   }
 
-  // 兜底上限，防止商品/SKU量增长后单次查询无限膨胀；管理页目前是整表拉取后前端筛选分页
-  const { data: products, error } = await supabase
+  // 兜底上限，防止商品/SKU量增长后单次查询无限膨胀；管理页目前是整表拉取后前端筛选分页。
+  // 只取列表真正渲染的列：description 是富文本，单行接近 2KB，占了整个响应的四成多，
+  // 而列表页一个字都不显示。编辑器打开时会用上面的 ?id= 分支单独取完整产品。
+  const { data: products, error, count } = await supabase
     .from('products')
-    .select('*')
+    .select('id, name, slug, collection, images, attribute_config, is_active', { count: 'exact' })
     .order('created_at', { ascending: false })
-    .limit(5000)
+    .limit(PRODUCTS_CAP)
   if (error) return errorResponse(error, { tag: 'admin-products-get' })
 
   const { data: skus } = await supabase
     .from('product_skus')
     .select('id, product_id, colour, colour_hex, attributes, stock_qty, price_gbp')
     .order('product_id')
-    .limit(20000)
+    .limit(SKUS_CAP)
 
-  return NextResponse.json({ products: products || [], skus: skus || [] })
+  return NextResponse.json({
+    products: products || [],
+    skus:     skus || [],
+    total:    count ?? (products || []).length,
+    limit:    PRODUCTS_CAP,
+  })
 }
 
 // 新建/更新/删除产品

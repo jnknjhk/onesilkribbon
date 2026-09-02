@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { CapNotice } from '@osr/core/components/admin/CapNotice'
 
 const STATUS_OPTIONS = ['all','pending','paid','shipped','delivered','cancelled','refunded']
 const STATUS_LABEL   = { all:'全部', pending:'待处理', paid:'已付款', shipped:'已发货', delivered:'已送达', cancelled:'已取消', refunded:'已退款' }
@@ -27,6 +28,7 @@ function InfoRow({ label, val }) {
 
 export default function OrdersPage() {
   const [orders, setOrders]           = useState([])
+  const [cap, setCap]                 = useState({ total: 0, limit: 0 })
   const [page, setPage]                = useState(1)
   const PAGE_SIZE = 30
   const [loading, setLoading]         = useState(true)
@@ -57,6 +59,7 @@ export default function OrdersPage() {
       const res = await fetch('/api/admin/orders')
       const data = await res.json()
       setOrders(data.orders || [])
+      setCap({ total: data.total || 0, limit: data.limit || 0 })
     } catch { setOrders([]) }
     setLoading(false)
   }
@@ -295,8 +298,9 @@ export default function OrdersPage() {
         <div style={{ marginBottom:20 }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
             <h1 style={{ color:C.ink, fontSize:22, fontWeight:300 }}>订单管理</h1>
-            <span style={{ fontSize:12, color:C.muted }}>共 {orders.length} 笔订单</span>
+            <span style={{ fontSize:12, color:C.muted }}>共 {cap.total || orders.length} 笔订单</span>
           </div>
+          <CapNotice total={cap.total} limit={cap.limit} noun="订单" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜索订单号或客户邮箱…"
             style={{ ...inp, marginBottom:12 }} />
           <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>

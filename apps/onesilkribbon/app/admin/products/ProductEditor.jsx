@@ -12,11 +12,14 @@ import {
 // 不需要父组件替它管理和重置。
 //
 // props:
-//   product   — 'new' 或产品对象
-//   onCancel  — 退出编辑（不保存）
-//   onSaved   — 保存成功，父组件应重新拉列表
-//   onDelete  — 删除当前产品（复用列表页的删除流程）
-export default function ProductEditor({ product, onCancel, onSaved, onDelete }) {
+//   product     — 'new' 或**完整**的产品对象（父组件按 id 取好后才挂载这个组件；
+//                 列表接口返回的是裁剪过的产品，缺 description/specifications，
+//                 直接拿来初始化表单会在保存时把这些字段清空）
+//   initialSkus — 父组件取产品时顺手拿到的 SKU，省掉这里重复请求一次
+//   onCancel    — 退出编辑（不保存）
+//   onSaved     — 保存成功，父组件应重新拉列表
+//   onDelete    — 删除当前产品（复用列表页的删除流程）
+export default function ProductEditor({ product, initialSkus, onCancel, onSaved, onDelete }) {
   const isNew = product === 'new'
 
   const [form, setForm] = useState(() => isNew
@@ -48,8 +51,9 @@ export default function ProductEditor({ product, onCancel, onSaved, onDelete }) 
         options: (a.options || []).map(o => typeof o === 'string' ? { value: o, image: '' } : o),
       })))
 
-  const [skus, setSkus] = useState([])
-  const [skusLoading, setSkusLoading] = useState(!isNew)
+  const [skus, setSkus] = useState(() =>
+    (initialSkus || []).map(s => ({ ...s, attributes: s.attributes || {} })))
+  const [skusLoading, setSkusLoading] = useState(!isNew && !initialSkus)
   const [deletedSkuIds, setDeletedSkuIds] = useState([])
   const [showGalleryPicker, setShowGalleryPicker] = useState(false)
   const [batchOpen, setBatchOpen] = useState(false)
@@ -61,7 +65,7 @@ export default function ProductEditor({ product, onCancel, onSaved, onDelete }) 
   // 会漏掉所有已停用的 SKU；而保存时后端会把"不在提交列表里"的 SKU 直接删除，
   // 于是那些没被加载出来的停用 SKU 会在下一次保存时被永久删掉。
   useEffect(() => {
-    if (isNew) return
+    if (isNew || initialSkus) return
     let cancelled = false
     ;(async () => {
       setSkusLoading(true)
@@ -76,7 +80,7 @@ export default function ProductEditor({ product, onCancel, onSaved, onDelete }) 
       if (!cancelled) setSkusLoading(false)
     })()
     return () => { cancelled = true }
-  }, [isNew, product])
+  }, [isNew, product, initialSkus])
 
   function notify(text, ms = 3000) {
     setMsg(text)

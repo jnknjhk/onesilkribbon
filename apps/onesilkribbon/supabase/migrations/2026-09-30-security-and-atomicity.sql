@@ -60,7 +60,30 @@ revoke all on public.subscribers from anon, authenticated;
 -- 丝带备货多，概率低；但玻璃站以孤品为主，超卖一件就得跟客人解释，所以按正确写法改。
 --
 -- 单条 UPDATE 语句在 Postgres 里对同一行是串行的，天然不会丢更新。
-create or replace function public.decrement_sku_stock(p_sku_id uuid, p_qty int)
+--
+-- 先把同名的旧函数全部删掉再重建。原因：库里已经存在一个
+-- increment_coupon_uses(coupon_code text)（返回 void，来历不明的遗留物），
+-- 而 create or replace 不允许改返回类型，会直接报 42P13 让整个脚本回滚。
+-- 参数名也不一样（coupon_code vs p_code），PostgREST 是按参数名解析的，
+-- 所以代码里那次调用其实一直找不到它——等于这个函数从来没被用上过。
+-- 这里按函数名枚举删除，不写死签名，免得以后又撞上别的重载。
+do $$
+declare
+  f record;
+begin
+  for f in
+    select p.oid::regprocedure as sig
+      from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public'
+       and p.proname in ('decrement_sku_stock', 'increment_coupon_uses')
+  loop
+    raise notice '删除旧函数 %', f.sig;
+    execute format('drop function %s', f.sig);
+  end loop;
+end $$;
+
+create function public.decrement_sku_stock(p_sku_id uuid, p_qty int)
 returns int
 language sql
 security definer
@@ -72,7 +95,7 @@ as $$
   returning stock_qty;
 $$;
 
-create or replace function public.increment_coupon_uses(p_code text)
+create function public.increment_coupon_uses(p_code text)
 returns int
 language sql
 security definer

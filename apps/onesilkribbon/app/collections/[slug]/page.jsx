@@ -20,12 +20,27 @@ const getHeroImage = cache(async (slug) => {
   return data?.url || null
 })
 
+// 这个系列现在有几个上架商品。用来决定要不要让搜索引擎收录——
+// 空系列页返回 200 但页面上没有任何商品，Google 会判成"软 404"。
+const getActiveProductCount = cache(async (slug) => {
+  const { count } = await supabaseServer
+    .from('products')
+    .select('*', { count: 'exact', head: true })
+    .eq('collection', slug)
+    .eq('is_active', true)
+  return count || 0
+})
+
 export async function generateMetadata({ params }) {
   const { slug } = params
   const meta = COLLECTION_META[slug]
   if (!meta) return { title: 'Collection' }
 
   const heroImage = await getHeroImage(slug)
+  // 系列还没上架商品时先别让它进索引（比如 patterned-ribbons 是特意留空等新品的）。
+  // follow 保持开启，页面上的导航链接权重照常传递；上架第一个商品后会自动恢复收录，
+  // 不需要回来改代码。
+  const productCount = await getActiveProductCount(slug)
   // 根布局的 title.template 会自动拼上 "| One Silk Ribbon"，<title> 用短标题；
   // openGraph/twitter 不走 template，单独给带完整品牌的版本
   const title = meta.name
@@ -35,6 +50,7 @@ export async function generateMetadata({ params }) {
     title,
     description: meta.desc,
     alternates: { canonical: `/collections/${slug}` },
+    ...(productCount === 0 ? { robots: { index: false, follow: true } } : {}),
     openGraph: {
       title: socialTitle,
       description: meta.desc,

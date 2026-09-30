@@ -4,10 +4,20 @@ import Image from 'next/image'
 
 export const revalidate = 60
 
-export const metadata = {
-  title: 'Journal',
-  description: 'Wedding styling ideas, ribbon craft guides and behind-the-scenes stories from the One Silk Ribbon atelier in the UK.',
-  alternates: { canonical: '/journal' },
+// 还没有任何文章时，这一页只有一句 "No articles yet."——提交给 Google 就是个软 404。
+// 所以先 noindex，发布第一篇文章后自动恢复收录，不需要回来改代码。
+export async function generateMetadata() {
+  const { count } = await supabaseServer
+    .from('journal_posts')
+    .select('*', { count: 'exact', head: true })
+    .eq('is_published', true)
+
+  return {
+    title: 'Journal',
+    description: 'Wedding styling ideas, ribbon craft guides and behind-the-scenes stories from the One Silk Ribbon atelier in the UK.',
+    alternates: { canonical: '/journal' },
+    ...((count || 0) === 0 ? { robots: { index: false, follow: true } } : {}),
+  }
 }
 
 function formatDate(iso) {

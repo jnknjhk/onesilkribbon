@@ -17,27 +17,35 @@ export async function GET(req) {
   const id = searchParams.get('id')
 
   if (id) {
-    const { data: product, error } = await supabase.from('products').select('*').eq('id', id).single()
+    // 编辑器打开商品时走这里，同样并行——这一条路径直接决定"点编辑到表单出现"的等待时间
+    const [{ data: product, error }, { data: skus }] = await Promise.all([
+      supabase.from('products').select('*').eq('id', id).single(),
+      supabase.from('product_skus').select('*').eq('product_id', id),
+    ])
     if (error) return errorResponse(error, { tag: 'admin-products-get-one' })
-    const { data: skus } = await supabase.from('product_skus').select('*').eq('product_id', id)
     return NextResponse.json({ product, skus: skus || [] })
   }
 
   // 兜底上限，防止商品/SKU量增长后单次查询无限膨胀；管理页目前是整表拉取后前端筛选分页。
   // 只取列表真正渲染的列：description 是富文本，单行接近 2KB，占了整个响应的四成多，
   // 而列表页一个字都不显示。编辑器打开时会用上面的 ?id= 分支单独取完整产品。
-  const { data: products, error, count } = await supabase
-    .from('products')
-    .select('id, name, slug, collection, images, attribute_config, is_active', { count: 'exact' })
-    .order('created_at', { ascending: false })
-    .limit(PRODUCTS_CAP)
+  // 两次查询互不依赖，并行发出——串行等于白白多等一个往返（线上一个往返约 450ms）
+  const [
+    { data: products, error, count },
+    { data: skus },
+  ] = await Promise.all([
+    supabase
+      .from('products')
+      .select('id, name, slug, collection, images, attribute_config, is_active', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .limit(PRODUCTS_CAP),
+    supabase
+      .from('product_skus')
+      .select('id, product_id, colour, colour_hex, attributes, stock_qty, price_gbp')
+      .order('product_id')
+      .limit(SKUS_CAP),
+  ])
   if (error) return errorResponse(error, { tag: 'admin-products-get' })
-
-  const { data: skus } = await supabase
-    .from('product_skus')
-    .select('id, product_id, colour, colour_hex, attributes, stock_qty, price_gbp')
-    .order('product_id')
-    .limit(SKUS_CAP)
 
   return NextResponse.json({
     products: products || [],

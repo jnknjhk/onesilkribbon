@@ -14,26 +14,32 @@ export async function GET() {
   try {
     const cutoff = new Date(Date.now() - STALE_DAYS * 86400000).toISOString()
 
-    // 滞留的待付款订单：客户点了结账但没完成支付，会永远停在 pending，
-    // 一直混在订单列表和客户统计里
-    const { data: stalePending } = await supabaseAdmin
-      .from('orders')
-      .select('id, order_number, customer_email, total_gbp, created_at, payment_method')
-      .eq('status', 'pending')
-      .lt('created_at', cutoff)
-      .order('created_at')
-
-    // 过期的 PayPal 临时下单数据：正常支付完成会被删除，
-    // 客户中途放弃的就会留下来，没有清理机制
-    const { data: expiredSessions } = await supabaseAdmin
-      .from('paypal_sessions')
-      .select('id, order_number, created_at, expires_at')
-      .lt('expires_at', new Date().toISOString())
-      .order('created_at')
-
-    // 没有商品明细的订单：发不了货，需要人工核对
-    const { data: allOrders } = await supabaseAdmin.from('orders').select('id, order_number, status, total_gbp, customer_email, created_at')
-    const { data: items } = await supabaseAdmin.from('order_items').select('order_id')
+    // 四次查询互不依赖，并行发出。原来是串行，等于白等三个往返（线上一个约 450ms）。
+    const [
+      // 滞留的待付款订单：客户点了结账但没完成支付，会永远停在 pending，
+      // 一直混在订单列表和客户统计里
+      { data: stalePending },
+      // 过期的 PayPal 临时下单数据：正常支付完成会被删除，
+      // 客户中途放弃的就会留下来，没有清理机制
+      { data: expiredSessions },
+      // 没有商品明细的订单：发不了货，需要人工核对
+      { data: allOrders },
+      { data: items },
+    ] = await Promise.all([
+      supabaseAdmin
+        .from('orders')
+        .select('id, order_number, customer_email, total_gbp, created_at, payment_method')
+        .eq('status', 'pending')
+        .lt('created_at', cutoff)
+        .order('created_at'),
+      supabaseAdmin
+        .from('paypal_sessions')
+        .select('id, order_number, created_at, expires_at')
+        .lt('expires_at', new Date().toISOString())
+        .order('created_at'),
+      supabaseAdmin.from('orders').select('id, order_number, status, total_gbp, customer_email, created_at'),
+      supabaseAdmin.from('order_items').select('order_id'),
+    ])
     const withItems = new Set((items || []).map(i => i.order_id))
     const missingItems = (allOrders || []).filter(o => !withItems.has(o.id) && o.status !== 'pending')
 

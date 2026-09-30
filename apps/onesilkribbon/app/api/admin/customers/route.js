@@ -10,17 +10,19 @@ export async function GET() {
   const admin = await verifyAdmin()
   if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: profiles } = await supabaseAdmin
-    .from('user_profiles')
-    .select('id, email, first_name, last_name, avatar_url, created_at')
-  const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
-
-  // 首选：在数据库里 group by 聚合。整表参与统计，不受任何行数上限影响，
+  // 档案和汇总两次查询互不依赖，并行发出——串行等于白等一个往返（线上约 450ms）。
+  // 首选在数据库里 group by 聚合：整表参与统计，不受任何行数上限影响，
   // 也不用把几千行订单拉到 Node 里再算一遍。
-  const { data: rows, error } = await supabaseAdmin
-    .from('customer_summary')
-    .select('*')
-    .order('spent', { ascending: false })
+  const [{ data: profiles }, { data: rows, error }] = await Promise.all([
+    supabaseAdmin
+      .from('user_profiles')
+      .select('id, email, first_name, last_name, avatar_url, created_at'),
+    supabaseAdmin
+      .from('customer_summary')
+      .select('*')
+      .order('spent', { ascending: false }),
+  ])
+  const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
 
   if (!error) {
     return Response.json({

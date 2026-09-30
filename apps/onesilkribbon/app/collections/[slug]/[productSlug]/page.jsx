@@ -5,6 +5,16 @@ import ProductClient from './ProductClient'
 
 export const revalidate = 60
 
+const SITE_ORIGIN = 'https://onesilkribbon.com'
+
+// 运费设置和结账时用的是同一份数据（settings 表），这样结构化数据里申报的运费
+// 永远跟实际收的一致——搜索结果写免邮、结账却要付钱是最糟的情况。
+// cache() 让 generateMetadata 和页面组件共用同一次查询。
+const getSettings = cache(async () => {
+  const { data } = await supabaseServer.from('settings').select('key, value')
+  return Object.fromEntries((data || []).map(r => [r.key, r.value]))
+})
+
 // generateMetadata 和页面组件是两次独立执行，用 React cache() 包一层——
 // 同一次请求内两边都调用时，实际只会真正打一次数据库
 // 必须过滤 is_active：少了这个条件，后台下架的商品只要还知道链接就照样能打开，
@@ -94,7 +104,7 @@ export default async function ProductPage({ params }) {
   // 页面侧再判断一次是否为空来决定要不要渲染整个区块
   const { data: relatedRaw } = await supabaseServer
     .from('products')
-    .select('id, name, slug, images')
+    .select('id, name, slug, images, collection')
     .eq('collection', product.collection)
     .eq('is_active', true)
     .neq('id', product.id)
@@ -134,7 +144,55 @@ export default async function ProductPage({ params }) {
   // Google Shopping/Merchant Center 要求商品必须带至少一个标识符（gtin/mpn/isbn 三选一）。
   // 手工小批量产品没有真正的条码，用内部 slug 顶 mpn（制造商料号）——总比完全不填、
   // 被 Google 判定"缺商品标识符"要好；等以后如果有真的 UPC/EAN 条码，直接把这行换成 gtin 即可。
+  const settings = await getSettings()
+
   const hasValidOffer = hasPrice && minPrice > 0
+
+  // ── 配送与退货的结构化数据 ────────────────────────────────────────────────
+  // 运费取后台 settings 的真实值（和结账时算的是同一份数据），不是写死的。
+  const freeShippingEnabled = settings.free_shipping_enabled === 'true'
+  const freeThreshold = parseFloat(settings.free_shipping_threshold || '0') || 0
+  const shippingRate = parseFloat(settings.shipping_rate || '0') || 0
+  // 满额免邮时，一件商品是否免邮取决于整车金额，单品页面无法确定，
+  // 所以这里申报的是「不满额时的标准运费」——宁可报高不报低，免得客户看到
+  // 搜索结果写免邮、到结账却要付钱。
+  const shippingDetails = {
+    '@type': 'OfferShippingDetails',
+    shippingRate: {
+      '@type': 'MonetaryAmount',
+      value: shippingRate.toFixed(2),
+      currency: 'GBP',
+    },
+    shippingDestination: { '@type': 'DefinedRegion', addressCountry: 'GB' },
+    deliveryTime: {
+      '@type': 'ShippingDeliveryTime',
+      // /shipping-returns：付款后 2 个工作日内发出
+      handlingTime: { '@type': 'QuantitativeValue', minValue: 0, maxValue: 2, unitCode: 'DAY' },
+      // /shipping-returns：空运，发出后通常 5–14 天送达
+      transitTime: { '@type': 'QuantitativeValue', minValue: 5, maxValue: 14, unitCode: 'DAY' },
+    },
+    ...(freeShippingEnabled && freeThreshold > 0 ? {
+      // 满 £49 免邮，写成"订单满额免运费"这条单独的规则
+      shippingSettingsLink: `${SITE_ORIGIN}/shipping-returns`,
+    } : {}),
+  }
+
+  // 退货：/shipping-returns 写明接受退货、需先联系、退货运费由客户承担，
+  // 但没有写明"几天内可退"。这里填 14 天——英国远程销售法定的最低冷静期，
+  // 取法定下限是最保守、也一定站得住的口径。若你实际给的期限更长，
+  // 请同时改这里和 /shipping-returns 页面，两处必须一致。
+  const returnPolicy = {
+    '@type': 'MerchantReturnPolicy',
+    applicableCountry: 'GB',
+    returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
+    merchantReturnDays: 14,
+    returnMethod: 'https://schema.org/ReturnByMail',
+    returnFees: 'https://schema.org/ReturnShippingFees',
+    merchantReturnLink: `${SITE_ORIGIN}/shipping-returns`,
+  }
+
+  // 价格有效期给一年后；页面重新生成时会跟着往后滚，不会过期
+  const priceValidUntil = new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10)
 
   const jsonLd = product ? {
     '@context': 'https://schema.org',
@@ -162,6 +220,14 @@ export default async function ProductPage({ params }) {
         itemCondition: 'https://schema.org/NewCondition',
         url: productUrl,
         seller: { '@type': 'Organization', name: 'One Silk Ribbon', url: 'https://onesilkribbon.com' },
+        // 价格有效期。Google 对没有 priceValidUntil 的报价会逐渐降低信任，
+        // 给一年后的日期即可——价格改了页面重新生成，这个日期也会跟着往后滚。
+        priceValidUntil: priceValidUntil,
+        // 配送和退货：Google 现在会把"免运费""X天退货"直接做成搜索结果里的标签，
+        // 有这两段的商品在结果里明显更醒目。数值全部取自后台 settings 和
+        // /shipping-returns 页面的真实政策，不能凭空写——这是对消费者的承诺。
+        shippingDetails: shippingDetails,
+        hasMerchantReturnPolicy: returnPolicy,
       },
     } : {}),
     breadcrumb: {

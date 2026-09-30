@@ -11,6 +11,17 @@ function safe(val) {
   return String(val)
 }
 function safeNum(val) { const n = parseFloat(val); return isNaN(n) ? 0 : n }
+
+// 图片 alt 决定这张图能不能被 Google 图片搜索检索到。丝带是极度视觉化的商品，
+// 图片搜索是实打实的流量来源，而缩略图原来写死的 "view 1/2/3" 完全没有信息量。
+// 没有逐图的人工描述，就用商品自己的数据拼：商品名 + 所属系列（+ 第几张）。
+// 只用库里已有的事实，不替商品编造材质或用途——alt 写错比写少更糟。
+function imageAlt(product, i = 0, total = 1) {
+  const name = safe(product?.name) || 'One Silk Ribbon product'
+  const collection = safe(product?.collection).replace(/-/g, ' ').trim()
+  const base = collection ? `${name} — ${collection}` : name
+  return total > 1 ? `${base}, photo ${i + 1} of ${total}` : base
+}
 function fmt(amount) { return '£' + safeNum(amount).toFixed(2) }
 
 export default function ProductClient({ initialProduct, initialSkus, slug, related }) {
@@ -194,7 +205,7 @@ export default function ProductClient({ initialProduct, initialSkus, slug, relat
             <div style={{ position: 'relative', width: '100%', aspectRatio: '1/1', overflow: 'hidden', background: 'var(--sand)', cursor: 'zoom-in' }} className="main-wrap">
               {(images.length > 0) ? (
                 <NextImage
-                  src={images[imgIdx]} alt={safe(product.name)} fill
+                  src={images[imgIdx]} alt={imageAlt(product, imgIdx, images.length)} fill
                   sizes="(max-width: 960px) 100vw, 50vw"
                   style={{ objectFit: 'cover', transition: 'transform .8s cubic-bezier(.25,.46,.45,.94)' }}
                   className="main-img-hover"
@@ -222,7 +233,7 @@ export default function ProductClient({ initialProduct, initialSkus, slug, relat
                     opacity: imgIdx === i ? 1 : 0.38, transition: 'opacity .3s',
                     outline: imgIdx === i ? '2px solid var(--gold)' : 'none', outlineOffset: -2,
                   }}>
-                    <NextImage src={img} alt={`view ${i + 1}`} fill sizes="80px" style={{ objectFit: 'cover' }} loading="lazy" />
+                    <NextImage src={img} alt={imageAlt(product, i, images.length)} fill sizes="80px" style={{ objectFit: 'cover' }} loading="lazy" />
                   </button>
                 ))}
               </div>
@@ -405,7 +416,7 @@ export default function ProductClient({ initialProduct, initialSkus, slug, relat
             </div>
             <div style={{ aspectRatio: '1/1', overflow: 'hidden', position: 'relative' }}>
               {images.length > 0 && (
-                <NextImage src={images[images.length > 1 ? 1 : 0]} alt={safe(product.name)}
+                <NextImage src={images[images.length > 1 ? 1 : 0]} alt={imageAlt(product, images.length > 1 ? 1 : 0, images.length)}
                   fill sizes="(max-width: 600px) 50vw, 25vw"
                   style={{ objectFit: 'cover' }} loading="lazy" />
               )}
@@ -428,7 +439,7 @@ export default function ProductClient({ initialProduct, initialSkus, slug, relat
                   <Link key={p.id} href={`/collections/${collectionSlug}/${p.slug}`} style={{ textDecoration: 'none' }}>
                     <div style={{ aspectRatio: '1/1', background: 'var(--sand)', marginBottom: 14, overflow: 'hidden', position: 'relative' }}>
                       {Array.isArray(p.images) && p.images[0] && (
-                        <NextImage src={p.images[0]} alt={safe(p.name)} fill sizes="(max-width: 768px) 50vw, 25vw" style={{ objectFit: 'cover' }} loading="lazy" />
+                        <NextImage src={p.images[0]} alt={imageAlt(p)} fill sizes="(max-width: 768px) 50vw, 25vw" style={{ objectFit: 'cover' }} loading="lazy" />
                       )}
                     </div>
                     <p style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 400, color: 'var(--ink)', marginBottom: 4 }}>{safe(p.name)}</p>

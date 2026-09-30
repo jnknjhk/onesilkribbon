@@ -5,20 +5,45 @@ import { usePathname } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@osr/core/lib/supabase'
 import { useRouter } from 'next/navigation'
 
-const NAV = [
-  { href: '/admin',           label: '总览',   icon: '▤' },
-  { href: '/admin/orders',    label: '订单',   icon: '◫' },
-  { href: '/admin/products',  label: '产品',   icon: '◈' },
-  { href: '/admin/media',     label: '媒体库', icon: '▦' },
-  { href: '/admin/images',    label: '网站图片', icon: '◻' },
-  { href: '/admin/journal',   label: '文章',   icon: '✎' },
-  { href: '/admin/customers', label: '客户',   icon: '◉' },
-  { href: '/admin/subscribers', label: '订阅用户', icon: '▧' },
-  { href: '/admin/marketing', label: '营销',   icon: '◇' },
-  { href: '/admin/email',     label: '发邮件', icon: '✉' },
-  { href: '/admin/emails',    label: '邮件记录', icon: '❐' },
-  { href: '/admin/maintenance', label: '数据维护', icon: '⚙' },
+// 侧边栏按用途分成四组。href 全部保持原样——这里只是把同一批页面重新归类，
+// 没有新增、删除或搬动任何页面，收藏的链接照常能用。
+const NAV_GROUPS = [
+  {
+    group: '业务',
+    items: [
+      { href: '/admin',           label: '总览',     icon: '▤' },
+      { href: '/admin/orders',    label: '订单',     icon: '◫' },
+      { href: '/admin/products',  label: '产品',     icon: '◈' },
+      { href: '/admin/customers', label: '客户',     icon: '◉' },
+    ],
+  },
+  {
+    group: '内容',
+    items: [
+      { href: '/admin/journal',   label: '文章',     icon: '✎' },
+      { href: '/admin/images',    label: '网站图片', icon: '◻' },
+      { href: '/admin/media',     label: '媒体库',   icon: '▦' },
+    ],
+  },
+  {
+    group: '营销',
+    items: [
+      { href: '/admin/marketing',   label: '营销',     icon: '◇' },
+      { href: '/admin/subscribers', label: '订阅用户', icon: '▧' },
+      { href: '/admin/email',       label: '发邮件',   icon: '✉' },
+      { href: '/admin/emails',      label: '邮件记录', icon: '❐' },
+    ],
+  },
+  {
+    group: '系统',
+    items: [
+      { href: '/admin/maintenance', label: '数据维护', icon: '⚙' },
+    ],
+  },
 ]
+
+// 顶栏标题等地方要按 href 反查，用扁平化后的列表，免得分组结构漏掉哪一项
+const NAV = NAV_GROUPS.flatMap(g => g.items)
 
 const C = {
   bg: '#F5F3F0', sidebar: '#FFFFFF', border: '#E8E4DF',
@@ -60,7 +85,14 @@ export default function AdminLayout({ children }) {
           </div>
 
           <nav style={{ flex: 1, padding: '12px 10px', overflowY: 'auto' }}>
-            {NAV.map(({ href, label, icon }) => {
+            {NAV_GROUPS.map(({ group, items }, gi) => (
+              <div key={group} style={{ marginBottom: 4 }}>
+                <p style={{
+                  fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase',
+                  color: C.muted, padding: '0 10px', marginBottom: 6,
+                  marginTop: gi === 0 ? 2 : 16,
+                }}>{group}</p>
+                {items.map(({ href, label, icon }) => {
               const active = pathname === href
               return (
                 <Link key={href} href={href} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 10px', marginBottom: 1, borderRadius: 6, background: active ? `rgba(184,155,106,0.10)` : 'transparent', color: active ? C.gold : C.sub, textDecoration: 'none', fontSize: 13, letterSpacing: '.03em', transition: 'background .15s, color .15s', fontWeight: active ? 500 : 400 }}
@@ -72,7 +104,9 @@ export default function AdminLayout({ children }) {
                   {active && <span style={{ marginLeft: 'auto', width: 4, height: 4, borderRadius: '50%', background: C.gold }} />}
                 </Link>
               )
-            })}
+                })}
+              </div>
+            ))}
           </nav>
 
           <div style={{ padding: '14px 20px', borderTop: `1px solid ${C.border}` }}>

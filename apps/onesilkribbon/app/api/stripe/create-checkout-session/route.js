@@ -54,6 +54,12 @@ export async function POST(req) {
         phone: form.phone || '',
         dialCode: form.dialCode || '',
       },
+      // Checkout Session 的 metadata 不会传到它创建的 PaymentIntent 上，而
+      // payment_intent.payment_failed 事件里只有 PaymentIntent。所以订单号要单独
+      // 写一份进去，否则支付失败时无从知道是哪一笔订单失败了（详见 webhook 里的说明）。
+      payment_intent_data: {
+        metadata: { orderNumber },
+      },
     })
 
     const { data: order, error: orderError } = await supabaseAdmin.from('orders').insert({

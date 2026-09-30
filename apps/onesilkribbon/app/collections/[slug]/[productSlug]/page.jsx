@@ -7,8 +7,15 @@ export const revalidate = 60
 
 // generateMetadata 和页面组件是两次独立执行，用 React cache() 包一层——
 // 同一次请求内两边都调用时，实际只会真正打一次数据库
+// 必须过滤 is_active：少了这个条件，后台下架的商品只要还知道链接就照样能打开，
+// 还会带着完整的价格和结构化数据给搜索引擎收录。结账时服务端会拦住不让真的买到，
+// 但客户已经点进来选好规格了才被拒，体验很差。
 const getProduct = cache(async (productSlug) => {
-  const { data } = await supabaseServer.from('products').select('*').eq('slug', productSlug).single()
+  const { data } = await supabaseServer
+    .from('products').select('*')
+    .eq('slug', productSlug)
+    .eq('is_active', true)
+    .maybeSingle()
   return data
 })
 
@@ -74,8 +81,13 @@ export default async function ProductPage({ params }) {
     permanentRedirect(`/collections/${product.collection}/${productSlug}`)
   }
 
+  // 同样要过滤 is_active，否则已停用的规格会出现在规格选择器和页面的结构化数据里，
+  // 客户能选中、能加进购物车，一路到结账才被服务端拒绝
   const { data: skus } = product
-    ? await supabaseServer.from('product_skus').select('*').eq('product_id', product.id).order('price_gbp', { ascending: true })
+    ? await supabaseServer.from('product_skus').select('*')
+        .eq('product_id', product.id)
+        .eq('is_active', true)
+        .order('price_gbp', { ascending: true })
     : { data: [] }
 
   // 同系列其他商品，给底部"More from this collection"用——只在真的有其他商品时才查/传，

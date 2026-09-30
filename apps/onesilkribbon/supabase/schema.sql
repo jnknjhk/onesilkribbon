@@ -245,6 +245,32 @@ create policy "Admin manage subscribers" on subscribers
 create policy "Admin manage tracking_events" on tracking_events
   for all using (is_admin_user()) with check (is_admin_user());
 
+-- ⚠️ 上面那些 drop policy 是**按名字**删的，只能删掉本文件自己建的那几条。
+-- 2026-09-30 实测发现：线上库里还残留着建表时在 Supabase 后台点出来的放行策略
+-- （名字不是 "Admin manage ..."，所以一直没被删掉）。而 Postgres 的多条 permissive
+-- 策略是 OR 关系——只要有一条放行的还在，后面补的管理员策略就形同虚设。
+-- 当时 coupons 和 subscribers 就是这个状态：拿公开的 anon key 可以读出全部优惠券、
+-- 把 uses_count 改回 0 绕过一次性限制，甚至直接建一张 100% 折扣的新券（服务端下单时
+-- 按 code 查库，会把这张自建的券当真）。
+--
+-- 修复脚本见 migrations/2026-09-30-security-and-atomicity.sql，那里改成枚举 pg_policies
+-- 把表上的策略全部删掉再重建，不依赖策略名。
+--
+-- 这里再加一层表级权限回收：即使以后又有人手滑加了放行策略，没有 GRANT 也读不到。
+-- 已确认代码里这些表的所有读写都走 supabaseAdmin（service role 不受 GRANT 限制）。
+revoke all on settings         from anon, authenticated;
+revoke all on coupons          from anon, authenticated;
+revoke all on user_profiles    from anon, authenticated;
+revoke all on site_images      from anon, authenticated;
+revoke all on subscribers      from anon, authenticated;
+revoke all on tracking_events  from anon, authenticated;
+revoke all on paypal_sessions  from anon, authenticated;
+
+-- user_addresses（结账地址回存到账户用的表）：线上早就建好并开了 RLS，
+-- 但一直没写进本文件，照 schema.sql 重建库时会漏掉这张存客户住址的表。
+alter table user_addresses enable row level security;
+revoke all on user_addresses from anon;
+
 -- ── 统一媒体库 ────────────────────────────────────────────────────────────
 -- 之前商品图/文章封面图/首页图三套上传各玩各的（文章封面图甚至借用商品上传接口、
 -- 编个假 productId 糊弄过去）。现在统一成一个媒体库：图片先传进来登记一条记录，

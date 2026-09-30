@@ -13,6 +13,11 @@ const PAYMENT_ERROR_MESSAGES = {
   order_save_failed: 'Your payment may have gone through, but we could not save your order. Please contact us before trying again.',
   exception: 'Something went wrong while confirming your PayPal payment. Please try again or contact us.',
   missing_params: 'We could not confirm your PayPal payment. Please try again.',
+  // 下面三种都是校验没通过就拒绝建单的情况。钱可能已经从 PayPal 扣掉了，
+  // 所以措辞上必须请客户联系我们核对，绝不能只说"请重试"——重试会变成付两次。
+  token_mismatch: 'This payment does not match the order it was started from, so we have not completed it. If you have been charged, please contact us with your PayPal receipt and we will sort it out.',
+  amount_mismatch: 'The amount received does not match your order total, so we have not completed it. If you have been charged, please contact us with your PayPal receipt and we will sort it out.',
+  amount_unreadable: 'We could not verify the amount of your PayPal payment. Please contact us with your PayPal receipt before trying again.',
 }
 
 // ─── Country Data ────────────────────────────────────────────────────────────

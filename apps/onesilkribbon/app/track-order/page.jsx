@@ -7,17 +7,21 @@ const STATUS_STEPS = ['Order Placed', 'Processing', 'Dispatched', 'In Transit', 
 function TrackOrderContent() {
   const params = useSearchParams()
   const [orderNum, setOrderNum] = useState(params.get('order') || '')
+  const [email, setEmail] = useState('')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   const handleTrack = async (e) => {
     e.preventDefault()
-    if (!orderNum.trim()) return
+    if (!orderNum.trim() || !email.trim()) return
     setLoading(true); setError(''); setResult(null)
     try {
-      const res = await fetch(`/api/tracking?order=${encodeURIComponent(orderNum.trim())}`)
-      if (!res.ok) { setError('Order not found. Please check your order number.'); setLoading(false); return }
+      // 订单号是可猜的，所以查询必须带上下单邮箱——接口那边会两个一起校验
+      const res = await fetch(
+        `/api/tracking?order=${encodeURIComponent(orderNum.trim())}&email=${encodeURIComponent(email.trim())}`
+      )
+      if (!res.ok) { setError('Order not found. Please check your order number and email address.'); setLoading(false); return }
       const data = await res.json()
       setResult(data)
     } catch {
@@ -36,22 +40,30 @@ function TrackOrderContent() {
           <span className="eyebrow" style={{ marginBottom: 20 }}>One Silk Ribbon</span>
           <h1 className="display-title" style={{ marginBottom: 16 }}>Track Your <em>Order</em></h1>
           <p style={{ fontSize: 15, fontWeight: 400, color: 'var(--taupe)', lineHeight: 1.9 }}>
-            Enter your order number to see the latest shipping status.
-            Your order number can be found in your confirmation email (e.g. OSR-2026-0001).
+            Enter your order number and the email address you used at checkout
+            to see the latest shipping status. Both can be found in your confirmation email.
           </p>
         </div>
 
         {/* Search form */}
-        <form onSubmit={handleTrack} style={{ display: 'flex', gap: 0, marginBottom: 48 }}>
+        <form onSubmit={handleTrack} style={{ marginBottom: 48 }}>
           <input
             className="input" value={orderNum}
             onChange={e => setOrderNum(e.target.value)}
             placeholder="Your order number (e.g. OSR-2026-0001)"
-            style={{ flex: 1, borderRight: 'none' }}
+            style={{ width: '100%', marginBottom: 12 }}
           />
-          <button type="submit" className="btn-primary" style={{ width: 'auto', padding: '0 32px', whiteSpace: 'nowrap' }} disabled={loading}>
-            {loading ? '…' : 'Track'}
-          </button>
+          <div style={{ display: 'flex', gap: 0 }}>
+            <input
+              className="input" type="email" value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="The email address you ordered with"
+              style={{ flex: 1, borderRight: 'none', minWidth: 0 }}
+            />
+            <button type="submit" className="btn-primary" style={{ width: 'auto', padding: '0 32px', whiteSpace: 'nowrap' }} disabled={loading}>
+              {loading ? '…' : 'Track'}
+            </button>
+          </div>
         </form>
 
         {error && (

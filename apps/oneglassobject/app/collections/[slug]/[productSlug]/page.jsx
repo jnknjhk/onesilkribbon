@@ -2,6 +2,7 @@ import { cache } from 'react'
 import { supabaseAdmin as supabaseServer } from '@osr/core/lib/supabase'
 import { permanentRedirect, notFound } from 'next/navigation'
 import ProductClient from './ProductClient'
+import { findRenamedProduct } from '@osr/core/lib/product-redirects'
 
 export const revalidate = 60
 
@@ -66,7 +67,12 @@ export default async function ProductPage({ params }) {
 
   // 商品不存在——之前这里不管 product 是不是 null 都照样往下渲染，只是 ProductClient
   // 里显示一个"Product not found"的样子，HTTP 状态码还是 200，不是真的 404
-  if (!product) notFound()
+  if (!product) {
+    // 商品在后台改过网址：旧链接 301 到现在的网址，而不是 404
+    const moved = await findRenamedProduct(supabaseServer, productSlug)
+    if (moved) permanentRedirect(`/collections/${moved.collection}/${moved.slug}`)
+    notFound()
+  }
 
   // URL 里的系列 slug 和商品实际所属系列对不上（后台改了商品分类、或者有人手改了 URL），
   // 301 到按商品真实 collection 算出来的正确 URL，而不是直接 404 或者忍受重复内容

@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import { GoogleAnalytics } from '@next/third-parties/google'
 import { CONSENT_EVENT, hasConsented } from '@/lib/consent'
 
@@ -10,6 +11,7 @@ const GA_ID = 'G-D48ERTWLOR'
 // 所以默认不加载——未选择、已拒绝、localStorage 不可用时一律不加载。
 export default function Analytics() {
   const [consented, setConsented] = useState(false)
+  const pathname = usePathname() || ''
 
   useEffect(() => {
     const read = () => setConsented(hasConsented())
@@ -23,6 +25,7 @@ export default function Analytics() {
     }
   }, [])
 
-  if (!consented) return null
+  // 自己在后台的操作不算网站访问量
+  if (!consented || pathname === '/admin' || pathname.startsWith('/admin/')) return null
   return <GoogleAnalytics gaId={GA_ID} />
 }

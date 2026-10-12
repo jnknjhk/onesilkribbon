@@ -1,5 +1,7 @@
 const { withSentryConfig } = require('@sentry/nextjs')
 
+const { ADMIN_REDIRECTS } = require('@osr/core/admin/redirects')
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
@@ -22,6 +24,8 @@ const nextConfig = {
       // /products/[slug] 这个路由结构带出的一个天然但不存在的父路径，与其让它 404，
       // 不如直接 301 到系列页，接回"首页/系列/商品"这条预期的浏览路径
       { source: '/products', destination: '/collections', permanent: true },
+      // 后台菜单合并后的旧地址
+      ...ADMIN_REDIRECTS,
     ]
   },
   async headers() {

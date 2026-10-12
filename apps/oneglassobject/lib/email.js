@@ -155,7 +155,7 @@ export async function sendOwnerNotification({ order, items, form, totals }) {
         ${form.line1}${form.line2 ? ', ' + form.line2 : ''}, ${form.city}${form.postcode ? ', ' + form.postcode : ''}, ${form.country}
       </p>
     </div>
-    <a href="https://oneglassobject.com/admin/orders" class="btn">View in Admin</a>
+    <a href="https://oneglassobject.com/admin/orders/${encodeURIComponent(order.order_number)}" class="btn">View in Admin</a>
   `)
 
   await sendEmail({

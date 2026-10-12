@@ -3,6 +3,7 @@ import { verifyAdmin } from '@osr/core/lib/admin-auth'
 import { sendShippingNotification } from '@/lib/email'
 import { NextResponse } from 'next/server'
 import { errorResponse } from '@osr/core/lib/api-error'
+import { CAN, statusLabel } from '@osr/core/admin/lib/status'
 
 export async function POST(req) {
   const admin = await verifyAdmin()
@@ -18,6 +19,10 @@ export async function POST(req) {
       .single()
 
     if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    // 只有已付款（发货）和已发货（改快递信息）的订单能走这里。以前没付款的订单也能点"发货"
+    if (!CAN.ship(order.status)) {
+      return NextResponse.json({ error: `订单当前是「${statusLabel(order.status)}」，不能发货` }, { status: 409 })
+    }
 
     const shippedAt = new Date().toISOString()
 

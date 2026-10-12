@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { verifyAdmin } from '@osr/core/lib/admin-auth'
 import { errorResponse } from '@osr/core/lib/api-error'
+import { escapeHtml } from '@osr/core/lib/escape-html'
 
 const RESEND_API = 'https://api.resend.com/emails'
 const FROM = 'One Glass Object <hello@oneglassobject.com>'
@@ -30,7 +31,7 @@ function buildHtml(subject, body) {
     <p>Handcrafted Mulberry Silk</p>
   </div>
   <div class="body">
-    <p class="text">${body.replace(/\n/g, '<br>')}</p>
+    <p class="text">${escapeHtml(body).replace(/\n/g, '<br>')}</p>
     <hr class="divider">
     <p style="font-size:12px;color:#9A8878;">
       Questions? Contact us at <a href="mailto:hello@oneglassobject.com" style="color:#B89B6A;">hello@oneglassobject.com</a>

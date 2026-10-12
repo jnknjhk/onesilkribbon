@@ -3,13 +3,15 @@ import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@osr/core/lib/auth'
 import Link from 'next/link'
+import { safeNextPath } from '@osr/core/lib/safe-next'
 
 function LoginContent() {
   const { user, loading, signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
   const errorParam = searchParams.get('error')
-  const next = searchParams.get('next') || '/account'
+  // next 来自 URL，必须过滤成站内路径再拿来跳转（见 safe-next.js）
+  const next = safeNextPath(searchParams.get('next'))
 
   const [mode, setMode] = useState('login') // 'login' | 'signup'
   const [email, setEmail] = useState('')

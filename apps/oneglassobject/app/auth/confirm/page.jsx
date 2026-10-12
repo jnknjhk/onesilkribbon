@@ -2,6 +2,7 @@
 import { useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
+import { safeNextPath } from '@osr/core/lib/safe-next'
 
 // 这个页面现在只是一个过渡页，session 已在服务端完成
 function ConfirmContent() {
@@ -9,7 +10,8 @@ function ConfirmContent() {
   const searchParams = useSearchParams()
 
   useEffect(() => {
-    const next = searchParams.get('next') || '/account'
+    // next 来自 URL，必须过滤成站内路径再拿来跳转（见 safe-next.js）
+    const next = safeNextPath(searchParams.get('next'))
     router.replace(next)
   }, [])
 

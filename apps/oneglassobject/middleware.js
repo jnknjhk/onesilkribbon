@@ -1,54 +1,14 @@
-import { createServerClient } from '@supabase/ssr'
-import { NextResponse } from 'next/server'
-import { isAdminEmail } from '@osr/core/lib/admin-auth'
+import { adminMiddleware } from '@osr/core/lib/admin-middleware'
 
-export async function middleware(request) {
-  const { pathname } = request.nextUrl
-
-  const isAdminApi  = pathname.startsWith('/api/admin')
-  const isAdminPage = pathname.startsWith('/admin')
-  if (!isAdminApi && !isAdminPage) return NextResponse.next()
-
-  // 创建响应对象（SSR 客户端需要能写 cookie）
-  let response = NextResponse.next({ request })
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          )
-          response = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          )
-        },
-      },
-    }
-  )
-
-  // 获取当前登录用户
-  const { data: { user }, error } = await supabase.auth.getUser()
-  const isAuthorized = !error && user && isAdminEmail(user.email)
-
-  if (isAuthorized) return response
-
-  // /api/admin/* 是接口，未授权时必须返回 401 JSON——重定向到登录页对 fetch() 调用方毫无意义，
-  // 而且这是兜底防线：就算某个 admin API route 里忘了自己调 verifyAdmin()，这里也会先拦住
-  if (isAdminApi) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const reason = !error && user ? '?error=forbidden' : ''
-  return NextResponse.redirect(new URL(`/admin-login${reason}`, request.url))
+// 鉴权逻辑在 core 里，两个站共用一份，见 packages/core/lib/admin-middleware.js
+export function middleware(request) {
+  return adminMiddleware(request)
 }
 
+// 必须覆盖全部路径，不能只写 /admin 与 /api/admin：中间件要对每个请求清掉伪造的
+// 管理员身份头，否则任何不在这里的路由一旦调用 verifyAdmin()，就能被一个请求头冒充。
+// 非后台路径上中间件只删头、不发网络请求。只排除 _next 静态资源——它们到不了任何
+// route handler。不要按文件扩展名排除：动态路由会把 /api/admin/xxx.png 匹配进来。
 export const config = {
-  matcher: ['/admin', '/admin/:path*', '/api/admin/:path*'],
+  matcher: ['/((?!_next/static|_next/image).*)'],
 }

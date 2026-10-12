@@ -1,8 +1,9 @@
 import { supabaseAdmin } from '@osr/core/lib/supabase'
-import { verifyAdmin } from '@osr/core/lib/admin-auth'
 import { NextResponse } from 'next/server'
 import { errorResponse } from '@osr/core/lib/api-error'
 
+// 前台读运费设置用，公开。写入在 /api/admin/settings——管理员接口必须放在
+// /api/admin 下面，才有中间件那一层 401 兜底。
 export async function GET() {
   const { data, error } = await supabaseAdmin
     .from('settings')
@@ -11,16 +12,4 @@ export async function GET() {
   if (error) return errorResponse(error, { tag: 'settings-get' })
   const map = Object.fromEntries((data || []).map(r => [r.key, r.value]))
   return NextResponse.json(map)
-}
-
-export async function POST(req) {
-  const admin = await verifyAdmin()
-  if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const body = await req.json()
-  const updates = Object.entries(body).map(([key, value]) => ({ key, value: String(value) }))
-  for (const { key, value } of updates) {
-    await supabaseAdmin.from('settings').upsert({ key, value }, { onConflict: 'key' })
-  }
-  return NextResponse.json({ ok: true })
 }

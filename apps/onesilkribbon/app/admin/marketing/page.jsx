@@ -60,7 +60,7 @@ export default function MarketingPage() {
   async function saveShipping() {
     setShippingSaving(true)
     try {
-      await fetch('/api/settings', {
+      await fetch('/api/admin/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(shipping),

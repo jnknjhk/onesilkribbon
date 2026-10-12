@@ -98,9 +98,12 @@ export default function ProductsPage() {
       )
 
       const { data: skuData } = await supabase.from('product_skus').select('*').eq('product_id', product.id).order('created_at')
+      // _loaded_stock_qty 记下加载时的库存，保存时一起交给后端：库存没被改过就不写，
+      // 免得把编辑期间新订单扣掉的库存又覆盖回去（见 /api/admin/products）
       setSkus((skuData || []).map(s => ({
         ...s,
         attributes: s.attributes || {},
+        _loaded_stock_qty: s.stock_qty,
       })))
       setDeletedSkuIds([])
       setEditing(product)
@@ -276,7 +279,7 @@ export default function ProductsPage() {
           specifications: specifications.filter(s => s.key.trim() && s.value.trim()),
         },
         skus: skus.map(s => ({
-          ...(s.id ? { id: s.id } : {}),
+          ...(s.id ? { id: s.id, loaded_stock_qty: s._loaded_stock_qty } : {}),
           attributes: s.attributes || {},
           colour: s.attributes?.['颜色'] || s.attributes?.['Colour'] || s.attributes?.['Color'] || s.colour || '默认',
           colour_hex: s.colour_hex || '#D4C5B0',

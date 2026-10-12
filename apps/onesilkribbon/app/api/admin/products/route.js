@@ -159,6 +159,14 @@ export async function POST(req) {
           }
 
           if (sku.id) {
+            // 库存只在管理员真的改过时才写。编辑器打开期间如果有订单付款，webhook 已经把库存
+            // 扣掉了；这时候再把打开编辑器那一刻的旧数字原样写回去，就等于把卖掉的又加回来，
+            // 接着就会超卖。前端会带上 loaded_stock_qty（加载时的库存），两者相同说明没动过。
+            // 老版本的后台页面不带这个字段，就照旧写入。
+            if ('loaded_stock_qty' in sku &&
+                (parseInt(sku.stock_qty, 10) || 0) === (parseInt(sku.loaded_stock_qty, 10) || 0)) {
+              delete skuData.stock_qty
+            }
             await supabase.from('product_skus').update(skuData).eq('id', sku.id)
           } else {
             skuData.sku_code = `${product.slug}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`

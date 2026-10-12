@@ -51,8 +51,10 @@ export default function ProductEditor({ product, initialSkus, onCancel, onSaved,
         options: (a.options || []).map(o => typeof o === 'string' ? { value: o, image: '' } : o),
       })))
 
+  // _loaded_stock_qty 记下加载时的库存，保存时一起交给后端：库存没被改过就不写，
+  // 免得把编辑期间新订单扣掉的库存又覆盖回去（见 /api/admin/products）
   const [skus, setSkus] = useState(() =>
-    (initialSkus || []).map(s => ({ ...s, attributes: s.attributes || {} })))
+    (initialSkus || []).map(s => ({ ...s, attributes: s.attributes || {}, _loaded_stock_qty: s.stock_qty })))
   const [skusLoading, setSkusLoading] = useState(!isNew && !initialSkus)
   const [deletedSkuIds, setDeletedSkuIds] = useState([])
   const [showGalleryPicker, setShowGalleryPicker] = useState(false)
@@ -73,7 +75,7 @@ export default function ProductEditor({ product, initialSkus, onCancel, onSaved,
         const res = await fetch(`/api/admin/products?id=${product.id}`)
         const data = await res.json()
         if (cancelled) return
-        setSkus((data.skus || []).map(s => ({ ...s, attributes: s.attributes || {} })))
+        setSkus((data.skus || []).map(s => ({ ...s, attributes: s.attributes || {}, _loaded_stock_qty: s.stock_qty })))
       } catch {
         if (!cancelled) setSkus([])
       }
@@ -209,7 +211,7 @@ export default function ProductEditor({ product, initialSkus, onCancel, onSaved,
           specifications: specifications.filter(s => s.key.trim() && s.value.trim()),
         },
         skus: skus.map(s => ({
-          ...(s.id ? { id: s.id } : {}),
+          ...(s.id ? { id: s.id, loaded_stock_qty: s._loaded_stock_qty } : {}),
           attributes: s.attributes || {},
           colour: s.attributes?.['颜色'] || s.attributes?.['Colour'] || s.attributes?.['Color'] || s.colour || '默认',
           colour_hex: s.colour_hex || '#D4C5B0',

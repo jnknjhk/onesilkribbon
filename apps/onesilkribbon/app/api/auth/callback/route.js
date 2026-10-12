@@ -1,11 +1,14 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
+import { safeNextPath } from '@osr/core/lib/safe-next'
 import { ensureUserProfile } from '@/lib/user-records'
 
 export async function GET(request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') || '/account'
+  // next 来自 URL，必须过滤成站内路径——否则 next=.evil.com 拼在 origin 后面
+  // 就成了 https://本站.evil.com，登录完直接被送去钓鱼站（见 safe-next.js）
+  const next = safeNextPath(searchParams.get('next'))
   const error = searchParams.get('error')
 
   if (error) {

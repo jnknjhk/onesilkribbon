@@ -2,6 +2,9 @@ import { supabase, supabaseAdmin } from '@osr/core/lib/supabase'
 import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
+// 只有 GET 的路由里 fetch 默认会被 Next 永久缓存（按请求头区分），token 校验结果
+// 不能缓存——否则过期/注销的 token 还会被当成有效
+export const fetchCache = 'force-no-store'
 
 export async function GET(request) {
   try {

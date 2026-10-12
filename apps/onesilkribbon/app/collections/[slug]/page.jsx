@@ -124,6 +124,20 @@ export default async function CollectionPage({ params }) {
         { '@type': 'ListItem', position: 2, name: meta?.name || slug, item: `https://onesilkribbon.com/collections/${slug}` },
       ],
     },
+    // 列出这个系列里实际有哪些商品。少了它，Google 只知道"这是一个系列页"，
+    // 不知道页面上陈列着什么，也就无从把系列页和具体商品关联起来。
+    ...(products.length > 0 ? {
+      mainEntity: {
+        '@type': 'ItemList',
+        numberOfItems: products.length,
+        itemListElement: products.map((p, i) => ({
+          '@type': 'ListItem',
+          position: i + 1,
+          url: `https://onesilkribbon.com/collections/${slug}/${p.slug}`,
+          name: p.name,
+        })),
+      },
+    } : {}),
   }
 
   return (

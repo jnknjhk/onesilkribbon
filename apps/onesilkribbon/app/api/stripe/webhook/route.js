@@ -5,6 +5,9 @@ import { deductStock, incrementCouponUses } from '@/lib/stock-check'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
+// 旧版 payment_intent.payment_failed 处理取消订单时写入的原因，用来识别可以恢复的订单
+const LEGACY_PAYMENT_FAILED_REASON = '支付失败'
+
 export async function POST(req) {
   const body = await req.text()
   const sig  = req.headers.get('stripe-signature')
@@ -29,16 +32,31 @@ export async function POST(req) {
       // 两边都可能读到 pending，于是库存被扣两次、确认邮件发两封。
       // 改成带条件的单条 UPDATE——只有仍是 pending 才会被改动，谁改到了谁负责后续处理。
       // 返回 0 行就说明已经有人处理过了，直接跳过。
-      const { data: claimed, error: claimError } = await supabaseAdmin.from('orders')
-        .update({
-          status: 'paid',
-          paid_at: new Date().toISOString(),
-          user_id: userId || undefined,
-          payment_intent_id: paymentIntentId,
-        })
+      const paidPatch = {
+        status: 'paid',
+        paid_at: new Date().toISOString(),
+        user_id: userId || undefined,
+        payment_intent_id: paymentIntentId,
+      }
+      let { data: claimed, error: claimError } = await supabaseAdmin.from('orders')
+        .update(paidPatch)
         .eq('order_number', orderNumber)
         .eq('status', 'pending')
         .select()
+
+      // 旧版本在 payment_intent.payment_failed 时会把订单直接改成 cancelled，可客户在同一个
+      // Checkout 页里换张卡就能重试成功——于是钱收到了，订单却停在"已取消"，上面那条只认
+      // pending 的认领拿不到它，被当成重复事件跳过：不扣库存、不发确认邮件。
+      // 现在支付失败不再取消订单，但那段时间里被这样取消的订单仍可能付款成功，这里把它认领回来。
+      // 只认 cancel_reason 恰好是那段代码写的值，后台手动取消的订单不会被动到。
+      if (!claimError && (!claimed || claimed.length === 0)) {
+        ;({ data: claimed, error: claimError } = await supabaseAdmin.from('orders')
+          .update({ ...paidPatch, cancel_reason: null, cancelled_at: null })
+          .eq('order_number', orderNumber)
+          .eq('status', 'cancelled')
+          .eq('cancel_reason', LEGACY_PAYMENT_FAILED_REASON)
+          .select())
+      }
 
       if (claimError) {
         console.error('Webhook order claim failed for', orderNumber, claimError)
@@ -100,22 +118,13 @@ export async function POST(req) {
     }
 
     case 'payment_intent.payment_failed': {
+      // 不要在这里取消订单。Checkout 里一次扣款失败不是终态：客户会看到报错，
+      // 可以在同一个页面换卡重试，重试成功照样会来 checkout.session.completed。
+      // 之前在这里把订单改成 cancelled，重试成功后的认领就找不到 pending 订单了（见上面）。
+      // 订单保持 pending，客户最终没付的话，和其他放弃结账的订单一样由后台「数据维护」清理。
       const pi = event.data.object
-      // 下单时 payment_intent_id 里存的是 Checkout Session 的 id（cs_...），
-      // 只有支付成功的 webhook 才会把它换成真正的 pi_...。所以支付失败时拿 pi.id
-      // 去比对 payment_intent_id 永远对不上，失败的订单会一直停在 pending，
-      // 只能靠后台"数据维护"页手动清。
-      // 现在建 Checkout Session 时把 orderNumber 一并写进了 PaymentIntent 的 metadata，
-      // 这里直接按订单号定位；老订单没有这个 metadata，回退到原来的 id 比对。
-      const failedOrderNumber = pi.metadata?.orderNumber
-      const query = supabaseAdmin.from('orders')
-        .update({ status: 'cancelled', cancel_reason: '支付失败', cancelled_at: new Date().toISOString() })
-        // 只取消还没付成功的，避免极端时序下把一张已付款订单误标为取消
-        .eq('status', 'pending')
-      const { error: failError } = failedOrderNumber
-        ? await query.eq('order_number', failedOrderNumber)
-        : await query.eq('payment_intent_id', pi.id)
-      if (failError) console.error('[stripe-webhook] 标记支付失败订单出错:', failError.message)
+      console.warn('[stripe-webhook] 一次付款尝试失败（订单保持待付款，客户可重试）:',
+        pi.metadata?.orderNumber || pi.id, pi.last_payment_error?.code || '')
       break
     }
   }

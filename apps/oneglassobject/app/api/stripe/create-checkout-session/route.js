@@ -4,6 +4,7 @@ import { gbpToPence } from '@/lib/pricing'
 import { computeAuthoritativeOrder } from '@/lib/order-pricing'
 import { getAuthUser } from '@osr/core/lib/get-auth-user'
 import { errorResponse } from '@osr/core/lib/api-error'
+import * as Sentry from '@sentry/nextjs'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
@@ -52,6 +53,12 @@ export async function POST(req) {
         phone: form.phone || '',
         dialCode: form.dialCode || '',
       },
+      // Checkout Session 的 metadata 不会传到它创建的 PaymentIntent 上，而
+      // payment_intent.payment_failed 事件里只有 PaymentIntent。所以订单号要单独
+      // 写一份进去，否则支付失败时无从知道是哪一笔订单失败了（详见 webhook 里的说明）。
+      payment_intent_data: {
+        metadata: { orderNumber },
+      },
     })
 
     const { data: order, error: orderError } = await supabaseAdmin.from('orders').insert({
@@ -75,7 +82,15 @@ export async function POST(req) {
       payment_intent_id: session.id, // webhook 收到后会更新为真正的 payment_intent
     }).select('id').single()
 
-    if (!orderError && order?.id && orderLineItems.length > 0) {
+    if (orderError || !order?.id) {
+      // 订单主记录都没写进去——支付链接已经生成了，客户可能真的会付款，
+      // 必须立刻报警，否则就是一笔收了钱但系统里查无此单的订单
+      Sentry.captureMessage('订单创建失败但已生成支付链接，需人工核对', {
+        level: 'error',
+        tags: { api: 'stripe-create-checkout-session', orderNumber },
+        extra: { orderError: orderError?.message, email: form.email },
+      })
+    } else if (orderLineItems.length > 0) {
       const orderItems = orderLineItems.map(item => ({
         order_id:        order.id,
         product_id:      item.productId || null,
@@ -86,7 +101,16 @@ export async function POST(req) {
         unit_price_gbp:  item.price,
         line_total_gbp:  item.price * item.qty,
       }))
-      await supabaseAdmin.from('order_items').insert(orderItems)
+      // 这里的结果以前没有被检查过，写失败也没人知道——
+      // 后果是订单存在但不知道客户买了什么，发不了货，且事后无法补救
+      const { error: itemsError } = await supabaseAdmin.from('order_items').insert(orderItems)
+      if (itemsError) {
+        Sentry.captureMessage('订单商品明细写入失败，该订单无法发货', {
+          level: 'error',
+          tags: { api: 'stripe-create-checkout-session', orderNumber },
+          extra: { itemsError: itemsError.message, items: orderItems },
+        })
+      }
     }
 
     return Response.json({ url: session.url })

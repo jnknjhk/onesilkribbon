@@ -3,9 +3,13 @@ import { supabaseAdmin } from '@osr/core/lib/supabase'
 export async function GET(req) {
   const { searchParams } = new URL(req.url)
   const orderNumber = searchParams.get('order')
+  const email = searchParams.get('email')
 
-  if (!orderNumber) {
-    return Response.json({ error: 'Order number required' }, { status: 400 })
+  // 光凭订单号就能查到收件人、城市和物流单号——而订单号是可猜的：
+  // PayPal 单是 OSR-YYMMDD-4位随机数，Stripe 单是 OSR-年份-4位-3位，
+  // 猜中一个只需要几千次请求。所以必须同时验证下单邮箱才返回任何信息。
+  if (!orderNumber || !email) {
+    return Response.json({ error: 'Order number and email are required' }, { status: 400 })
   }
 
   try {
@@ -14,9 +18,14 @@ export async function GET(req) {
       .from('orders')
       .select('*')
       .eq('order_number', orderNumber)
-      .single()
+      .maybeSingle()
 
-    if (error || !order) {
+    // 邮箱不符和订单不存在返回完全相同的响应——否则这个接口就变成了
+    // "订单号是否存在" 的探测器，仍然能被拿来枚举
+    const emailMatches = order &&
+      (order.customer_email || '').trim().toLowerCase() === email.trim().toLowerCase()
+
+    if (error || !order || !emailMatches) {
       return Response.json({ error: 'Order not found' }, { status: 404 })
     }
 

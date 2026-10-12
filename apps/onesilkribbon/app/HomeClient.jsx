@@ -55,6 +55,14 @@ export default function HomeClient({ heroImages, storyImage, collectionImages, f
 }
 
 /* ═══ HERO ═══ */
+
+// 首页轮播图原本是 alt=""。纯装饰背景用空 alt 是对的，但这几张是品牌主视觉、
+// 画面里就是实际产品，给一句描述能被 Google 图片搜索检索到——丝带这种商品
+// 图片搜索是实打实的流量来源。不逐张写死，是因为图片由后台随时更换。
+function heroAlt(i) {
+  return `Handmade mulberry silk ribbon by One Silk Ribbon — studio image ${i + 1}`
+}
+
 function Hero({ heroImages }) {
   const [loaded, setLoaded] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -80,7 +88,7 @@ function Hero({ heroImages }) {
             {i === 0 ? (
               /* 第1张：优先加载，影响 LCP */
               <Image
-                src={src} alt="" fill
+                src={src} alt={heroAlt(i)} fill
                 style={{ objectFit: 'cover' }}
                 priority
                 fetchPriority="high"
@@ -89,7 +97,7 @@ function Hero({ heroImages }) {
             ) : (
               /* 其余：懒加载 */
               <Image
-                src={src} alt="" fill
+                src={src} alt={heroAlt(i)} fill
                 style={{ objectFit: 'cover' }}
                 loading="lazy"
                 sizes="100vw"

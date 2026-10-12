@@ -19,8 +19,10 @@ return [
     items: [
       { q: 'What is Grade 6A mulberry silk?', a: 'Grade 6A is the highest classification of mulberry silk, denoting the longest, most consistent filaments with minimal breakage. It produces a smoother, more lustrous fabric with a superior drape — the grade used in luxury fashion and heirloom textiles.' },
       { q: 'What does "hand-torn" mean?', a: 'Our hand-frayed ribbons are torn along the grain of the silk rather than cut. This creates a naturally irregular, feathery edge that no machine can replicate — a texture unique to each yard.' },
-      { q: 'Will the colour look exactly as shown on screen?', a: 'We photograph our ribbons carefully, but screen colours vary. Because our ribbons are naturally dyed, there can also be subtle batch-to-batch variation — which we consider part of their character. If colour accuracy is critical (e.g. for a wedding), contact us and we can send a sample.' },
-      { q: 'Do you sell ribbon by the metre?', a: 'Yes. Most ribbons are sold per metre. Some products are available in pre-cut lengths (1m, 3m, 5m, 10m). The unit is shown clearly on each product page.' },
+      { q: 'Will the colour look exactly as shown on screen?', a: 'We photograph our ribbons carefully, but screen colours vary. Because the colour is applied by hand, there can also be subtle batch-to-batch variation — which we consider part of their character. If colour accuracy is critical (e.g. for a wedding), contact us and we can send a sample.' },
+      // 原答案写的是"大多数按米卖"，与实际不符：手工毛边系列按 1 / 3 / 5 码（yard）
+      // 整段出售，细丝带是 10 米整卷。客户照原答案下单会对不上。
+      { q: 'What lengths do you sell?', a: 'Our hand-frayed ribbons are sold as continuous lengths of 1, 3 or 5 yards, with no joins mid-ribbon. The ultra-fine ribbons come on 10 metre spools. The exact length options are shown on each product page.' },
     ],
   },
   {

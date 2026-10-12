@@ -45,7 +45,7 @@ export async function generateMetadata({ params }) {
   const socialTitle = `${product.name} — One Silk Ribbon`
   const description = product.description
     ? product.description.replace(/<[^>]+>/g, '').slice(0, 160)
-    : `Handmade 100% mulberry silk ribbon, hand-dyed in the UK. Perfect for weddings and bouquets. Shop ${product.name} at One Silk Ribbon.`
+    : `Handmade 100% mulberry silk ribbon, hand-dyed and hand-finished. Perfect for weddings and bouquets. Shop ${product.name} at One Silk Ribbon.`
   const image = Array.isArray(product.images) ? product.images[0] : null
 
   return {

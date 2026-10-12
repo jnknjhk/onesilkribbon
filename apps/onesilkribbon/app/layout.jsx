@@ -70,7 +70,7 @@ export const metadata = {
     default: 'One Silk Ribbon — Handmade Mulberry Silk Ribbons UK',
     template: '%s | One Silk Ribbon'
   },
-  description: 'Handmade 100% mulberry silk ribbons for weddings, bouquets and gift wrapping. Hand-dyed in the UK, 200+ colourways, shipped across the UK and Europe.',
+  description: 'Handmade 100% mulberry silk ribbons for weddings, bouquets and gift wrapping. 30+ hand-dyed colourways, priced in GBP, tracked delivery to the UK and Europe.',
   keywords: [
     'silk ribbon UK', 'mulberry silk ribbon', 'hand-dyed silk ribbon', 'handmade silk ribbon',
     'wedding ribbon UK', 'bridal ribbon', 'florist ribbon supplies', 'hand frayed ribbon',
@@ -79,7 +79,7 @@ export const metadata = {
   alternates: { canonical: '/' },
   openGraph: {
     title: 'One Silk Ribbon — Handmade Silk Ribbon UK',
-    description: 'Handmade 100% mulberry silk ribbons for weddings, bouquets and gift wrapping. Hand-dyed in the UK.',
+    description: 'Handmade 100% mulberry silk ribbons for weddings, bouquets and gift wrapping. 30+ hand-dyed colourways, shipped to the UK and Europe.',
     url: 'https://onesilkribbon.com',
     siteName: 'One Silk Ribbon',
     locale: 'en_GB',
@@ -91,7 +91,7 @@ export const metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'One Silk Ribbon — Handmade Silk Ribbon UK',
-    description: 'Handmade 100% mulberry silk ribbons for weddings, bouquets and gift wrapping. Hand-dyed in the UK.',
+    description: 'Handmade 100% mulberry silk ribbons for weddings, bouquets and gift wrapping. 30+ hand-dyed colourways, shipped to the UK and Europe.',
     images: ['/og-image.jpg'],
   },
   robots: { index: true, follow: true },

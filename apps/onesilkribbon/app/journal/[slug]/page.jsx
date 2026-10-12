@@ -6,6 +6,8 @@ import { notFound } from 'next/navigation'
 
 export const revalidate = 300
 
+const SITE_ORIGIN = 'https://onesilkribbon.com'
+
 function formatDate(iso) {
   if (!iso) return ''
   return new Date(iso).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
@@ -59,8 +61,47 @@ export default async function JournalPost({ params }) {
 
   const sections = Array.isArray(post.sections) ? post.sections : []
 
+  // 文章页之前完全没有结构化数据（商品页有，这里一直漏着）。
+  // BlogPosting 是 Google 识别"这是一篇文章"的依据，没有它就拿不到搜索结果里的
+  // 日期、作者、缩略图这些富摘要，也更难被判定为有价值的内容页。
+  const postUrl = `${SITE_ORIGIN}/journal/${slug}`
+  const sectionImages = sections.filter(x => x.type === 'image' && x.url).map(x => x.url)
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: post.title,
+    description: post.excerpt || '',
+    // 正文里的配图也一并给出，Google 挑缩略图时有更多选择
+    image: [post.cover_image, ...sectionImages].filter(Boolean),
+    url: postUrl,
+    mainEntityOfPage: { '@type': 'WebPage', '@id': postUrl },
+    datePublished: post.published_at || undefined,
+    // 没有改过就用发布时间，省得 Google 以为内容从未维护过
+    dateModified: post.updated_at || post.published_at || undefined,
+    articleSection: post.category || undefined,
+    inLanguage: 'en-GB',
+    author:    { '@type': 'Organization', name: 'One Silk Ribbon', url: SITE_ORIGIN },
+    publisher: {
+      '@type': 'Organization',
+      name: 'One Silk Ribbon',
+      url: SITE_ORIGIN,
+      logo: { '@type': 'ImageObject', url: `${SITE_ORIGIN}/images/logo.png` },
+    },
+    breadcrumb: {
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Journal', item: `${SITE_ORIGIN}/journal` },
+        { '@type': 'ListItem', position: 2, name: post.title, item: postUrl },
+      ],
+    },
+  }
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <div style={{ paddingTop: 68, background: 'var(--cream)', minHeight: '100vh' }}>
 
         {/* Header */}

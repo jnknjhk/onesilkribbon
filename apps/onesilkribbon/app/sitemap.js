@@ -1,5 +1,11 @@
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 
+// 没有这一行，Next.js 会把 sitemap 当成纯静态页在**构建时**生成一次就固定下来：
+// 之后上架新商品、发布新文章，sitemap 里都不会出现，必须重新部署才更新。
+// 实测确认过——发布第一篇文章后 sitemap 仍是 25 条，没有把文章算进去。
+// 一小时重新生成一次，既跟得上内容更新，也不会让 Google 每次抓取都触发全量查库。
+export const revalidate = 3600
+
 export default async function sitemap() {
   const baseUrl = 'https://onesilkribbon.com'
 

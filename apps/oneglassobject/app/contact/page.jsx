@@ -2,14 +2,17 @@
 import { useState } from 'react'
 
 export default function Contact() {
-  const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' })
+  // website 是蜜罐字段（页面上藏起来，真人不会填），见 /api/contact
+  const [form, setForm] = useState({ name: '', email: '', subject: '', message: '', website: '' })
   const [status, setStatus] = useState('idle') // idle | sending | sent | error
+  const [errorMsg, setErrorMsg] = useState('')
 
   const handleChange = (e) => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
 
   const handleSubmit = async () => {
     if (!form.name || !form.email || !form.message) return
     setStatus('sending')
+    setErrorMsg('')
     try {
       const res = await fetch('/api/contact', {
         method: 'POST',
@@ -18,7 +21,7 @@ export default function Contact() {
       })
       const data = await res.json()
       if (data.success) setStatus('sent')
-      else setStatus('error')
+      else { setStatus('error'); setErrorMsg(data.error || '') }
     } catch {
       setStatus('error')
     }
@@ -44,22 +47,29 @@ export default function Contact() {
           <div>
             <div style={{ marginBottom: 20 }}>
               <label className="input-label">Your Name</label>
-              <input className="input" name="name" value={form.name} onChange={handleChange} placeholder="Jane Smith" />
+              <input className="input" name="name" value={form.name} onChange={handleChange} placeholder="Jane Smith" maxLength={100} />
             </div>
             <div style={{ marginBottom: 20 }}>
               <label className="input-label">Email Address</label>
-              <input className="input" name="email" type="email" value={form.email} onChange={handleChange} placeholder="jane@example.com" />
+              <input className="input" name="email" type="email" value={form.email} onChange={handleChange} placeholder="jane@example.com" maxLength={254} />
             </div>
             <div style={{ marginBottom: 20 }}>
               <label className="input-label">Subject <span style={{ color: 'var(--warm)' }}>(optional)</span></label>
-              <input className="input" name="subject" value={form.subject} onChange={handleChange} placeholder="Order enquiry, bespoke order…" />
+              <input className="input" name="subject" value={form.subject} onChange={handleChange} placeholder="Order enquiry, bespoke order…" maxLength={200} />
             </div>
             <div style={{ marginBottom: 28 }}>
               <label className="input-label">Message</label>
               <textarea className="input" name="message" value={form.message} onChange={handleChange}
-                placeholder="Tell us how we can help…"
+                placeholder="Tell us how we can help…" maxLength={5000}
                 style={{ minHeight: 140, resize: 'vertical' }} />
             </div>
+
+            {/* 蜜罐：移出屏幕、不可聚焦，读屏软件也跳过；自动填表的脚本会把它填上 */}
+            <input
+              name="website" value={form.website} onChange={handleChange}
+              tabIndex={-1} autoComplete="off" aria-hidden="true"
+              style={{ position: 'absolute', left: '-10000px', width: 1, height: 1, opacity: 0 }}
+            />
 
             <button onClick={handleSubmit} disabled={status === 'sending'} style={{
               width: '100%', height: 50,
@@ -71,6 +81,11 @@ export default function Contact() {
             }}>
               {status === 'sending' ? 'Sending…' : status === 'sent' ? '✓  Message Sent' : 'Send Message'}
             </button>
+            {status === 'error' && (
+              <p role="alert" style={{ fontSize: 11, color: '#991B1B', marginTop: 12, lineHeight: 1.8 }}>
+                {errorMsg || 'Sorry, your message could not be sent. Please try again.'}
+              </p>
+            )}
             {status === 'sent' && (
               <p style={{ fontSize: 11, color: 'var(--taupe)', marginTop: 12, lineHeight: 1.8 }}>
                 We&apos;ve received your message and sent a confirmation to your email. If you don&apos;t see it, feel free to reach us directly at <a href="mailto:hello@oneglassobject.com" style={{ color: 'var(--gold)' }}>hello@oneglassobject.com</a>.

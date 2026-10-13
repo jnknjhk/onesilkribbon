@@ -1,20 +1,48 @@
 // /api/admin/customers —— 两个站共用
-//   GET            客户列表（按邮箱聚合）
-//   GET ?email=x   单个客户：全部订单、收货地址、账户资料、是否订阅
+//   GET                        客户列表（按邮箱聚合）
+//   GET ?email=x               单个客户：全部订单、收货地址、账户资料、是否订阅
+//   GET ?email=x&erase=preview 删除这位客户会动到哪些数据（确认框里展示）
+//   DELETE { email }           删除客户（做法见 customer-erase.js）
 import { supabaseAdmin } from '../../lib/supabase'
 import { verifyAdmin } from '../../lib/admin-auth'
 import { errorResponse } from '../../lib/api-error'
 import { fetchAll } from './_helpers'
+import { planErasure, eraseCustomer } from './customer-erase'
+import { ERASED_EMAIL } from '../lib/erasure'
+
+const notErasable = email => !email || email === ERASED_EMAIL || email === 'unknown'
 
 export async function GET(req) {
   const admin = await verifyAdmin()
   if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    const email = new URL(req.url).searchParams.get('email')
-    return email ? customerDetail(email) : customerList()
+    const params = new URL(req.url).searchParams
+    const email = params.get('email')
+    if (email && params.get('erase') === 'preview') {
+      if (notErasable(email)) return Response.json({ error: '这位客户不能删除' }, { status: 400 })
+      const plan = await planErasure(email)
+      return Response.json({ summary: plan.summary, blockers: plan.blockers })
+    }
+    return email ? await customerDetail(email) : await customerList()
   } catch (err) {
     return errorResponse(err, { tag: 'admin-customers-get' })
+  }
+}
+
+export async function DELETE(req) {
+  const admin = await verifyAdmin()
+  if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+  try {
+    const { email } = await req.json()
+    if (notErasable(email)) return Response.json({ error: '这位客户不能删除' }, { status: 400 })
+    const result = await eraseCustomer(email)
+    if (!result.ok) return Response.json({ error: result.blockers.join(' '), blockers: result.blockers }, { status: 409 })
+    console.log('[admin-customers] 已删除客户', { by: admin.email, ...result.done })
+    return Response.json(result)
+  } catch (err) {
+    return errorResponse(err, { tag: 'admin-customers-delete', message: '删除没有全部完成，请再点一次删除（已经处理过的部分不会重复处理）' })
   }
 }
 
@@ -28,7 +56,7 @@ async function customerList() {
   const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
 
   if (!summary.error) {
-    const customers = summary.data.map(r => ({
+    const customers = summary.data.filter(r => r.email !== ERASED_EMAIL).map(r => ({
       email:     r.email,
       name:      r.name,
       city:      r.city,
@@ -55,6 +83,7 @@ async function customerList() {
 
   const map = {}
   for (const o of orders) {
+    if (o.customer_email === ERASED_EMAIL) continue // 已删除客户留下的订单不算客户
     const key = o.customer_email || 'unknown'
     const c = map[key] ||= {
       email: key, name: o.shipping_name, city: o.shipping_city, country: o.shipping_country,
@@ -71,6 +100,7 @@ async function customerList() {
 }
 
 async function customerDetail(email) {
+  if (email === ERASED_EMAIL) return Response.json({ error: '这位客户已经删除，个人信息已抹去' }, { status: 404 })
   const { data: orders, error } = await supabaseAdmin.from('orders')
     .select('id, order_number, status, total_gbp, created_at, paid_at, shipping_name, shipping_line1, shipping_line2, shipping_city, shipping_postcode, shipping_country, phone, user_id')
     .eq('customer_email', email)

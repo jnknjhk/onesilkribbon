@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { api } from '../../lib/api'
 import { money, dateTime } from '../../lib/format'
 import { ORDER_STATUS, ORDER_TABS, CAN } from '../../lib/status'
+import { isErased } from '../../lib/erasure'
 import {
   PageHeader, Card, Badge, Button, ButtonLink, Modal, ConfirmDialog, Field, Textarea, Checkbox,
   Notice, EmptyState, SkeletonRows, Segmented, useToast, styles as s, cx,
@@ -41,6 +42,7 @@ export default function OrderDetail({ number }) {
   const { order, items, events, emails } = data
   const st = ORDER_STATUS[order.status] || { label: order.status, tone: 'neutral' }
   const done = () => { setModal(null); load() }
+  const erased = isErased(order) // 客户已删除：没有联系方式了，不显示发邮件这类操作
 
   return (
     <div>
@@ -61,13 +63,16 @@ export default function OrderDetail({ number }) {
         {(order.status === 'paid' || order.status === 'shipped') && (
           <Button icon="printer" onClick={() => window.open(`/admin/orders/print?numbers=${encodeURIComponent(order.order_number)}`, '_blank')}>打印装箱单</Button>
         )}
-        <ButtonLink icon="mail" href={`/admin/marketing?tab=email&order=${encodeURIComponent(order.order_number)}`}>给顾客发邮件</ButtonLink>
-        {CAN.resend(order.status) && <Button variant="ghost" icon="send" onClick={() => setModal('resend')}>重发确认邮件</Button>}
+        {!erased && <ButtonLink icon="mail" href={`/admin/marketing?tab=email&order=${encodeURIComponent(order.order_number)}`}>给顾客发邮件</ButtonLink>}
+        {!erased && CAN.resend(order.status) && <Button variant="ghost" icon="send" onClick={() => setModal('resend')}>重发确认邮件</Button>}
         <span style={{ flex: 1 }} />
         {CAN.refund(order.status) && <Button variant="dangerGhost" icon="refund" onClick={() => setModal('refund')}>退款</Button>}
         {CAN.cancel(order.status) && <Button variant="dangerGhost" icon="x" onClick={() => setModal('cancel')}>取消订单</Button>}
       </div>
 
+      {erased && (
+        <Notice tone="info" style={{ marginBottom: 16 }}>这位客户已经删除，订单上的姓名、邮箱、地址和电话已抹去。金额和商品保留作财务记录。</Notice>
+      )}
       {order.status === 'pending' && (
         <Notice tone="info" style={{ marginBottom: 16 }}>顾客还没有付款，不需要发货。顾客完成付款后这单会自动变成“待发货”。</Notice>
       )}
@@ -101,14 +106,23 @@ export default function OrderDetail({ number }) {
         </div>
 
         <div className={s.stack}>
-          <Card title="顾客" actions={<ButtonLink size="sm" variant="ghost" href={`/admin/customers?email=${encodeURIComponent(order.customer_email)}`}>客户详情</ButtonLink>}>
-            <dl className={s.kv}>
-              <dt>姓名</dt><dd>{order.shipping_name || '—'}</dd>
-              <dt>邮箱</dt><dd><a href={`mailto:${order.customer_email}`}>{order.customer_email}</a></dd>
-              <dt>电话</dt><dd>{order.phone || '—'}</dd>
-              <dt>收货地址</dt><dd><Address order={order} /></dd>
-            </dl>
-          </Card>
+          {erased ? (
+            <Card title="顾客">
+              <dl className={s.kv}>
+                <dt>姓名</dt><dd>{order.shipping_name}</dd>
+                <dt>国家</dt><dd>{order.shipping_country || '—'}</dd>
+              </dl>
+            </Card>
+          ) : (
+            <Card title="顾客" actions={<ButtonLink size="sm" variant="ghost" href={`/admin/customers?email=${encodeURIComponent(order.customer_email)}`}>客户详情</ButtonLink>}>
+              <dl className={s.kv}>
+                <dt>姓名</dt><dd>{order.shipping_name || '—'}</dd>
+                <dt>邮箱</dt><dd><a href={`mailto:${order.customer_email}`}>{order.customer_email}</a></dd>
+                <dt>电话</dt><dd>{order.phone || '—'}</dd>
+                <dt>收货地址</dt><dd><Address order={order} /></dd>
+              </dl>
+            </Card>
+          )}
 
           {(order.tracking_number || order.tracking_carrier) && (
             <Card title="快递">

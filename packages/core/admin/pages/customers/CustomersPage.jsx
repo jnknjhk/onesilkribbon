@@ -12,7 +12,7 @@ import { ORDER_STATUS } from '../../lib/status'
 import { useUrlState } from '../../lib/url-state'
 import {
   PageHeader, Card, Tabs, SearchInput, Select, Segmented, DataTable, Pager, Badge, Button, ButtonLink,
-  EmptyState, Notice, Stat, SkeletonRows, useToast, styles as s,
+  EmptyState, Notice, Stat, SkeletonRows, Modal, Field, Input, useToast, styles as s,
 } from '../../ui'
 
 const PAGE_SIZE = 30
@@ -115,6 +115,7 @@ function CustomerDetail({ email, onBack }) {
   const toast = useToast()
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
+  const [eraseOpen, setEraseOpen] = useState(false)
 
   useEffect(() => {
     setData(null); setError('')
@@ -204,9 +205,81 @@ function CustomerDetail({ email, onBack }) {
               ))}
             </div>
           </Card>
+          <Card title="删除客户">
+            <p className={s.muted} style={{ margin: '0 0 12px', fontSize: 13, lineHeight: 1.6 }}>
+              顾客要求删除个人数据时用。付过钱的订单会保留金额和商品，但姓名、邮箱、地址、电话会被抹掉。
+            </p>
+            <Button variant="dangerGhost" icon="trash" onClick={() => setEraseOpen(true)}>删除这位客户</Button>
+          </Card>
         </div>
       </div>
+      {eraseOpen && <EraseDialog email={c.email} name={c.name} onClose={() => setEraseOpen(false)} onDone={onBack} />}
     </div>
+  )
+}
+
+// 删除前先把"会删什么、会留什么"列出来，再要求手动输入"删除"两个字——这一步做了就回不去
+function EraseDialog({ email, name, onClose, onDone }) {
+  const toast = useToast()
+  const [plan, setPlan] = useState(null)
+  const [error, setError] = useState('')
+  const [typed, setTyped] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    api(`/api/admin/customers?email=${encodeURIComponent(email)}&erase=preview`).then(setPlan).catch(e => setError(e.message))
+  }, [email])
+
+  const blocked = plan?.blockers?.length > 0
+  async function run() {
+    setBusy(true); setError('')
+    try {
+      await api('/api/admin/customers', { method: 'DELETE', body: { email } })
+      toast.success(`已删除客户 ${name || email}`)
+      onDone()
+    } catch (e) { setError(e.message); setBusy(false) }
+  }
+
+  const sm = plan?.summary
+  return (
+    <Modal open title="删除客户" onClose={busy ? undefined : onClose} width={520}
+      footer={<>
+        <Button onClick={onClose} disabled={busy}>取消</Button>
+        <Button variant="danger" icon="trash" loading={busy} disabled={!plan || blocked || typed.trim() !== '删除'} onClick={run}>永久删除</Button>
+      </>}>
+      <div className={s.stack}>
+        <div><span className={s.cellMain}>{name || email}</span>{name && <span className={s.muted}> · {email}</span>}</div>
+        {!plan && !error && <SkeletonRows rows={3} />}
+        {blocked && plan.blockers.map(b => <Notice key={b} tone="danger">{b}</Notice>)}
+        {sm && !blocked && (
+          <>
+            <div>
+              <div className={s.fieldLabel} style={{ marginBottom: 6 }}>会被删除</div>
+              <ul style={{ margin: 0, paddingLeft: 20, lineHeight: 1.8, fontSize: 14 }}>
+                <li>登录账号：{sm.accounts ? `${sm.accounts} 个（顾客将无法再登录，账户里的资料一并删除）` : '没有'}</li>
+                <li>保存的地址：{sm.addresses} 条</li>
+                <li>邮件订阅：{sm.subscribed ? '有，会取消' : '没有'}</li>
+                <li>没付款的订单：{sm.deleteOrders} 笔</li>
+              </ul>
+            </div>
+            <div>
+              <div className={s.fieldLabel} style={{ marginBottom: 6 }}>会保留，但抹掉个人信息</div>
+              <ul style={{ margin: 0, paddingLeft: 20, lineHeight: 1.8, fontSize: 14 }}>
+                <li>付过钱的订单：{sm.keepOrders} 笔（金额、商品、日期、国家、付款编号保留；销售统计不变）</li>
+              </ul>
+            </div>
+            {sm.skippedAccounts.length > 0 && (
+              <Notice tone="warning">订单上还关联了另一个登录账号（{sm.skippedAccounts.join('、')}），它的邮箱和这位客户不同，不会被删除。</Notice>
+            )}
+            <Notice tone="info">Stripe、PayPal、Resend 后台里的记录不受影响，需要的话请到各自后台处理。</Notice>
+            <Field label="确认删除请输入：删除">
+              <Input value={typed} onChange={e => setTyped(e.target.value)} placeholder="删除" />
+            </Field>
+          </>
+        )}
+        {error && <Notice tone="danger">{error}</Notice>}
+      </div>
+    </Modal>
   )
 }
 

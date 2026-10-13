@@ -5,6 +5,9 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '../../lib/supabase'
 import { AdminConfigProvider } from '../config'
+import { COUNTS_EVENT } from '../lib/counts'
+import { clearApiCache } from '../lib/api'
+import AdminLoading from '../AdminLoading'
 import { Icon, ToastProvider, Button, cx, styles as s } from '../ui'
 
 export const NAV = [
@@ -29,17 +32,37 @@ export default function AdminShell({ config, children }) {
 
   useEffect(() => { setNavOpen(false) }, [pathname])
 
-  // 订单入口上的"待发货"数字：每次切换页面刷新一次（只是几个计数查询，很轻）
+  // 订单入口上的"待发货"数字：打开后台时查一次，之后每 3 分钟、或者切回这个窗口时再查
+  // （以前每切一次页面都查一遍）。订单列表 / 工作台拿到数字会直接告诉这里，发货退款后会通知这里重查
   useEffect(() => {
     let cancelled = false
-    fetch('/api/admin/orders?countsOnly=1')
-      .then(r => (r.ok ? r.json() : null))
-      .then(d => { if (!cancelled && d?.counts) setToShip(d.counts.to_ship || 0) })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [pathname])
+    let last = 0
+    const load = () => {
+      last = Date.now()
+      fetch('/api/admin/orders?countsOnly=1')
+        .then(r => (r.ok ? r.json() : null))
+        .then(d => { if (!cancelled && d?.counts) setToShip(d.counts.to_ship || 0) })
+        .catch(() => {})
+    }
+    const onFocus = () => { if (Date.now() - last > 30000) load() }
+    const onEvent = e => {
+      if (e.detail?.refresh) load()
+      else if (Number.isFinite(e.detail?.toShip)) { last = Date.now(); setToShip(e.detail.toShip) }
+    }
+    load()
+    const timer = setInterval(() => { if (document.visibilityState !== 'hidden') load() }, 180000) // 后台标签页不查
+    window.addEventListener('focus', onFocus)
+    window.addEventListener(COUNTS_EVENT, onEvent)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+      window.removeEventListener('focus', onFocus)
+      window.removeEventListener(COUNTS_EVENT, onEvent)
+    }
+  }, [])
 
   async function signOut() {
+    clearApiCache()
     await createSupabaseBrowserClient().auth.signOut()
     router.push('/admin-login')
   }
@@ -61,7 +84,8 @@ export default function AdminShell({ config, children }) {
                 const active = isActive(item, pathname)
                 const count = item.badge === 'toShip' ? toShip : null
                 return (
-                  <Link key={item.href} href={item.href} className={cx(s.navItem, active && s.navItemActive)} aria-current={active ? 'page' : undefined}>
+                  // prefetch：页面外框提前取好并保留 5 分钟（默认只保留 30 秒，过后再点又要等一个来回）
+                  <Link key={item.href} href={item.href} prefetch className={cx(s.navItem, active && s.navItemActive)} aria-current={active ? 'page' : undefined}>
                     <Icon name={item.icon} size={18} />
                     {item.label}
                     {count > 0 && <span className={cx(s.navBadge, s.num)} title={`${count} 单待发货`}>{count}</span>}
@@ -86,7 +110,7 @@ export default function AdminShell({ config, children }) {
             </header>
             <main className={s.content}>
               {/* 用了 useSearchParams 的页面必须包在 Suspense 里，否则 Next 构建时会报错 */}
-              <Suspense fallback={null}>{children}</Suspense>
+              <Suspense fallback={<AdminLoading />}>{children}</Suspense>
             </main>
           </div>
         </div>

@@ -41,6 +41,11 @@ export default function ProductEditorPage({ id }) {
 
   return (
     <ProductEditor key={version} product={data.product} initialSkus={data.skus}
-      onSaved={async () => { await load(); setVersion(v => v + 1) }} />
+      onSaved={async (id, res) => {
+        // 保存接口已经带回了最新数据，直接用；旧接口没带才再请求一次
+        if (res?.product) setData({ product: res.product, skus: res.skus || [] })
+        else await load()
+        setVersion(v => v + 1)
+      }} />
   )
 }

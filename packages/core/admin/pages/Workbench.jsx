@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAdminConfig } from '../config'
-import { api } from '../lib/api'
+import { useApi } from '../lib/use-api'
+import { publishToShip } from '../lib/counts'
 import { money, ago } from '../lib/format'
 import { ORDER_STATUS } from '../lib/status'
 import { PageHeader, Card, Badge, DataTable, EmptyState, Icon, Notice, Stat, styles as s, cx } from '../ui'
@@ -35,20 +36,20 @@ function Todo({ href, icon, tone, count, label, sub }) {
 export default function Workbench() {
   const cfg = useAdminConfig()
   const router = useRouter()
-  const [data, setData] = useState(null)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    api('/api/admin/dashboard').then(setData).catch(e => setError(e.message))
-  }, [])
+  // 回到工作台时先显示上次的数字，后台同时刷新
+  const { data, error } = useApi('/api/admin/dashboard')
+  useEffect(() => { publishToShip(data?.todo?.toShip) }, [data])
 
   const t = data?.todo
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? '早上好' : hour < 18 ? '下午好' : '晚上好'
+  // 问候语和日期在浏览器里算：这个页面是构建时预先生成的，写死在里面就会一直是构建那一刻的日期
+  const [now, setNow] = useState(null)
+  useEffect(() => { setNow(new Date()) }, [])
+  const hour = now ? now.getHours() : 12
+  const greeting = !now ? '工作台' : hour < 12 ? '早上好' : hour < 18 ? '下午好' : '晚上好'
 
   return (
     <div className={s.stack}>
-      <PageHeader title={greeting} subtitle={new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })} />
+      <PageHeader title={greeting} subtitle={now ? now.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }) : '\u00a0'} />
 
       {error && <Notice tone="danger">工作台数据加载失败：{error}</Notice>}
 
@@ -78,6 +79,7 @@ export default function Workbench() {
           rows={data?.recent || []}
           rowKey="id"
           onRowClick={o => router.push(`/admin/orders/${encodeURIComponent(o.order_number)}`)}
+          onRowHover={o => router.prefetch(`/admin/orders/${encodeURIComponent(o.order_number)}`)}
           empty={<EmptyState icon="package" title="还没有订单" />}
           columns={[
             { key: 'order_number', header: '订单号', primary: true, render: o => (

@@ -15,17 +15,17 @@ export async function GET() {
     const cutoff = new Date(Date.now() - STALE_DAYS * 86400000).toISOString()
     const [stalePending, expiredSessions, allOrders, items] = await Promise.all([
       // 滞留的待付款订单：顾客点了结账但没付钱，会一直混在订单和客户统计里
-      fetchAll(() => supabaseAdmin.from('orders')
-        .select('id, order_number, customer_email, total_gbp, created_at, payment_method')
+      fetchAll(o => supabaseAdmin.from('orders')
+        .select('id, order_number, customer_email, total_gbp, created_at, payment_method', o)
         .eq('status', 'pending').lt('created_at', cutoff).order('created_at').order('id')),
       // 过期的 PayPal 临时下单数据：正常付款后会删掉，顾客中途放弃的会留下
-      fetchAll(() => supabaseAdmin.from('paypal_sessions')
-        .select('id, order_number, created_at, expires_at')
+      fetchAll(o => supabaseAdmin.from('paypal_sessions')
+        .select('id, order_number, created_at, expires_at', o)
         .lt('expires_at', new Date().toISOString()).order('created_at').order('id')),
       // 没有商品明细的订单：发不了货，要人工核对。
       // 以前这两条查询没分页，超过 1000 行后会把有明细的订单误报成"没有明细"
-      fetchAll(() => supabaseAdmin.from('orders').select('id, order_number, status, total_gbp, customer_email, created_at').order('id')),
-      fetchAll(() => supabaseAdmin.from('order_items').select('order_id').order('id')),
+      fetchAll(o => supabaseAdmin.from('orders').select('id, order_number, status, total_gbp, customer_email, created_at', o).order('id')),
+      fetchAll(o => supabaseAdmin.from('order_items').select('order_id', o).order('id')),
     ])
     for (const r of [stalePending, allOrders, items]) if (r.error) throw r.error
     const withItems = new Set(items.data.map(i => i.order_id))
@@ -45,7 +45,7 @@ export async function GET() {
 
 // body: { action: 'deleteOrders' | 'deleteSessions', ids: [...] }
 export async function POST(req) {
-  const admin = await verifyAdmin()
+  const admin = await verifyAdmin({ strict: true }) // 不可撤销的操作：再向 Supabase 确认一次登录状态
   if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {

@@ -10,7 +10,7 @@
 // props:
 //   product      'new' 或完整的商品（由 ProductEditorPage 按 id 取好）
 //   initialSkus  这个商品的全部 SKU（含已停用的，走 service role 取，见下方注释）
-//   onSaved(id)  保存成功
+//   onSaved(id, res)  保存成功；res 里带着保存后的最新商品和 SKU（编辑已有商品时）
 import { useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAdminConfig } from '../../config'
@@ -21,7 +21,7 @@ import BatchSkuModal from './BatchSkuModal'
 import { duplicateProduct } from './ProductsPage'
 import {
   PageHeader, Card, Field, Input, Textarea, Select, Segmented, Checkbox, Button, Badge, Notice,
-  ConfirmDialog, EmptyState, Icon, useToast, useUnsavedWarning, styles as s, cx,
+  ConfirmDialog, EmptyState, Icon, useToast, useUnsavedWarning, Img, styles as s, cx,
 } from '../../ui'
 
 const optObj = o => (typeof o === 'object' && o !== null ? o : { value: o, image: '' })
@@ -188,7 +188,7 @@ export default function ProductEditor({ product, initialSkus, onSaved }) {
     }
     // 保存后重新从数据库取一遍再显示：新加的 SKU 拿到 id，库存基准也更新成最新值，
     // 否则接着再改再保存，新 SKU 会被重复插入一次
-    try { await onSaved(isNew ? res.id : product.id) } finally { setSaving(false) }
+    try { await onSaved(isNew ? res.id : product.id, res) } finally { setSaving(false) }
   }
 
   async function doDelete() {
@@ -248,7 +248,7 @@ export default function ProductEditor({ product, initialSkus, onSaved }) {
             <div className={s.imgGrid}>
               {images.map((url, i) => (
                 <div key={`${i}-${url}`} className={cx(s.imgTile, i === 0 && s.imgTileMain)}>
-                  <img src={url} alt="" />
+                  <Img src={url} width={160} />
                   {i === 0 && <span className={s.imgTileTag}><Badge tone="brand">主图</Badge></span>}
                   <div className={s.imgTileTools}>
                     <button type="button" className={s.imgTileBtn} disabled={i === 0} onClick={() => moveImage(i, -1)} aria-label="前移"><Icon name="chevronLeft" size={15} /></button>
@@ -441,7 +441,7 @@ function SkuImages({ images, onChange }) {
     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center', maxWidth: 170 }}>
       {images.map((url, i) => (
         <span key={`${i}-${url}`} style={{ position: 'relative' }}>
-          <img src={url} alt="" className={s.thumb} style={{ width: 36, height: 36 }} />
+          <Img src={url} width={36} className={s.thumb} style={{ width: 36, height: 36 }} />
           <button type="button" onClick={() => onChange(images.filter((_, j) => j !== i))} aria-label="移除图片"
             style={{ position: 'absolute', top: -5, right: -5, width: 16, height: 16, borderRadius: '50%', border: 0, background: 'var(--danger)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
             <Icon name="x" size={10} strokeWidth={3} />
@@ -461,7 +461,7 @@ function OptionImage({ image, onChange }) {
     <>
       {image ? (
         <span style={{ position: 'relative', flexShrink: 0 }}>
-          <img src={image} alt="" className={s.thumb} style={{ width: 38, height: 38, cursor: 'pointer' }} onClick={() => setOpen(true)} title="点击更换" />
+          <Img src={image} width={38} className={s.thumb} style={{ width: 38, height: 38, cursor: 'pointer' }} onClick={() => setOpen(true)} title="点击更换" />
           <button type="button" onClick={() => onChange('')} aria-label="移除配图"
             style={{ position: 'absolute', top: -5, right: -5, width: 16, height: 16, borderRadius: '50%', border: 0, background: 'var(--danger)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
             <Icon name="x" size={10} strokeWidth={3} />

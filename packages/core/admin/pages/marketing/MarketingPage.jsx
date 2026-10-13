@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useAdminConfig } from '../../config'
 import { api } from '../../lib/api'
+import { useApi } from '../../lib/use-api'
 import { money, date, dateTime } from '../../lib/format'
 import { useUrlState } from '../../lib/url-state'
 import {
@@ -48,15 +49,14 @@ function couponState(c) {
 
 function Coupons() {
   const toast = useToast()
-  const [coupons, setCoupons] = useState(null)
   const [editing, setEditing] = useState(null) // null | 'new' | coupon
   const [confirm, setConfirm] = useState(null)
   const [busy, setBusy] = useState(false)
 
-  const load = useCallback(() => api('/api/admin/coupons')
-    .then(d => setCoupons(d.coupons || []))
-    .catch(e => { toast.error('优惠码加载失败：' + e.message); setCoupons([]) }), []) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { load() }, [load])
+  // 不用缓存：编辑优惠码时表单用的是列表里这一行的数据，保存会写回全部字段，必须是最新的
+  const { data, error, reload: load } = useApi('/api/admin/coupons', { cache: false })
+  useEffect(() => { if (error) toast.error('优惠码加载失败：' + error) }, [error]) // eslint-disable-line react-hooks/exhaustive-deps
+  const coupons = data ? data.coupons || [] : (error ? [] : null)
 
   async function toggle(c) {
     try {
@@ -206,11 +206,9 @@ function Compose({ get, set }) {
   const [template, setTemplate] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
-  const [customers, setCustomers] = useState([])
-
-  useEffect(() => {
-    api('/api/admin/customers').then(d => setCustomers(d.customers || [])).catch(() => {})
-  }, [])
+  // 收件人输入框的邮箱提示：和客户列表共用同一份缓存，看过客户页就不用再等
+  const { data: customerData } = useApi('/api/admin/customers')
+  const customers = useMemo(() => customerData?.customers || [], [customerData])
 
   useEffect(() => {
     if (!orderNumber) return
@@ -312,9 +310,6 @@ function EmailLog({ get, set }) {
   const q = get('q'), kind = get('kind'), status = get('status')
   const page = parseInt(get('page'), 10) || 1
   const [search, setSearch] = useState(q)
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
-
   useEffect(() => { setSearch(q) }, [q])
   useEffect(() => {
     if (search === q) return
@@ -322,16 +317,12 @@ function EmailLog({ get, set }) {
     return () => clearTimeout(t)
   }, [search]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    setLoading(true)
-    const params = new URLSearchParams({ page: String(page) })
-    if (q) params.set('search', q)
-    if (kind) params.set('kind', kind)
-    if (status) params.set('status', status)
-    api(`/api/admin/emails?${params}`).then(setData)
-      .catch(e => toast.error('邮件记录加载失败：' + e.message))
-      .finally(() => setLoading(false))
-  }, [page, q, kind, status]) // eslint-disable-line react-hooks/exhaustive-deps
+  const params = new URLSearchParams({ page: String(page) })
+  if (q) params.set('search', q)
+  if (kind) params.set('kind', kind)
+  if (status) params.set('status', status)
+  const { data, error, loading } = useApi(`/api/admin/emails?${params}`)
+  useEffect(() => { if (error) toast.error('邮件记录加载失败：' + error) }, [error]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
@@ -360,7 +351,7 @@ function EmailLog({ get, set }) {
             ) },
             { key: 'kind', header: '类型', render: m => kindLabel(m.kind) },
             { key: 'order', header: '订单', hideMobile: true, render: m => (m.order_number
-              ? <Link href={`/admin/orders/${encodeURIComponent(m.order_number)}`} className={s.mono}>{m.order_number}</Link> : '—') },
+              ? <Link href={`/admin/orders/${encodeURIComponent(m.order_number)}`} prefetch={false} className={s.mono}>{m.order_number}</Link> : '—') },
             { key: 'st', header: '状态', render: m => (m.status === 'failed'
               ? <span title={m.error || ''}><Badge tone="danger">发送失败</Badge>{m.error && <div className={s.cellSub} style={{ maxWidth: 220 }}>{m.error}</div>}</span>
               : <Badge tone="success">已发送</Badge>) },

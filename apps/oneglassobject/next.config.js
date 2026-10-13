@@ -13,7 +13,9 @@ const nextConfig = {
       { protocol: 'https', hostname: 'cdn.shopify.com' },
     ],
     formats: ['image/avif', 'image/webp'],
-    minimumCacheTTL: 86400,
+    // 存储里的图片地址都是唯一的（上传时带时间戳，从不覆盖同一个地址），内容不会变，
+    // 缩略图可以放心缓存 30 天：少转换（Vercel 按转换次数计费），后台和前台都更快
+    minimumCacheTTL: 2592000,
   },
   experimental: {
     serverActions: { allowedOrigins: ['localhost:3000', 'oneglassobject.com'] }

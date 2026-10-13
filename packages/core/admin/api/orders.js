@@ -22,7 +22,23 @@ async function tabCounts() {
   return Object.fromEntries(entries)
 }
 
+// PostgREST 能顺着外键把子表一起带出来，一次往返拿齐订单和它的商品/物流。
+// 万一线上库里这几张表之间没建外键，会报 PGRST200，这时退回分开查（多一次往返，但结果一样）
+const noRelation = e => !!e && (e.code === 'PGRST200' || /relationship/i.test(e.message || ''))
+
 // 列表每一行带上"买了什么"的简短描述，不用点进去就知道要拿什么货
+function withSummary(o, list) {
+  const qty = list.reduce((n, i) => n + (i.quantity || 0), 0)
+  const first = list[0]
+  return {
+    ...o,
+    item_count: qty,
+    item_summary: first
+      ? `${first.product_name}${first.sku_description ? ' · ' + first.sku_description : ''} ×${first.quantity}${list.length > 1 ? ` 等 ${list.length} 种` : ''}`
+      : '',
+  }
+}
+
 async function attachItemSummary(orders) {
   const ids = orders.map(o => o.id)
   if (ids.length === 0) return orders
@@ -30,37 +46,44 @@ async function attachItemSummary(orders) {
     .from('order_items').select('order_id, product_name, sku_description, quantity').in('order_id', ids)
   const byOrder = {}
   for (const it of items || []) (byOrder[it.order_id] ||= []).push(it)
-  return orders.map(o => {
-    const list = byOrder[o.id] || []
-    const qty = list.reduce((n, i) => n + (i.quantity || 0), 0)
-    const first = list[0]
-    return {
-      ...o,
-      item_count: qty,
-      item_summary: first
-        ? `${first.product_name}${first.sku_description ? ' · ' + first.sku_description : ''} ×${first.quantity}${list.length > 1 ? ` 等 ${list.length} 种` : ''}`
-        : '',
-    }
-  })
+  return orders.map(o => withSummary(o, byOrder[o.id] || []))
 }
 
-async function orderDetail(number) {
-  const { data: order, error } = await supabaseAdmin
-    .from('orders').select('*').eq('order_number', number).maybeSingle()
-  if (error) return errorResponse(error, { tag: 'admin-order-detail' })
-  if (!order) return Response.json({ error: '找不到这个订单' }, { status: 404 })
+const byEventTime = (a, b) => String(a.event_time || '').localeCompare(String(b.event_time || ''))
 
-  const [{ data: items }, { data: events }, emailsRes] = await Promise.all([
-    supabaseAdmin.from('order_items').select('*').eq('order_id', order.id),
-    supabaseAdmin.from('tracking_events').select('*').eq('order_id', order.id).order('event_time', { ascending: true }),
-    // 邮件记录表只有部分站点有；查不到就当没有，不影响订单本身
-    supabaseAdmin.from('email_log').select('id, kind, to_email, subject, status, error, created_at')
-      .eq('order_number', order.order_number).order('created_at', { ascending: true }),
+async function orderDetail(number) {
+  // 邮件记录按订单号查，不用等订单查完，一起发出去
+  const emailsQ = supabaseAdmin.from('email_log').select('id, kind, to_email, subject, status, error, created_at')
+    .eq('order_number', number).order('created_at', { ascending: true })
+  const [embedded, emailsRes] = await Promise.all([
+    supabaseAdmin.from('orders').select('*, order_items(*), tracking_events(*)').eq('order_number', number).maybeSingle(),
+    emailsQ,
   ])
+  let order, items, events
+  if (!embedded.error) {
+    if (embedded.data) {
+      ;({ order_items: items, tracking_events: events, ...order } = embedded.data)
+    }
+  } else if (noRelation(embedded.error)) {
+    const r = await supabaseAdmin.from('orders').select('*').eq('order_number', number).maybeSingle()
+    if (r.error) return errorResponse(r.error, { tag: 'admin-order-detail' })
+    order = r.data
+    if (order) {
+      const [a, b] = await Promise.all([
+        supabaseAdmin.from('order_items').select('*').eq('order_id', order.id),
+        supabaseAdmin.from('tracking_events').select('*').eq('order_id', order.id),
+      ])
+      items = a.data; events = b.data
+    }
+  } else {
+    return errorResponse(embedded.error, { tag: 'admin-order-detail' })
+  }
+  if (!order) return Response.json({ error: '找不到这个订单' }, { status: 404 })
   return Response.json({
     order,
     items: items || [],
-    events: events || [],
+    events: [...(events || [])].sort(byEventTime),
+    // 邮件记录表只有部分站点有；查不到就当没有，不影响订单本身
     emails: emailsRes?.error ? null : (emailsRes?.data || []),
   })
 }
@@ -91,16 +114,20 @@ export async function GET(req) {
     const numbers = searchParams.get('numbers')
     if (numbers) {
       const list = numbers.split(',').map(s => s.trim()).filter(Boolean).slice(0, 100)
-      const { data: orders, error } = await supabaseAdmin.from('orders').select('*').in('order_number', list)
+      let { data: orders, error } = await supabaseAdmin.from('orders').select('*, order_items(*)').in('order_number', list)
+      if (noRelation(error)) {
+        ;({ data: orders, error } = await supabaseAdmin.from('orders').select('*').in('order_number', list))
+        if (!error) {
+          const ids = (orders || []).map(o => o.id)
+          const { data: items } = ids.length
+            ? await supabaseAdmin.from('order_items').select('*').in('order_id', ids)
+            : { data: [] }
+          orders = (orders || []).map(o => ({ ...o, order_items: (items || []).filter(i => i.order_id === o.id) }))
+        }
+      }
       if (error) return errorResponse(error, { tag: 'admin-orders-print' })
-      const ids = (orders || []).map(o => o.id)
-      const { data: items } = ids.length
-        ? await supabaseAdmin.from('order_items').select('*').in('order_id', ids)
-        : { data: [] }
-      const byOrder = {}
-      for (const it of items || []) (byOrder[it.order_id] ||= []).push(it)
       // 按请求里的顺序返回
-      const map = Object.fromEntries((orders || []).map(o => [o.order_number, { ...o, items: byOrder[o.id] || [] }]))
+      const map = Object.fromEntries((orders || []).map(({ order_items, ...o }) => [o.order_number, { ...o, items: order_items || [] }]))
       return Response.json({ orders: list.map(n => map[n]).filter(Boolean) })
     }
 
@@ -111,24 +138,35 @@ export async function GET(req) {
     const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, parseInt(searchParams.get('pageSize'), 10) || 30))
     const from = (page - 1) * pageSize
 
-    let query = supabaseAdmin.from('orders').select('*', { count: 'exact' })
-    const statuses = tabStatuses(tab)
-    if (statuses) query = query.in('status', statuses)
-    if (q) query = query.or(`order_number.ilike.%${q}%,customer_email.ilike.%${q}%,shipping_name.ilike.%${q}%`)
-    // 待发货按"等得最久的在前"，其它按最新在前
-    query = tab === 'to_ship'
-      ? query.order('created_at', { ascending: true }).order('id', { ascending: true })
-      : query.order('created_at', { ascending: false }).order('id', { ascending: false })
+    const listQuery = columns => {
+      let query = supabaseAdmin.from('orders').select(columns, { count: 'exact' })
+      const statuses = tabStatuses(tab)
+      if (statuses) query = query.in('status', statuses)
+      if (q) query = query.or(`order_number.ilike.%${q}%,customer_email.ilike.%${q}%,shipping_name.ilike.%${q}%`)
+      // 待发货按"等得最久的在前"，其它按最新在前
+      query = tab === 'to_ship'
+        ? query.order('created_at', { ascending: true }).order('id', { ascending: true })
+        : query.order('created_at', { ascending: false }).order('id', { ascending: false })
+      return query.range(from, from + pageSize - 1)
+    }
 
-    const [{ data, error, count }, counts] = await Promise.all([
-      query.range(from, from + pageSize - 1),
+    // 订单和"买了什么"一次取回；页签数字同时查
+    let [{ data, error, count }, counts] = await Promise.all([
+      listQuery('*, order_items(product_name, sku_description, quantity)'),
       tabCounts(),
     ])
+    let rows
+    if (noRelation(error)) {
+      ;({ data, error, count } = await listQuery('*'))
+      if (!error) rows = await attachItemSummary(data || [])
+    } else if (!error) {
+      rows = (data || []).map(({ order_items, ...o }) => withSummary(o, order_items || []))
+    }
     if (error) return errorResponse(error, { tag: 'admin-orders-list' })
 
     const total = count || 0
     return Response.json({
-      orders: await attachItemSummary(data || []),
+      orders: rows,
       total, page, pageSize,
       totalPages: Math.max(1, Math.ceil(total / pageSize)),
       tab, counts,

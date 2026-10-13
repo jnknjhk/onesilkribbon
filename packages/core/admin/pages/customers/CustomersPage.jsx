@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAdminConfig } from '../../config'
 import { api } from '../../lib/api'
+import { useApi } from '../../lib/use-api'
 import { money, date, ago } from '../../lib/format'
 import { ORDER_STATUS } from '../../lib/status'
 import { useUrlState } from '../../lib/url-state'
@@ -50,17 +51,15 @@ function useDebouncedQuery(get, set) {
 // ── 客户列表 ──────────────────────────────────────────────────────────────────
 function CustomerList({ get, set }) {
   const toast = useToast()
-  const [customers, setCustomers] = useState(null)
   const [search, setSearch] = useDebouncedQuery(get, set)
   const q = get('q').toLowerCase()
   const type = get('type')
   const page = parseInt(get('page'), 10) || 1
 
-  useEffect(() => {
-    api('/api/admin/customers')
-      .then(d => setCustomers(d.customers || []))
-      .catch(e => { toast.error('客户加载失败：' + e.message); setCustomers([]) })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // 从客户详情返回时先显示上次的列表，后台同时刷新
+  const { data, error } = useApi('/api/admin/customers')
+  useEffect(() => { if (error) toast.error('客户加载失败：' + error) }, [error]) // eslint-disable-line react-hooks/exhaustive-deps
+  const customers = useMemo(() => (data ? data.customers || [] : (error ? [] : null)), [data, error])
 
   const list = useMemo(() => customers || [], [customers])
   const filtered = useMemo(() => list.filter(c => {
@@ -113,14 +112,8 @@ function CustomerList({ get, set }) {
 function CustomerDetail({ email, onBack }) {
   const router = useRouter()
   const toast = useToast()
-  const [data, setData] = useState(null)
-  const [error, setError] = useState('')
+  const { data, error } = useApi(`/api/admin/customers?email=${encodeURIComponent(email)}`, { keepPrevious: false })
   const [eraseOpen, setEraseOpen] = useState(false)
-
-  useEffect(() => {
-    setData(null); setError('')
-    api(`/api/admin/customers?email=${encodeURIComponent(email)}`).then(setData).catch(e => setError(e.message))
-  }, [email])
 
   const back = { onClick: onBack, label: '客户列表' }
   if (error) return <div><PageHeader back={back} title={email} /><Notice tone="danger">{error}</Notice></div>
@@ -156,6 +149,7 @@ function CustomerDetail({ email, onBack }) {
         <Card title="订单" padded={false}>
           <DataTable rows={orders} rowKey="order_number"
             onRowClick={o => router.push(`/admin/orders/${encodeURIComponent(o.order_number)}`)}
+            onRowHover={o => router.prefetch(`/admin/orders/${encodeURIComponent(o.order_number)}`)}
             empty={<EmptyState title="没有订单" />}
             columns={[
               { key: 'n', header: '订单号', primary: true, render: o => <span className={s.mono}>{o.order_number}</span> },
@@ -301,22 +295,15 @@ function SubscriberList({ get, set }) {
   const q = get('q')
   const source = get('source')
   const page = parseInt(get('page'), 10) || 1
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
 
   const sourceLabel = useCallback(v => cfg.subscriberSources.find(x => x.value === v)?.label || v || '—', [cfg])
 
-  useEffect(() => {
-    setLoading(true)
-    const params = new URLSearchParams({ page: String(page) })
-    if (q) params.set('search', q)
-    if (source) params.set('source', source)
-    api(`/api/admin/subscribers?${params}`)
-      .then(setData)
-      .catch(e => toast.error('订阅者加载失败：' + e.message))
-      .finally(() => setLoading(false))
-  }, [page, q, source]) // eslint-disable-line react-hooks/exhaustive-deps
+  const params = new URLSearchParams({ page: String(page) })
+  if (q) params.set('search', q)
+  if (source) params.set('source', source)
+  const { data, error, loading } = useApi(`/api/admin/subscribers?${params}`)
+  useEffect(() => { if (error) toast.error('订阅者加载失败：' + error) }, [error]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 导出和旧版格式一致：Email, Source, Status, Subscribed At；带 BOM，Excel 打开不乱码
   async function exportCsv() {

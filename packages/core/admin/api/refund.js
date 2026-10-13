@@ -11,7 +11,7 @@ import { restockItems } from './_helpers'
 //                   （PayPal 退款没接自动接口，以前退完之后系统里没有办法把订单标成已退款）
 //   restock=true —— 把这单的商品数量加回库存（货没发出去或退回来了的时候用）
 export async function POST(req) {
-  const admin = await verifyAdmin()
+  const admin = await verifyAdmin({ strict: true }) // 退款不可撤销：再向 Supabase 确认一次登录状态
   if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {

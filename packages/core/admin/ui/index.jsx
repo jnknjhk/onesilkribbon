@@ -5,6 +5,7 @@ import { createContext, forwardRef, useCallback, useContext, useEffect, useRef, 
 import Link from 'next/link'
 import s from './admin.module.css'
 import { Icon } from './icons'
+import { imageUrl, imageSrcSet } from '../lib/image'
 
 export { Icon }
 export const styles = s
@@ -248,7 +249,11 @@ export function SkeletonRows({ rows = 5 }) {
 // ── 表格 ─────────────────────────────────────────────────────────────────────
 // columns: [{ key, header, render(row), align, width, primary, hideMobile }]
 // primary 列在手机上作为卡片标题单独一行；其它列显示成"标签：值"。
-export function DataTable({ columns, rows, rowKey = 'id', onRowClick, rowClassName, empty, loading }) {
+// onRowHover：鼠标移到某一行时调用（比如提前预取详情页，点下去就快）
+export function DataTable({ columns, rows, rowKey = 'id', onRowClick, onRowHover, rowClassName, empty, loading }) {
+  // 鼠标在某一行停 120ms 才算"想点"，划过一整列表不会触发一串预取
+  const hoverTimer = useRef(null)
+  useEffect(() => () => clearTimeout(hoverTimer.current), [])
   if (loading) return <SkeletonRows />
   if (!rows || rows.length === 0) return empty || <EmptyState title="没有数据" />
   return (
@@ -261,7 +266,9 @@ export function DataTable({ columns, rows, rowKey = 'id', onRowClick, rowClassNa
           {rows.map((row, i) => (
             <tr key={typeof rowKey === 'function' ? rowKey(row) : row[rowKey] ?? i}
               className={cx(onRowClick && s.rowClick, rowClassName?.(row))}
-              onClick={onRowClick ? e => { if (!e.target.closest('button,a,input,select,label,textarea')) onRowClick(row) } : undefined}>
+              onClick={onRowClick ? e => { if (!e.target.closest('button,a,input,select,label,textarea')) onRowClick(row) } : undefined}
+              onPointerEnter={onRowHover ? () => { clearTimeout(hoverTimer.current); hoverTimer.current = setTimeout(() => onRowHover(row), 120) } : undefined}
+              onPointerLeave={onRowHover ? () => clearTimeout(hoverTimer.current) : undefined}>
               {columns.map(c => (
                 <td key={c.key}
                   data-label={c.primary ? undefined : (typeof c.header === 'string' ? c.header : undefined)}
@@ -289,6 +296,26 @@ export function Pager({ page, totalPages, total, onChange, unit = '条' }) {
         <Button size="sm" disabled={page >= totalPages} onClick={() => onChange(page + 1)}>下一页<Icon name="chevronRight" size={15} /></Button>
       </div>
     </div>
+  )
+}
+
+// ── 图片 ─────────────────────────────────────────────────────────────────────
+// 后台所有图片都用它：按显示宽度（width，单位 px）取缩略图，默认懒加载。
+// 缩略图万一取不到（比如图片优化额度用完），自动退回显示原图
+export function Img({ src, width, alt = '', loading = 'lazy', ...rest }) {
+  const [failed, setFailed] = useState(false)
+  useEffect(() => { setFailed(false) }, [src])
+  if (!src) return null
+  const useOriginal = failed || !width
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={useOriginal ? src : imageUrl(src, width)}
+      srcSet={useOriginal ? undefined : imageSrcSet(src, width)}
+      alt={alt} loading={loading} decoding="async"
+      onError={() => { if (!useOriginal) setFailed(true) }}
+      {...rest}
+    />
   )
 }
 

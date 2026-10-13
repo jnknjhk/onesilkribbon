@@ -30,7 +30,7 @@ export async function GET(req) {
     }
 
     if (all) {
-      const { data, error } = await fetchAll(() => base())
+      const { data, error } = await fetchAll(o => base(o))
       if (error) return errorResponse(error, { tag: 'admin-subscribers-all' })
       return Response.json({ subscribers: data, total: data.length, totalPages: 1 })
     }

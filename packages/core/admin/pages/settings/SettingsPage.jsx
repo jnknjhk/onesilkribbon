@@ -154,7 +154,7 @@ function Maintenance() {
         actions={<Badge tone={missing.length ? 'danger' : 'success'}>{missing.length}</Badge>} padded={false}>
         <DataTable rows={missing} empty={<EmptyState icon="check" title="没有这类订单" />}
           columns={[
-            { key: 'n', header: '订单号', primary: true, render: o => <Link href={`/admin/orders/${encodeURIComponent(o.order_number)}`} className={s.mono}>{o.order_number}</Link> },
+            { key: 'n', header: '订单号', primary: true, render: o => <Link href={`/admin/orders/${encodeURIComponent(o.order_number)}`} prefetch={false} className={s.mono}>{o.order_number}</Link> },
             { key: 's', header: '状态', render: o => <Badge tone={ORDER_STATUS[o.status]?.tone}>{ORDER_STATUS[o.status]?.label || o.status}</Badge> },
             { key: 't', header: '金额', align: 'right', render: o => money(o.total_gbp) },
             { key: 'e', header: '顾客', render: o => o.customer_email },

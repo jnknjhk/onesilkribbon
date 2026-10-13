@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { api } from '../../lib/api'
+import { refreshCounts } from '../../lib/counts'
 import { money, dateTime } from '../../lib/format'
 import { ORDER_STATUS, ORDER_TABS, CAN } from '../../lib/status'
 import { isErased } from '../../lib/erasure'
@@ -41,7 +42,7 @@ export default function OrderDetail({ number }) {
 
   const { order, items, events, emails } = data
   const st = ORDER_STATUS[order.status] || { label: order.status, tone: 'neutral' }
-  const done = () => { setModal(null); load() }
+  const done = () => { setModal(null); load(); refreshCounts() } // 状态变了，侧边栏的待发货数字也要更新
   const erased = isErased(order) // 客户已删除：没有联系方式了，不显示发邮件这类操作
 
   return (

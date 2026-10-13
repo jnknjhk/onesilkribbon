@@ -1,7 +1,9 @@
 'use client'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '../../lib/api'
+import { publishToShip, refreshCounts } from '../../lib/counts'
+import { useApi } from '../../lib/use-api'
 import { money, ago, daysSince, date } from '../../lib/format'
 import { ORDER_STATUS, ORDER_TABS, DEFAULT_ORDER_TAB } from '../../lib/status'
 import { useUrlState } from '../../lib/url-state'
@@ -23,8 +25,6 @@ export default function OrdersList() {
   const q = get('q')
 
   const [search, setSearch] = useState(q)
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState([])
   const [batchOpen, setBatchOpen] = useState(false)
 
@@ -36,19 +36,12 @@ export default function OrdersList() {
     return () => clearTimeout(t)
   }, [search]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params = new URLSearchParams({ tab, page: String(page) })
-      if (q) params.set('q', q)
-      setData(await api(`/api/admin/orders?${params}`))
-    } catch (e) {
-      toast.error('订单加载失败：' + e.message)
-    }
-    setLoading(false)
-  }, [tab, page, q]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => { load() }, [load])
+  // 回到看过的页签 / 从订单详情返回时先显示上次的列表，后台同时刷新
+  const params = new URLSearchParams({ tab, page: String(page) })
+  if (q) params.set('q', q)
+  const { data, error, loading, reload: load } = useApi(`/api/admin/orders?${params}`)
+  useEffect(() => { if (error) toast.error('订单加载失败：' + error) }, [error]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { publishToShip(data?.counts?.to_ship) }, [data])
   useEffect(() => { setSelected([]) }, [tab, page, q])
 
   const orders = useMemo(() => data?.orders || [], [data])
@@ -116,6 +109,7 @@ export default function OrdersList() {
           columns={columns}
           rowClassName={o => selected.includes(o.order_number) && s.rowSelected}
           onRowClick={o => router.push(`/admin/orders/${encodeURIComponent(o.order_number)}`)}
+          onRowHover={o => router.prefetch(`/admin/orders/${encodeURIComponent(o.order_number)}`)}
           empty={<EmptyState icon={tab === 'to_ship' ? 'check' : 'package'}
             title={q ? '没有找到匹配的订单' : tab === 'to_ship' ? '没有待发货的订单' : '这里还没有订单'}
             text={tab === 'to_ship' && !q ? '新订单付款后会出现在这里' : null} />}
@@ -143,9 +137,9 @@ function BatchShip({ open, orders, onClose, onDone }) {
     setRunning(true)
     const name = carrierName(carrier)
     let ok = 0
-    for (const o of orders) {
-      const n = (numbers[o.order_number] || '').trim()
-      if (!n || results[o.order_number]?.ok) continue
+    const todo = orders.filter(o => (numbers[o.order_number] || '').trim() && !results[o.order_number]?.ok)
+    const shipOne = async o => {
+      const n = numbers[o.order_number].trim()
       try {
         const res = await api('/api/admin/ship', {
           method: 'POST',
@@ -157,7 +151,10 @@ function BatchShip({ open, orders, onClose, onDone }) {
         setResults(r => ({ ...r, [o.order_number]: { ok: false, error: e.message } }))
       }
     }
+    // 两单两单地发（以前一单一单排队）。不再多：发货通知邮件的服务商限制每秒 2 封
+    for (let i = 0; i < todo.length; i += 2) await Promise.all(todo.slice(i, i + 2).map(shipOne))
     setRunning(false)
+    refreshCounts()
     if (ok > 0) toast.success(`已发货 ${ok} 单`)
   }
 

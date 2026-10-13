@@ -41,8 +41,10 @@ export async function POST(req) {
     const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
     const path = `${namespace}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
     const buffer = Buffer.from(await file.arrayBuffer())
+    // 路径必须保持唯一、永不覆盖：图片会被浏览器、Supabase CDN 和 Vercel 缩略图长期缓存
+    // （见 next.config.js 的 minimumCacheTTL），同一个地址换了内容，旧图会继续显示很久
     const { error: uploadError } = await supabaseAdmin.storage.from('media')
-      .upload(path, buffer, { contentType: file.type, upsert: false })
+      .upload(path, buffer, { contentType: file.type, upsert: false, cacheControl: '31536000' })
     if (uploadError) return errorResponse(uploadError, { tag: 'admin-media-upload' })
 
     const { data: urlData } = supabaseAdmin.storage.from('media').getPublicUrl(path)
@@ -66,9 +68,11 @@ const USAGE = [
 ]
 
 async function findUsage(url) {
+  // 四张表同时查，不再一张一张排队
+  const results = await Promise.all(USAGE.map(u =>
+    fetchAll(o => supabaseAdmin.from(u.table).select(u.cols, o).order(u.cols.split(',')[0].trim())).then(r => ({ u, ...r }))))
   const used = []
-  for (const u of USAGE) {
-    const { data, error } = await fetchAll(() => supabaseAdmin.from(u.table).select(u.cols).order(u.cols.split(',')[0].trim()))
+  for (const { u, data, error } of results) {
     if (error) {
       if (/does not exist|schema cache|relation/i.test(error.message || '')) continue
       throw error

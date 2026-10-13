@@ -1,8 +1,9 @@
 'use client'
 // 内容：文章（有的站才显示）、网站图片、媒体库。原来是三个分开的菜单。
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAdminConfig } from '../../config'
-import { api } from '../../lib/api'
+import { api, clearApiCache } from '../../lib/api'
+import { useApi } from '../../lib/use-api'
 import { date } from '../../lib/format'
 import { useUrlState } from '../../lib/url-state'
 import { compressImage, friendlyUploadError } from '../../../lib/client/compress-image'
@@ -10,7 +11,7 @@ import MediaPicker from '../../MediaPicker'
 import JournalEditor from './JournalEditor'
 import {
   PageHeader, Card, Tabs, SearchInput, DataTable, Pager, Badge, Button, ConfirmDialog, EmptyState,
-  Notice, SkeletonRows, Icon, useToast, styles as s, cx,
+  Notice, SkeletonRows, Icon, useToast, Img, styles as s, cx,
 } from '../../ui'
 
 const DEFAULTS = { tab: '', post: '', page: '1', q: '' }
@@ -44,14 +45,13 @@ export default function ContentPage() {
 // ── 文章列表 ──────────────────────────────────────────────────────────────────
 function JournalList({ onOpen }) {
   const toast = useToast()
-  const [posts, setPosts] = useState(null)
   const [page, setPage] = useState(1)
   const PAGE = 30
 
-  useEffect(() => {
-    api('/api/admin/journal').then(d => setPosts(Array.isArray(d) ? d : []))
-      .catch(e => { toast.error('文章加载失败：' + e.message); setPosts([]) })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // 从文章编辑返回时先显示上次的列表，后台同时刷新
+  const { data, error } = useApi('/api/admin/journal')
+  useEffect(() => { if (error) toast.error('文章加载失败：' + error) }, [error]) // eslint-disable-line react-hooks/exhaustive-deps
+  const posts = data ? (Array.isArray(data) ? data : []) : (error ? [] : null)
 
   const list = posts || []
   const published = list.filter(p => p.is_published).length
@@ -69,7 +69,7 @@ function JournalList({ onOpen }) {
           columns={[
             { key: 't', header: '标题', primary: true, render: p => (
               <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                {p.cover_image ? <img src={p.cover_image} alt="" className={s.thumb} /> : <span className={s.thumb} />}
+                {p.cover_image ? <Img src={p.cover_image} width={44} className={s.thumb} /> : <span className={s.thumb} />}
                 <div style={{ minWidth: 0 }}>
                   <div className={s.cellMain}>{p.title || '（无标题）'}</div>
                   <div className={s.cellSub}>{p.category}</div>
@@ -136,7 +136,7 @@ function SiteImages() {
                 <div key={key}>
                   {url ? (
                     <div className={s.imgTile} style={{ aspectRatio: '4 / 3' }}>
-                      <img src={url} alt={label} />
+                      <Img src={url} width={240} alt={label} />
                       <div className={s.imgTileTools}>
                         <button type="button" className={s.imgTileBtn} onClick={() => setPicker(key)} disabled={busy[key]} title="更换" aria-label="更换"><Icon name="refresh" size={15} /></button>
                         <button type="button" className={s.imgTileBtn} onClick={() => setConfirm({ key, label })} disabled={busy[key]} title="清空" aria-label="清空"><Icon name="trash" size={15} /></button>
@@ -168,7 +168,6 @@ function MediaLibrary({ get, set }) {
   const page = parseInt(get('page'), 10) || 1
   const q = get('q')
   const [search, setSearch] = useState(q)
-  const [data, setData] = useState(null)
   const [uploading, setUploading] = useState(false)
   const [confirm, setConfirm] = useState(null)
   const [deleting, setDeleting] = useState(false)
@@ -182,12 +181,11 @@ function MediaLibrary({ get, set }) {
     return () => clearTimeout(t)
   }, [search]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const load = useCallback(async () => {
-    const params = new URLSearchParams({ page: String(page) })
-    if (q) params.set('search', q)
-    try { setData(await api(`/api/admin/media?${params}`)) } catch (e) { toast.error('加载失败：' + e.message); setData({ media: [] }) }
-  }, [page, q]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { load() }, [load])
+  const params = new URLSearchParams({ page: String(page) })
+  if (q) params.set('search', q)
+  const { data: loaded, error, reload: load } = useApi(`/api/admin/media?${params}`)
+  useEffect(() => { if (error) toast.error('加载失败：' + error) }, [error]) // eslint-disable-line react-hooks/exhaustive-deps
+  const data = loaded || (error ? { media: [] } : null)
 
   async function upload(e) {
     const files = Array.from(e.target.files || [])
@@ -208,7 +206,7 @@ function MediaLibrary({ get, set }) {
     }
     setUploading(false)
     if (fileRef.current) fileRef.current.value = ''
-    if (ok) { toast.success(`已上传 ${ok} 张`); if (page !== 1) set({ page: 1 }); else load() }
+    if (ok) { clearApiCache(); toast.success(`已上传 ${ok} 张`); if (page !== 1) set({ page: 1 }); else load() }
   }
 
   async function remove() {
@@ -246,7 +244,7 @@ function MediaLibrary({ get, set }) {
                 {items.map(m => (
                   <div key={m.id}>
                     <div className={s.imgTile}>
-                      <img src={m.url} alt={m.filename || ''} loading="lazy" />
+                      <Img src={m.url} width={160} alt={m.filename || ''} />
                       <div className={s.imgTileTools}>
                         <button type="button" className={s.imgTileBtn} onClick={() => copy(m.url)} title="复制链接" aria-label="复制链接"><Icon name="copy" size={14} /></button>
                         <a className={s.imgTileBtn} href={m.url} target="_blank" rel="noreferrer" title="查看原图" aria-label="查看原图"><Icon name="external" size={14} /></a>
@@ -262,7 +260,7 @@ function MediaLibrary({ get, set }) {
       </Card>
       <ConfirmDialog open={!!confirm} title="从媒体库删除" danger confirmLabel="删除" loading={deleting}
         message="文件会被彻底删除，无法恢复。" onCancel={() => setConfirm(null)} onConfirm={remove}>
-        {confirm && <img src={confirm.url} alt="" style={{ marginTop: 12, maxWidth: '100%', maxHeight: 200, borderRadius: 8, display: 'block' }} />}
+        {confirm && <Img src={confirm.url} width={380} style={{ marginTop: 12, maxWidth: '100%', maxHeight: 200, borderRadius: 8, display: 'block' }} />}
         {blocked && <Notice tone="warning" style={{ marginTop: 12 }}>{blocked}</Notice>}
       </ConfirmDialog>
     </>

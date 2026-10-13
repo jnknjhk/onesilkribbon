@@ -59,7 +59,7 @@ async function findAccounts(email, orders) {
 }
 
 export async function planErasure(email) {
-  const { data: orders, error } = await fetchAll(() => supabaseAdmin.from('orders').select('*')
+  const { data: orders, error } = await fetchAll(o => supabaseAdmin.from('orders').select('*', o)
     .eq('customer_email', email).order('id'))
   if (error) throw error
 

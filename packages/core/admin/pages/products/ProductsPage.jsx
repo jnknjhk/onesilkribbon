@@ -2,15 +2,16 @@
 // 商品：两个视图
 //   · 商品列表 —— 找商品、上新、复制、删除
 //   · 库存     —— 所有 SKU 平铺，直接改数字保存（只改库存，不碰商品的其它信息）
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAdminConfig, collectionLabel } from '../../config'
 import { api } from '../../lib/api'
+import { useApi } from '../../lib/use-api'
 import { money } from '../../lib/format'
 import { useUrlState } from '../../lib/url-state'
 import {
   PageHeader, Card, Tabs, SearchInput, Select, DataTable, Pager, Badge, Button, ButtonLink, Input,
-  ConfirmDialog, EmptyState, Icon, Notice, useToast, styles as s, cx,
+  ConfirmDialog, EmptyState, Icon, Notice, useToast, Img, styles as s, cx,
 } from '../../ui'
 
 const PAGE_SIZE = 30
@@ -22,26 +23,12 @@ export default function ProductsPage() {
   const [get, set] = useUrlState(DEFAULTS)
   const view = get('view')
 
-  const [products, setProducts] = useState([])
-  const [skus, setSkus] = useState([])
-  const [threshold, setThreshold] = useState(3)
-  const [loading, setLoading] = useState(true)
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const [data, settings] = await Promise.all([
-        api('/api/admin/products'),
-        api('/api/admin/settings').catch(() => ({ settings: {} })),
-      ])
-      setProducts(data.products || [])
-      setSkus(data.skus || [])
-      const t = parseInt(settings.settings?.low_stock_threshold, 10)
-      setThreshold(Number.isFinite(t) ? t : 3)
-    } catch (e) { toast.error('商品加载失败：' + e.message) }
-    setLoading(false)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { load() }, [load])
+  // 回到商品页时先显示上次的列表，后台同时刷新
+  const { data, error, loading, reload: load, setData } = useApi('/api/admin/products')
+  useEffect(() => { if (error) toast.error('商品加载失败：' + error) }, [error]) // eslint-disable-line react-hooks/exhaustive-deps
+  const products = useMemo(() => data?.products || [], [data])
+  const skus = useMemo(() => data?.skus || [], [data])
+  const threshold = data?.lowStockThreshold ?? 3
 
   const skusByProduct = useMemo(() => {
     const m = {}
@@ -56,9 +43,9 @@ export default function ProductsPage() {
       <Tabs value={view} onChange={v => set({ view: v, page: 1, filter: '' })}
         tabs={[{ key: 'list', label: '商品列表' }, { key: 'stock', label: '库存' }]} />
       {view === 'stock'
-        ? <StockView cfg={cfg} products={products} skus={skus} threshold={threshold} loading={loading} get={get} set={set}
-            onSaved={updated => setSkus(list => list.map(k => (updated[k.id] !== undefined ? { ...k, stock_qty: updated[k.id] } : k)))} />
-        : <ProductList cfg={cfg} products={products} skusByProduct={skusByProduct} threshold={threshold} loading={loading} get={get} set={set} reload={load} />}
+        ? <StockView cfg={cfg} products={products} skus={skus} threshold={threshold} loading={loading && !data} get={get} set={set}
+            onSaved={updated => setData(d => d && ({ ...d, skus: d.skus.map(k => (updated[k.id] !== undefined ? { ...k, stock_qty: updated[k.id] } : k)) }))} />
+        : <ProductList cfg={cfg} products={products} skusByProduct={skusByProduct} threshold={threshold} loading={loading && !data} get={get} set={set} reload={load} />}
     </div>
   )
 }
@@ -133,12 +120,13 @@ function ProductList({ cfg, products, skusByProduct, threshold, loading, get, se
           loading={loading}
           rows={rows}
           onRowClick={p => router.push(`/admin/products/${p.id}`)}
+          onRowHover={p => router.prefetch(`/admin/products/${p.id}`)}
           empty={<EmptyState icon="tag" title={products.length ? '没有符合条件的商品' : '还没有商品'}
             action={!products.length && <ButtonLink href="/admin/products/new" variant="primary" icon="plus">新建第一个商品</ButtonLink>} />}
           columns={[
             { key: 'name', header: '商品', primary: true, render: p => (
               <div style={{ display: 'flex', gap: 12, alignItems: 'center', minWidth: 0 }}>
-                {p.images?.[0] ? <img src={p.images[0]} alt="" className={s.thumb} /> : <span className={s.thumb} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)' }}><Icon name="image" size={18} /></span>}
+                {p.images?.[0] ? <Img src={p.images[0]} width={44} className={s.thumb} /> : <span className={s.thumb} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)' }}><Icon name="image" size={18} /></span>}
                 <div style={{ minWidth: 0 }}>
                   <div className={s.cellMain}>{p.name}{p.is_featured && <Icon name="star" size={13} style={{ marginLeft: 6, color: 'var(--brand)', verticalAlign: '-1px' }} />}</div>
                   <div className={s.cellSub}>{collectionLabel(cfg, p.collection)}</div>
@@ -222,7 +210,10 @@ function StockView({ cfg, products, skus, threshold, loading, get, set, onSaved 
   const filter = get('filter') // '' | 'low' | 'out'
   const q = get('q').toLowerCase()
   const [search, setSearch] = useState(get('q'))
-  const [edits, setEdits] = useState({})        // skuId -> 新数字（字符串）
+  // skuId -> { value: 输入的新数字, expected: 开始改这一格时看到的库存 }。
+  // 保存时拿 expected 去和数据库比：页面上的数字可能是缓存里的旧值、或者编辑途中被后台刷新换过，
+  // 一律以"你开始改时看到的数"为准——数据库里已经不是这个数（期间卖出了），就不覆盖，提示你确认
+  const [edits, setEdits] = useState({})
   const [conflicts, setConflicts] = useState({}) // skuId -> 提示
   const [saving, setSaving] = useState(false)
 
@@ -244,16 +235,10 @@ function StockView({ cfg, products, skus, threshold, loading, get, set, onSaved 
     })
     .sort((a, b) => productMap[a.product_id].name.localeCompare(productMap[b.product_id].name) || skuLabel(a).localeCompare(skuLabel(b)))
 
-  const dirtyIds = Object.keys(edits).filter(id => {
-    const k = skus.find(x => x.id === id)
-    return k && String(edits[id]) !== String(k.stock_qty ?? 0)
-  })
+  const dirtyIds = Object.keys(edits).filter(id => skus.some(x => x.id === id) && String(edits[id].value) !== String(edits[id].expected ?? 0))
 
   async function save() {
-    const updates = dirtyIds.map(id => {
-      const k = skus.find(x => x.id === id)
-      return { id, stock_qty: parseInt(edits[id], 10), expected: k.stock_qty ?? null }
-    })
+    const updates = dirtyIds.map(id => ({ id, stock_qty: parseInt(edits[id].value, 10), expected: edits[id].expected ?? null }))
     if (updates.some(u => !Number.isInteger(u.stock_qty) || u.stock_qty < 0)) { toast.error('库存必须是 0 或正整数'); return }
     setSaving(true)
     try {
@@ -266,7 +251,15 @@ function StockView({ cfg, products, skus, threshold, loading, get, set, onSaved 
         else conf[r.id] = r.error
       }
       onSaved(saved)
-      setEdits(e => { const n = { ...e }; for (const r of results) if (r.ok) delete n[r.id]; return n })
+      // 保存成功的清掉；冲突的把"看到的库存"换成最新值，你确认后再点一次保存才会覆盖
+      setEdits(e => {
+        const n = { ...e }
+        for (const r of results) {
+          if (r.ok) delete n[r.id]
+          else if (r.conflict && n[r.id]) n[r.id] = { ...n[r.id], expected: r.current ?? null }
+        }
+        return n
+      })
       setConflicts(conf)
       const ok = results.filter(r => r.ok).length
       if (ok) toast.success(`已保存 ${ok} 个 SKU 的库存`)
@@ -319,13 +312,21 @@ function StockView({ cfg, products, skus, threshold, loading, get, set, onSaved 
               <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
                 <Input size="sm" type="number" min={0} step={1} className={s.num}
                   style={{ width: 96, textAlign: 'right' }}
-                  value={edits[k.id] ?? String(k.stock_qty ?? 0)}
-                  onChange={e => { setEdits(m => ({ ...m, [k.id]: e.target.value })); setConflicts(c => { const n = { ...c }; delete n[k.id]; return n }) }} />
-                {conflicts[k.id] && <span className={s.textDanger} style={{ fontSize: 12, maxWidth: 220, textAlign: 'right' }}>{conflicts[k.id]}</span>}
+                  value={edits[k.id]?.value ?? String(k.stock_qty ?? 0)}
+                  onChange={e => {
+                    const value = e.target.value
+                    setEdits(m => ({ ...m, [k.id]: { value, expected: m[k.id] ? m[k.id].expected : (k.stock_qty ?? null) } }))
+                    setConflicts(c => { const n = { ...c }; delete n[k.id]; return n })
+                  }} />
+                {conflicts[k.id]
+                  ? <span className={s.textDanger} style={{ fontSize: 12, maxWidth: 220, textAlign: 'right' }}>{conflicts[k.id]}</span>
+                  : edits[k.id] && (k.stock_qty ?? null) !== edits[k.id].expected &&
+                    <span className={s.textDanger} style={{ fontSize: 12, maxWidth: 220, textAlign: 'right' }}>你改的时候库存是 {edits[k.id].expected ?? 0}，现在已变成 {k.stock_qty ?? 0}</span>}
               </span>
             ) },
+            // 库存表每行都有这个链接：不让浏览器把每个商品页都预取一遍
             { key: 'open', header: '', align: 'right', render: k => (
-              <ButtonLink size="sm" variant="ghost" href={`/admin/products/${k.product_id}`}>编辑商品</ButtonLink>
+              <ButtonLink size="sm" variant="ghost" href={`/admin/products/${k.product_id}`} prefetch={false}>编辑商品</ButtonLink>
             ) },
           ]}
         />

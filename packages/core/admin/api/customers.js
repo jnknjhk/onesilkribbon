@@ -31,7 +31,7 @@ export async function GET(req) {
 }
 
 export async function DELETE(req) {
-  const admin = await verifyAdmin()
+  const admin = await verifyAdmin({ strict: true }) // 不可撤销的操作：再向 Supabase 确认一次登录状态
   if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
@@ -48,10 +48,10 @@ export async function DELETE(req) {
 
 async function customerList() {
   const [{ data: profiles }, summary] = await Promise.all([
-    fetchAll(() => supabaseAdmin.from('user_profiles')
-      .select('id, email, first_name, last_name, avatar_url, created_at').order('id')),
+    fetchAll(o => supabaseAdmin.from('user_profiles')
+      .select('id, email, first_name, last_name, avatar_url, created_at', o).order('id')),
     // 首选数据库里的 customer_summary 视图：整表参与聚合。分页取完，不受 1000 行上限影响
-    fetchAll(() => supabaseAdmin.from('customer_summary').select('*').order('email')),
+    fetchAll(o => supabaseAdmin.from('customer_summary').select('*', o).order('email')),
   ])
   const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
 
@@ -76,8 +76,8 @@ async function customerList() {
   if (!/does not exist|schema cache|relation/i.test(summary.error.message || '')) {
     return errorResponse(summary.error, { tag: 'admin-customers-view' })
   }
-  const { data: orders, error } = await fetchAll(() => supabaseAdmin.from('orders')
-    .select('customer_email, shipping_name, shipping_city, shipping_country, total_gbp, created_at, user_id')
+  const { data: orders, error } = await fetchAll(o => supabaseAdmin.from('orders')
+    .select('customer_email, shipping_name, shipping_city, shipping_country, total_gbp, created_at, user_id', o)
     .order('created_at', { ascending: false }).order('id', { ascending: false }))
   if (error) return errorResponse(error, { tag: 'admin-customers-orders' })
 
@@ -101,19 +101,24 @@ async function customerList() {
 
 async function customerDetail(email) {
   if (email === ERASED_EMAIL) return Response.json({ error: '这位客户已经删除，个人信息已抹去' }, { status: 404 })
-  const { data: orders, error } = await supabaseAdmin.from('orders')
-    .select('id, order_number, status, total_gbp, created_at, paid_at, shipping_name, shipping_line1, shipping_line2, shipping_city, shipping_postcode, shipping_country, phone, user_id')
-    .eq('customer_email', email)
-    .order('created_at', { ascending: false })
-  if (error) return errorResponse(error, { tag: 'admin-customer-orders' })
-
-  const userId = (orders || []).find(o => o.user_id)?.user_id || null
-  const [profileRes, addressesRes, subscriberRes] = await Promise.all([
-    userId ? supabaseAdmin.from('user_profiles').select('*').eq('id', userId).maybeSingle() : { data: null },
-    userId ? supabaseAdmin.from('user_addresses').select('*').eq('user_id', userId).order('is_default', { ascending: false }) : { data: [] },
+  // 订单和订阅状态只靠邮箱就能查，一起发出去；账户资料要等订单里的 user_id
+  const [{ data: orders, error }, subscriberRes] = await Promise.all([
+    supabaseAdmin.from('orders')
+      .select('id, order_number, status, total_gbp, created_at, paid_at, shipping_name, shipping_line1, shipping_line2, shipping_city, shipping_postcode, shipping_country, phone, user_id')
+      .eq('customer_email', email)
+      .order('created_at', { ascending: false }),
     // 订阅时邮箱统一存成小写（见 /api/subscribe）
     supabaseAdmin.from('subscribers').select('email, status, verified, source, subscribed_at, created_at').eq('email', email.trim().toLowerCase()).maybeSingle(),
   ])
+  if (error) return errorResponse(error, { tag: 'admin-customer-orders' })
+
+  const userId = (orders || []).find(o => o.user_id)?.user_id || null
+  const [profileRes, addressesRes] = userId
+    ? await Promise.all([
+        supabaseAdmin.from('user_profiles').select('*').eq('id', userId).maybeSingle(),
+        supabaseAdmin.from('user_addresses').select('*').eq('user_id', userId).order('is_default', { ascending: false }),
+      ])
+    : [{ data: null }, { data: [] }]
 
   const latest = (orders || [])[0]
   const spent = (orders || []).reduce((n, o) => n + (['paid', 'shipped', 'delivered'].includes(o.status) ? parseFloat(o.total_gbp) || 0 : 0), 0)

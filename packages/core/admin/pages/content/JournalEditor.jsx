@@ -8,7 +8,7 @@ import { slugify } from '../../lib/format'
 import MediaPicker from '../../MediaPicker'
 import {
   PageHeader, Card, Field, Input, Textarea, Select, Segmented, Button, Badge, Notice, ConfirmDialog,
-  SkeletonRows, Icon, useToast, useUnsavedWarning, styles as s,
+  SkeletonRows, Icon, useToast, useUnsavedWarning, Img, styles as s,
 } from '../../ui'
 
 const emptyForm = category => ({
@@ -45,9 +45,8 @@ export default function JournalEditor({ id, onBack, onCreated }) {
 
   async function load() {
     try {
-      const all = await api('/api/admin/journal')
-      const found = (Array.isArray(all) ? all : []).find(p => p.id === id)
-      if (!found) throw new Error('找不到这篇文章，可能已经被删除')
+      // 只取这一篇（以前把全部文章连正文一起下载下来再挑出这一篇）
+      const found = await api(`/api/admin/journal?id=${encodeURIComponent(id)}`)
       setPost(found); setError('')
     } catch (e) { setError(e.message) }
   }
@@ -176,7 +175,7 @@ function Form({ post, cfg, onBack, onSaved }) {
                   {sec.type === 'image' ? (
                     <div className={s.stack} style={{ gap: 10 }}>
                       {sec.url
-                        ? <img src={sec.url} alt="" style={{ maxWidth: '100%', maxHeight: 280, borderRadius: 8, display: 'block' }} />
+                        ? <Img src={sec.url} width={720} style={{ maxWidth: '100%', maxHeight: 280, borderRadius: 8, display: 'block' }} />
                         : <div className={s.muted}>还没有选图</div>}
                       <div><Button size="sm" icon="image" onClick={() => setPicker(i)}>{sec.url ? '换一张' : '选择图片'}</Button></div>
                       <Field label="图注（可选）">
@@ -220,7 +219,7 @@ function Form({ post, cfg, onBack, onSaved }) {
           <Card title="封面图">
             {form.cover_image ? (
               <div className={s.stack} style={{ gap: 10 }}>
-                <img src={form.cover_image} alt="" style={{ width: '100%', borderRadius: 8, display: 'block' }} />
+                <Img src={form.cover_image} width={320} style={{ width: '100%', borderRadius: 8, display: 'block' }} />
                 <div style={{ display: 'flex', gap: 8 }}>
                   <Button size="sm" icon="refresh" onClick={() => setPicker('cover')}>更换</Button>
                   <Button size="sm" variant="ghost" icon="x" onClick={() => setF({ cover_image: '' })}>移除</Button>

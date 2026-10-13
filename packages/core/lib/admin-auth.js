@@ -12,13 +12,15 @@ export function isAdminEmail(email) {
   return ADMIN_EMAILS.includes(email.toLowerCase())
 }
 
-export async function verifyAdmin() {
-  // 快路径：中间件在同一个请求里已经调过 supabase.auth.getUser() 验过身份了。
+// strict: true —— 不认中间件转发的身份，直接问一次 Supabase（能发现已退出登录、被封禁的账号）。
+// 用在退款、删除客户、清理数据这类做了就撤销不了的操作上；多一个网络往返，但这些操作很少用。
+export async function verifyAdmin({ strict = false } = {}) {
+  // 快路径：中间件在同一个请求里已经验过身份了（签名有效、未过期的 token）。
   // 再验一次就是又一个网络往返（线上约 450ms），而后台每个操作都要走一次接口，
   // 白等的时间很可观。中间件对**所有**请求都会先删掉外部传入的同名头，只在
   // /admin 与 /api/admin 校验通过后才写入（见 admin-middleware.js），所以这里读到值
   // 就说明确实验过。这一点依赖各站 middleware.js 的 matcher 覆盖全部路径。
-  try {
+  if (!strict) try {
     const h = await headers()
     const forwarded = h.get(ADMIN_HEADER)
     if (forwarded && isAdminEmail(forwarded)) return { email: forwarded }

@@ -2,18 +2,40 @@
 
 // 把一条查询分页取完。Supabase（PostgREST）每次请求最多返回 1000 行（项目设置里的 Max rows），
 // 超出的部分会被**静默截断**——之前仪表盘、订单列表、SKU 列表都踩在这个坑上：数据一多，
-// 统计数字会悄悄算少。这里一直取到返回空页为止，不依赖服务器的上限具体是多少。
+// 统计数字会悄悄算少。
 //
-// makeQuery 每次调用都要返回一条新的、带稳定排序（含唯一列做兜底）的查询。
+// makeQuery(opts) 每次调用都要返回一条新的、带稳定排序（含唯一列做兜底）的查询，并把 opts
+// 原样传给 .select(列, opts)：第一页顺带要回总行数，取够就停，不用再多发一次"空页"确认
+// （每多一次往返，线上就多等几百毫秒）；剩下的页并行取。
+// 没把 opts 传给 select 的旧写法也能用，只是退回一页一页取到空页为止。
 export async function fetchAll(makeQuery, { pageSize = 1000, maxPages = 500 } = {}) {
-  const out = []
-  let from = 0
+  const first = await makeQuery({ count: 'exact' }).range(0, pageSize - 1)
+  if (first.error) return { data: [], error: first.error }
+  const out = [...(first.data || [])]
+  if (out.length === 0) return { data: out, error: null }
+
+  if (typeof first.count === 'number') {
+    if (out.length >= first.count) return { data: out, error: null }
+    // 每页实际给多少行以第一页为准：项目设置的上限可能比 pageSize 小
+    const step = out.length
+    const starts = []
+    for (let from = step; from < first.count && starts.length < maxPages; from += step) starts.push(from)
+    for (let i = 0; i < starts.length; i += 4) { // 最多 4 页同时取
+      const pages = await Promise.all(starts.slice(i, i + 4).map(from => makeQuery().range(from, from + step - 1)))
+      for (const p of pages) {
+        if (p.error) return { data: out, error: p.error }
+        out.push(...(p.data || []))
+      }
+    }
+    if (out.length >= first.count) return { data: out, error: null }
+    // 取的过程中又有新行插进来：接着往下一页一页取
+  }
+
   for (let i = 0; i < maxPages; i++) {
-    const { data, error } = await makeQuery().range(from, from + pageSize - 1)
+    const { data, error } = await makeQuery().range(out.length, out.length + pageSize - 1)
     if (error) return { data: out, error }
     if (!data || data.length === 0) break
     out.push(...data)
-    from += data.length
   }
   return { data: out, error: null }
 }

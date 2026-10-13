@@ -7,10 +7,18 @@ import { verifyAdmin } from '../../lib/admin-auth'
 import { errorResponse } from '../../lib/api-error'
 import { fetchAll } from './_helpers'
 
-export async function GET() {
+export async function GET(req) {
   const admin = await verifyAdmin()
   if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
-  const { data, error } = await fetchAll(() => supabase.from('journal_posts').select('*')
+  // ?id=x：只取一篇（编辑页用）
+  const id = new URL(req.url).searchParams.get('id')
+  if (id) {
+    const { data, error } = await supabase.from('journal_posts').select('*').eq('id', id).maybeSingle()
+    if (error) return errorResponse(error, { tag: 'admin-journal-get-one' })
+    if (!data) return Response.json({ error: '找不到这篇文章，可能已经被删除' }, { status: 404 })
+    return Response.json(data)
+  }
+  const { data, error } = await fetchAll(o => supabase.from('journal_posts').select('*', o)
     .order('created_at', { ascending: false }).order('id'))
   if (error) return errorResponse(error, { tag: 'admin-journal-get' })
   return Response.json(data)

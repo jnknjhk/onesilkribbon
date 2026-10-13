@@ -16,13 +16,13 @@ export async function GET() {
     const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString()
     const [ordersRes, skusRes, productsRes, itemsRes, settings, failedRes] = await Promise.all([
       // 只取统计用到的几列，分页取完——不能截断，否则营收会悄悄算少
-      fetchAll(() => supabaseAdmin.from('orders')
-        .select('id, order_number, status, total_gbp, created_at, paid_at, customer_email, shipping_name')
+      fetchAll(o => supabaseAdmin.from('orders')
+        .select('id, order_number, status, total_gbp, created_at, paid_at, customer_email, shipping_name', o)
         .order('created_at', { ascending: false }).order('id', { ascending: false })),
-      fetchAll(() => supabaseAdmin.from('product_skus')
-        .select('id, product_id, stock_qty, is_active').order('id')),
-      fetchAll(() => supabaseAdmin.from('products').select('id, is_active').order('id')),
-      fetchAll(() => supabaseAdmin.from('order_items').select('order_id').order('order_id')),
+      fetchAll(o => supabaseAdmin.from('product_skus')
+        .select('id, product_id, stock_qty, is_active', o).order('id')),
+      fetchAll(o => supabaseAdmin.from('products').select('id, is_active', o).order('id')),
+      fetchAll(o => supabaseAdmin.from('order_items').select('order_id', o).order('order_id')),
       readSettings(supabaseAdmin, ['low_stock_threshold']),
       supabaseAdmin.from('email_log').select('id', { count: 'exact', head: true })
         .eq('status', 'failed').gte('created_at', sevenDaysAgo),

@@ -5,7 +5,7 @@
 import { supabaseAdmin as supabase } from '../../lib/supabase'
 import { verifyAdmin } from '../../lib/admin-auth'
 import { errorResponse } from '../../lib/api-error'
-import { fetchAll } from './_helpers'
+import { fetchAll, readSettings } from './_helpers'
 import { recordSlugChange } from '../../lib/product-redirects'
 
 export async function GET(req) {
@@ -24,23 +24,30 @@ export async function GET(req) {
       return Response.json({ product, skus: skus || [] })
     }
 
-    // 列表只取渲染要用的列（description 是长文本，列表里用不到）
-    const [products, skus] = await Promise.all([
-      fetchAll(() => supabase.from('products')
-        .select('id, name, slug, collection, images, attribute_config, is_active, is_featured, sort_order, created_at')
+    // 列表只取渲染要用的列（description 是长文本，列表里用不到）。
+    // 低库存提醒的数字一起带回去，商品页不用再单独请求一次设置
+    const [products, skus, settings] = await Promise.all([
+      fetchAll(o => supabase.from('products')
+        .select('id, name, slug, collection, images, attribute_config, is_active, is_featured, sort_order, created_at', o)
         .order('created_at', { ascending: false }).order('id')),
-      fetchAll(() => supabase.from('product_skus')
-        .select('id, product_id, colour, colour_hex, attributes, stock_qty, price_gbp, is_active, sku_code')
+      fetchAll(o => supabase.from('product_skus')
+        .select('id, product_id, colour, colour_hex, attributes, stock_qty, price_gbp, is_active, sku_code', o)
         .order('product_id').order('id')),
+      readSettings(supabase, ['low_stock_threshold']).catch(() => ({})),
     ])
     if (products.error) return errorResponse(products.error, { tag: 'admin-products-get' })
-    return Response.json({ products: products.data, skus: skus.data, total: products.data.length })
+    if (skus.error) return errorResponse(skus.error, { tag: 'admin-products-get-skus' })
+    const threshold = parseInt(settings.low_stock_threshold, 10)
+    return Response.json({
+      products: products.data, skus: skus.data, total: products.data.length,
+      lowStockThreshold: Number.isFinite(threshold) ? threshold : 3,
+    })
   } catch (err) {
     return errorResponse(err, { tag: 'admin-products-get' })
   }
 }
 
-function skuRow(sku, productId, slug) {
+function skuRow(sku, productId, slug, n = 0) {
   return {
     product_id: productId,
     colour: sku.colour || sku.attributes?.['颜色'] || sku.attributes?.['Colour'] || sku.attributes?.['Color'] || '默认',
@@ -53,7 +60,8 @@ function skuRow(sku, productId, slug) {
     attributes: sku.attributes || {},
     // 以前新建/复制商品时这一项没写进去，SKU 上选好的图片会丢
     images: sku.images || [],
-    ...(slug ? { sku_code: `${slug}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}` } : {}),
+    // 一次批量插入多个 SKU 时毫秒数相同，带上序号保证 sku_code 不重复
+    ...(slug ? { sku_code: `${slug}-${Date.now().toString(36)}${n ? n.toString(36) : ''}-${Math.random().toString(36).slice(2, 6)}` } : {}),
   }
 }
 
@@ -80,14 +88,12 @@ async function removeSkus(ids) {
   const usedSet = new Set((used || []).map(r => r.sku_id))
   const toDeactivate = ids.filter(id => usedSet.has(id))
   const toDelete = ids.filter(id => !usedSet.has(id))
-  if (toDeactivate.length) {
-    const { error } = await supabase.from('product_skus').update({ is_active: false }).in('id', toDeactivate)
-    if (error) throw error
-  }
-  if (toDelete.length) {
-    const { error } = await supabase.from('product_skus').delete().in('id', toDelete)
-    if (error) throw error
-  }
+  const [a, b] = await Promise.all([
+    toDeactivate.length ? supabase.from('product_skus').update({ is_active: false }).in('id', toDeactivate) : {},
+    toDelete.length ? supabase.from('product_skus').delete().in('id', toDelete) : {},
+  ])
+  if (a.error) throw a.error
+  if (b.error) throw b.error
   return { deleted: toDelete.length, deactivated: toDeactivate.length }
 }
 
@@ -101,15 +107,21 @@ export async function POST(req) {
     if (action === 'create') {
       const { data, error } = await supabase.from('products').insert(productRow(product)).select('id').single()
       if (error) return errorResponse(error, { tag: 'admin-products-create' })
-      for (const sku of skus || []) {
-        const { error: skuErr } = await supabase.from('product_skus').insert(skuRow(sku, data.id, product.slug))
-        if (skuErr) return errorResponse(skuErr, { tag: 'admin-products-create-sku', message: '商品已创建，但有 SKU 没保存成功，请打开商品检查' })
+      // 所有 SKU 一次插入（以前一个一个插，20 个 SKU 就是 20 次往返）
+      if ((skus || []).length) {
+        const { error: skuErr } = await supabase.from('product_skus').insert(skus.map((sku, i) => skuRow(sku, data.id, product.slug, i)))
+        if (skuErr) return errorResponse(skuErr, { tag: 'admin-products-create-sku', message: '商品已创建，但 SKU 没保存成功，请打开商品检查' })
       }
       return Response.json({ id: data.id })
     }
 
     if (action === 'update') {
-      const { data: before } = await supabase.from('products').select('slug').eq('id', product.id).maybeSingle()
+      const submitted = skus || []
+      // 旧网址和现有 SKU 列表互不依赖，一起查
+      const [{ data: before }, { data: existing }] = await Promise.all([
+        supabase.from('products').select('slug').eq('id', product.id).maybeSingle(),
+        submitted.length > 0 ? supabase.from('product_skus').select('id').eq('product_id', product.id) : { data: [] },
+      ])
       const { error } = await supabase.from('products').update(productRow(product)).eq('id', product.id)
       if (error) return errorResponse(error, { tag: 'admin-products-update' })
 
@@ -119,35 +131,42 @@ export async function POST(req) {
       }
 
       // 要删的 SKU = 前端标记删除的 + 数据库里有、但这次提交的列表里没有的
-      const submitted = skus || []
       const keepIds = new Set(submitted.filter(s => s.id).map(s => s.id))
       let removeIds = [...new Set(deletedSkuIds || [])]
-      if (submitted.length > 0) {
-        const { data: existing } = await supabase.from('product_skus').select('id').eq('product_id', product.id)
-        for (const row of existing || []) if (!keepIds.has(row.id)) removeIds.push(row.id)
-      }
+      for (const row of existing || []) if (!keepIds.has(row.id)) removeIds.push(row.id)
       removeIds = [...new Set(removeIds)].filter(id => !keepIds.has(id))
       const removed = await removeSkus(removeIds)
 
-      for (const sku of submitted) {
-        if (sku.id) {
-          const row = skuRow(sku, product.id)
-          // 库存只在管理员真的改过时才写。编辑器打开期间如果有订单付款，webhook 已经把库存
-          // 扣掉了；这时候再把打开编辑器那一刻的旧数字原样写回去，就等于把卖掉的又加回来，
-          // 接着就会超卖。前端会带上 loaded_stock_qty（加载时的库存），两者相同说明没动过。
-          // 老版本的后台页面不带这个字段，就照旧写入。
-          if ('loaded_stock_qty' in sku &&
-              (parseInt(sku.stock_qty, 10) || 0) === (parseInt(sku.loaded_stock_qty, 10) || 0)) {
-            delete row.stock_qty
-          }
-          const { error: skuErr } = await supabase.from('product_skus').update(row).eq('id', sku.id)
-          if (skuErr) return errorResponse(skuErr, { tag: 'admin-products-update-sku', message: '商品信息已保存，但有 SKU 没保存成功，请刷新后检查' })
-        } else {
-          const { error: skuErr } = await supabase.from('product_skus').insert(skuRow(sku, product.id, product.slug))
-          if (skuErr) return errorResponse(skuErr, { tag: 'admin-products-insert-sku', message: '商品信息已保存，但新加的 SKU 没保存成功，请刷新后检查' })
+      const updates = submitted.filter(s => s.id).map(sku => {
+        const row = skuRow(sku, product.id)
+        // 库存只在管理员真的改过时才写。编辑器打开期间如果有订单付款，webhook 已经把库存
+        // 扣掉了；这时候再把打开编辑器那一刻的旧数字原样写回去，就等于把卖掉的又加回来，
+        // 接着就会超卖。前端会带上 loaded_stock_qty（加载时的库存），两者相同说明没动过。
+        // 老版本的后台页面不带这个字段，就照旧写入。
+        if ('loaded_stock_qty' in sku &&
+            (parseInt(sku.stock_qty, 10) || 0) === (parseInt(sku.loaded_stock_qty, 10) || 0)) {
+          delete row.stock_qty
         }
+        return { id: sku.id, row }
+      })
+      // 每个 SKU 一行，互不影响：8 个一组同时写（以前一个一个写，20 个 SKU 要排队 20 次往返）
+      for (let i = 0; i < updates.length; i += 8) {
+        const results = await Promise.all(updates.slice(i, i + 8).map(u => supabase.from('product_skus').update(u.row).eq('id', u.id)))
+        const failed = results.find(r => r.error)
+        if (failed) return errorResponse(failed.error, { tag: 'admin-products-update-sku', message: '商品信息已保存，但有 SKU 没保存成功，请刷新后检查' })
       }
-      return Response.json({ ok: true, ...removed })
+      const fresh = submitted.filter(s => !s.id)
+      if (fresh.length) {
+        const { error: skuErr } = await supabase.from('product_skus').insert(fresh.map((sku, i) => skuRow(sku, product.id, product.slug, i)))
+        if (skuErr) return errorResponse(skuErr, { tag: 'admin-products-insert-sku', message: '商品信息已保存，但新加的 SKU 没保存成功，请刷新后检查' })
+      }
+
+      // 把保存后的最新数据直接带回去，编辑页不用再请求一次
+      const [{ data: saved }, { data: savedSkus }] = await Promise.all([
+        supabase.from('products').select('*').eq('id', product.id).maybeSingle(),
+        supabase.from('product_skus').select('*').eq('product_id', product.id).order('created_at').order('id'),
+      ])
+      return Response.json({ ok: true, ...removed, product: saved || null, skus: savedSkus || [] })
     }
 
     if (action === 'delete') {

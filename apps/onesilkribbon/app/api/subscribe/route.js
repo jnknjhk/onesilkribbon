@@ -22,7 +22,7 @@ const styles = `
   .footer a{color:#B89B6A;text-decoration:none}
 `
 
-async function sendVerificationEmail(email, token) {
+async function sendVerificationEmail(email, token, requestId, createdAt) {
   const verifyUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/verify-email?token=${token}`
   const html = `
 <!DOCTYPE html><html><head><meta charset="utf-8"><style>${styles}</style></head>
@@ -32,17 +32,18 @@ async function sendVerificationEmail(email, token) {
     <p style="font-family:'Georgia',serif;font-size:28px;font-style:italic;color:#1C1714;font-weight:300;margin-bottom:16px">Almost there</p>
     <p class="text">Please confirm your email address to receive your exclusive 10% welcome discount.</p>
     <a href="${verifyUrl}" class="btn">Confirm My Email</a>
-    <p class="text" style="font-size:12px;color:#9A8878">This link expires in 24 hours.<br>If you didn't subscribe, you can safely ignore this email.</p>
+    <p class="text" style="font-size:12px;color:#9A8878">This link is valid for up to 24 hours from your first request.<br>If you didn't subscribe, you can safely ignore this email.</p>
   </div>
   <div class="footer">
     <p><a href="https://onesilkribbon.com">onesilkribbon.com</a> · <a href="mailto:song@onesilkribbon.com">song@onesilkribbon.com</a></p>
-    <p style="margin-top:8px">© ${new Date().getFullYear()} One Silk Ribbon. All rights reserved.</p>
+    <p style="margin-top:8px">© ${new Date(createdAt).getUTCFullYear()} One Silk Ribbon. All rights reserved.</p>
   </div>
 </div></body></html>`
 
   const res = await fetch(RESEND_API, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.RESEND_API_KEY}` },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.RESEND_API_KEY}`, 'Idempotency-Key': `subscription/${requestId}` },
+    signal: AbortSignal.timeout(20000),
     body: JSON.stringify({ from: FROM, to: email, subject: 'Please confirm your email — One Silk Ribbon', html }),
   })
   const data = await res.json()
@@ -50,13 +51,17 @@ async function sendVerificationEmail(email, token) {
 }
 
 export async function POST(req) {
+  let body
+  try { body = await req.json() } catch {
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+  }
   try {
-    const { email: rawEmail, source } = await req.json()
+    const { email: rawEmail, source } = body || {}
     // 统一归一化（trim + 小写），避免同一邮箱因大小写/空格不同被当成两个订阅者
-    const email = (rawEmail || '').trim().toLowerCase()
+    const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : ''
 
     // 格式验证
-    if (!email || !email.includes('@') || !email.includes('.')) {
+    if (!email || email.length > 254 || !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email)) {
       return NextResponse.json({ error: 'Please enter a valid email address' }, { status: 400 })
     }
 
@@ -66,45 +71,26 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Please use a real email address' }, { status: 400 })
     }
 
-    // 生成 token，24小时有效
-    const token      = randomBytes(32).toString('hex')
-    const expiresAt  = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-
-    // 检查是否已存在
-    const { data: existing } = await supabaseAdmin
-      .from('subscribers')
-      .select('id, verified, status')
-      .eq('email', email)
-      .single()
-
-    if (existing) {
-      if (existing.verified) {
-        // 已验证过，不重复发码
-        return NextResponse.json({ ok: true, already: true })
-      }
-      // 未验证，更新 token 重新发验证邮件
-      await supabaseAdmin.from('subscribers').update({
-        verify_token:     token,
-        token_expires_at: expiresAt,
-        status:           'pending',
-      }).eq('id', existing.id)
-    } else {
-      // 新订阅者
-      await supabaseAdmin.from('subscribers').insert({
-        email,
-        source:           source || 'welcome_popup',
-        status:           'pending',
-        verified:         false,
-        verify_token:     token,
-        token_expires_at: expiresAt,
-      })
-    }
-
-    await sendVerificationEmail(email, token)
+    if (!process.env.RESEND_API_KEY) throw new Error('Email service unavailable')
+    const { data: request, error } = await supabaseAdmin.rpc('prepare_subscription_email', {
+      p_email: email,
+      p_source: typeof source === 'string' ? source.slice(0, 80) : 'welcome_popup',
+      p_token: randomBytes(32).toString('hex'),
+    })
+    if (error || !request) throw new Error('Subscription preparation unavailable')
+    if (request.limited) return NextResponse.json({ error: 'Please wait before requesting another email.' },
+      { status: 429, headers: { 'Retry-After': String(request.retry_after) } })
+    // Do not reveal whether an address was already verified.
+    if (request.skip) return NextResponse.json({ ok: true })
+    await sendVerificationEmail(request.email, request.verify_token, request.id, request.created_at)
+    const { error: saveError } = await supabaseAdmin.from('subscription_email_requests')
+      .update({ sent_at: new Date().toISOString() }).eq('id', request.id)
+    if (saveError) throw new Error('Email delivery acknowledgement unavailable')
     return NextResponse.json({ ok: true })
 
   } catch (err) {
-    console.error('Subscribe error:', err)
-    return NextResponse.json({ error: 'Something went wrong, please try again' }, { status: 500 })
+    // Never log subscriber addresses, verification links or provider response bodies.
+    console.error('Subscription request failed; retry is safe')
+    return NextResponse.json({ error: 'Email delivery could not be confirmed. Please wait a minute and try again.' }, { status: 503 })
   }
 }

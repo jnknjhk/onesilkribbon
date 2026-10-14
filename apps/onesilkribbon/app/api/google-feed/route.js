@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@osr/core/lib/supabase'
+import { variantUrl } from '@/lib/product-variants'
 
 // Google Merchant Center 商品数据源（RSS 2.0 / Google Shopping XML）。
 // Google 每天会来抓取这个接口一次左右，不需要每次请求都是全新数据，
@@ -40,17 +41,18 @@ function skuVariantSuffix(sku) {
 }
 
 function buildItemXml({ product, sku }) {
+  if (!Number.isFinite(Number(sku.price_gbp)) || Number(sku.price_gbp) <= 0) return ''
   const image = (sku.images && sku.images[0]) || (product.images && product.images[0])
   if (!image) return '' // 没有图片的变体，Google 一定会拒收，不如干脆不提交这一条
 
-  const link = `${SITE_URL}/collections/${product.collection}/${product.slug}`
+  const link = variantUrl(`${SITE_URL}/collections/${product.collection}/${product.slug}`, sku)
   const title = `${product.name}${skuVariantSuffix(sku)}`
   const description = stripHtml(product.description).slice(0, 5000)
   const availability = (sku.stock_qty || 0) > 0 ? 'in_stock' : 'out_of_stock'
   const price = `${Number(sku.price_gbp || 0).toFixed(2)} ${CURRENCY}`
 
   const fields = [
-    ['g:id', sku.sku_code],
+    ['g:id', sku.sku_code || sku.id],
     ['g:item_group_id', product.id],
     ['title', title],
     ['g:description', description],
@@ -60,9 +62,11 @@ function buildItemXml({ product, sku }) {
     ['g:price', price],
     ['g:brand', BRAND],
     ['g:condition', 'new'],
-    ['g:mpn', sku.sku_code],
+    ...(sku.sku_code ? [['g:mpn', sku.sku_code]] : []),
   ]
   if (sku.colour && sku.colour !== '默认') fields.push(['g:color', sku.colour])
+  const size = [sku.width_mm ? `${sku.width_mm}mm` : '', sku.length_m ? `${sku.length_m}m` : ''].filter(Boolean).join(' × ')
+  if (size) fields.push(['g:size', size])
 
   const fieldsXml = fields
     .map(([tag, value]) => `      <${tag}>${xmlEscape(value)}</${tag}>`)

@@ -4,7 +4,8 @@ export default function robots() {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/admin', '/admin-login', '/api/', '/account/', '/checkout', '/order-confirmed'],
+        // Utility pages must be crawlable so engines can read their noindex tags.
+        disallow: ['/api/'],
       },
     ],
     sitemap: 'https://onesilkribbon.com/sitemap.xml',

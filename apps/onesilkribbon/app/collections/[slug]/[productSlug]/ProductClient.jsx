@@ -4,6 +4,7 @@ import Link from 'next/link'
 import NextImage from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useCart } from '@/lib/cart'
+import { skuAttributes, matchSku } from '@/lib/product-variants'
 
 function safe(val) {
   if (val === null || val === undefined) return ''
@@ -24,34 +25,34 @@ function imageAlt(product, i = 0, total = 1) {
 }
 function fmt(amount) { return '£' + safeNum(amount).toFixed(2) }
 
-export default function ProductClient({ initialProduct, initialSkus, slug, related }) {
+export default function ProductClient({ initialProduct, initialSkus, initialSku, slug, related }) {
   const router = useRouter()
   const product = initialProduct || null
   const skus = initialSkus || []
   const relatedProducts = related || []
   const [shippingInfo, setShippingInfo] = useState({ rate: '3.95', threshold: '45', freeEnabled: true })
-  const [selectedSku, setSelectedSku] = useState(null)
+  const [selectedSku, setSelectedSku] = useState(initialSku || null)
   const [imgIdx, setImgIdx] = useState(0)
   const [qty, setQty] = useState(1)
   const [added, setAdded] = useState(false)
   const [buyingNow, setBuyingNow] = useState(false)
   const [tab, setTab] = useState('description')
-  const [selectedAttrs, setSelectedAttrs] = useState({})
+  const [selectedAttrs, setSelectedAttrs] = useState(() => skuAttributes(product, initialSku))
   const [userSelected, setUserSelected] = useState(false)
   const [lastChangedAttr, setLastChangedAttr] = useState(null)
   const { addItem } = useCart()
 
   // 切换到不同商品（slug 变化）时重置选择状态，不重新请求数据——SSR 已经把数据备好了
   useEffect(() => {
-    setSelectedAttrs({})
-    setSelectedSku(null)
+    setSelectedAttrs(skuAttributes(product, initialSku))
+    setSelectedSku(initialSku || null)
     setImgIdx(0)
     setQty(1)
     // 从系列页往下滑很多之后点进商品，Next.js 的默认滚动还原有时候不会把新页面滚回顶部
     // （尤其是从系列页跳到商品详情页这种嵌套路由场景），手动强制归零，
     // 用 'instant' 而不是默认的 smooth，避免落地后又能看到一段"慢慢滚上去"的动画
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
-  }, [slug])
+  }, [slug, product, initialSku])
 
   // 无 attribute_config 时，按颜色/宽度自动预选默认项（放在 effect 里，避免渲染期间 setState）
   useEffect(() => {
@@ -81,12 +82,8 @@ export default function ProductClient({ initialProduct, initialSkus, slug, relat
 
   useEffect(() => {
     if (skus.length === 0) return
-    const match = skus.find(s => {
-      const attrs = s.attributes || {}
-      return Object.keys(selectedAttrs).every(k => attrs[k] === selectedAttrs[k])
-    })
-    if (match) setSelectedSku(match)
-  }, [selectedAttrs, skus])
+    setSelectedSku(current => matchSku(product, skus, selectedAttrs, current))
+  }, [selectedAttrs, skus, product])
 
   if (!product) return (
     <div style={{ minHeight: '100vh', background: 'var(--cream)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 32 }}>
@@ -120,12 +117,13 @@ export default function ProductClient({ initialProduct, initialSkus, slug, relat
   if (attrImage) {
     images = [attrImage, ...productImages.filter(img => img !== attrImage)]
   }
+  if (Array.isArray(selectedSku?.images) && selectedSku.images.length) images = selectedSku.images
   const collectionSlug = safe(product.collection)
   const collectionName = collectionSlug.replace(/-/g, ' ')
   const price = selectedSku ? safeNum(selectedSku.price_gbp) : 0
   const minPrice = skus.length > 0 ? Math.min(...skus.map(s => safeNum(s.price_gbp)).filter(p => p > 0)) : 0
   const inStock = selectedSku ? safeNum(selectedSku.stock_qty) > 0 : false
-  const hasSelected = Object.values(selectedAttrs).some(v => v && v !== '__placeholder__')
+  const hasSelected = !!selectedSku
 
   let attributeOptions = []
 
@@ -134,8 +132,10 @@ export default function ProductClient({ initialProduct, initialSkus, slug, relat
   } else {
     const colours = [...new Set(skus.map(s => safe(s.colour)).filter(Boolean))]
     const widths = [...new Set(skus.map(s => s.width_mm).filter(Boolean))]
+    const lengths = [...new Set(skus.map(s => s.length_m).filter(Boolean))]
     if (colours.length > 1) attributeOptions.push({ name: 'Colour', options: colours })
     if (widths.length > 1) attributeOptions.push({ name: 'Width', options: widths.map(w => `${w}mm`) })
+    if (lengths.length > 1) attributeOptions.push({ name: 'Length', options: lengths.map(l => `${l}m`) })
   }
 
   const handleAttrChange = (attrName, value) => {

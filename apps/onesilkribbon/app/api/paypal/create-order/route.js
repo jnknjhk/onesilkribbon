@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { computeAuthoritativeOrder } from '@/lib/order-pricing'
 import { getAuthUser } from '@osr/core/lib/get-auth-user'
 import { errorResponse } from '@osr/core/lib/api-error'
+import { newOrderNumber, orderRecord, prepareOrder } from '@/lib/payment-orders'
 
 const PAYPAL_BASE = process.env.PAYPAL_MODE === 'live'
   ? 'https://api-m.paypal.com'
@@ -34,22 +35,24 @@ export async function POST(req) {
     }
     const { lineItems: orderLineItems, totals } = priced
 
-    const token = await getPayPalToken()
-    const now = new Date()
-    const datePart = String(now.getFullYear()).slice(2) + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0')
-    const randPart = String(Math.floor(1000 + Math.random() * 9000))
-    const orderNumber = `OSR-${datePart}-${randPart}`
+    const orderNumber = newOrderNumber()
 
     const itemsTotal     = orderLineItems.reduce((sum, i) => sum + i.price * i.qty, 0)
     const discountAmount = parseFloat(totals.discount) || 0
     const shippingAmount = parseFloat(totals.shipping) || 0
     const grandTotal     = parseFloat(totals.total)
 
+    // Persist the complete order before creating a payable provider order.
+    await prepareOrder(orderRecord({ orderNumber, form,
+      totals: { ...totals, subtotal: itemsTotal.toFixed(2) }, userId, provider: 'paypal' }), orderLineItems)
+    const token = await getPayPalToken()
+
     const paypalOrder = await fetch(`${PAYPAL_BASE}/v2/checkout/orders`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
+        'PayPal-Request-Id': orderNumber.slice(-36),
       },
       body: JSON.stringify({
         intent: 'CAPTURE',
@@ -94,12 +97,12 @@ export async function POST(req) {
     const ppData = await paypalOrder.json()
     const approvalUrl = ppData.links?.find(l => l.rel === 'approve')?.href
 
-    if (!approvalUrl) {
+    if (!paypalOrder.ok || !approvalUrl || !ppData.id) {
       return Response.json({ error: 'PayPal did not return approval URL', details: ppData }, { status: 500 })
     }
 
     // 存临时 session（服务端权威价格），支付成功后才创建正式订单
-    await supabaseAdmin.from('paypal_sessions').insert({
+    const { error: saveError } = await supabaseAdmin.from('paypal_sessions').insert({
       order_number:    orderNumber,
       paypal_order_id: ppData.id,
       items:           JSON.stringify(orderLineItems),
@@ -114,6 +117,8 @@ export async function POST(req) {
       user_id:         userId || null,
       expires_at:      new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
     })
+
+    if (saveError) throw saveError
 
     return Response.json({ approvalUrl })
   } catch (err) {

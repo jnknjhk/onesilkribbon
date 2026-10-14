@@ -7,13 +7,14 @@ const OWNER      = 'song@onesilkribbon.com'
 
 // kind / orderNumber 只用于写「邮件记录」，不影响邮件内容本身。
 // 成功和失败都落库，后台才能看出"这封到底发出去没有"。
-async function sendEmail({ to, subject, html, kind = 'other', orderNumber = null }) {
+async function sendEmail({ to, subject, html, kind = 'other', orderNumber = null, deliveryKey }) {
   try {
     const res = await fetch(RESEND_API, {
       method: 'POST',
       headers: {
         'Content-Type':  'application/json',
         'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+        ...(deliveryKey ? { 'Idempotency-Key': deliveryKey } : {}),
       },
       body: JSON.stringify({ from: FROM, to, subject, html }),
     })
@@ -87,7 +88,7 @@ const layout = (content) => `
 `
 
 // ─── 1. Order Confirmation ────────────────────────────────────────────────────
-export async function sendOrderConfirmation({ order, items, form, totals }) {
+export async function sendOrderConfirmation({ order, items, form, totals, deliveryKey }) {
   const itemsHtml = items.map(i => `
     <div class="item-row">
       <span class="item-name">${i.name} <span style="color:#9A8878;font-size:12px;">× ${i.qty}</span><br>
@@ -108,7 +109,7 @@ export async function sendOrderConfirmation({ order, items, form, totals }) {
     <div class="order-box">
       <h3>Order Details</h3>
       <p class="order-number">${order.order_number}</p>
-      <p style="font-size:12px;color:#9A8878;margin:0 0 16px;">Placed on ${new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' })}</p>
+      <p style="font-size:12px;color:#9A8878;margin:0 0 16px;">Placed on ${new Date(order.created_at || Date.now()).toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' })}</p>
       ${itemsHtml}
       <div class="totals">
         <div class="total-row"><span>Subtotal (tax included)</span><span>£${totals.subtotal || totals.subtotalExVat || '0.00'}</span></div>
@@ -141,12 +142,13 @@ export async function sendOrderConfirmation({ order, items, form, totals }) {
     subject: `Order Confirmed — ${order.order_number} | One Silk Ribbon`,
     html,
     kind: 'order_confirmation',
+    deliveryKey,
     orderNumber: order.order_number,
   })
 }
 
 // ─── Owner Notification ───────────────────────────────────────────────────────
-export async function sendOwnerNotification({ order, items, form, totals }) {
+export async function sendOwnerNotification({ order, items, form, totals, deliveryKey }) {
   const itemsText = items.map(i => `${i.name}${i.skuDesc ? ' · ' + i.skuDesc : ''} × ${i.qty} · £${Number(i.price).toFixed(2)} each — £${(i.price * i.qty).toFixed(2)}`).join('<br>')
 
   const html = layout(`
@@ -176,6 +178,7 @@ export async function sendOwnerNotification({ order, items, form, totals }) {
     subject: `New Order £${totals.total} — ${order.order_number}`,
     html,
     kind: 'owner_notification',
+    deliveryKey,
     orderNumber: order.order_number,
   })
 }

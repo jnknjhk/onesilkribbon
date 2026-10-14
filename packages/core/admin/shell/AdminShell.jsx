@@ -10,7 +10,6 @@ import { Icon, ToastProvider, Button, cx, styles as s } from '../ui'
 export const NAV = [
   { href: '/admin',           label: '工作台', icon: 'home', exact: true },
   { href: '/admin/orders',    label: '订单',   icon: 'package', badge: 'toShip' },
-  { href: '/admin/payment-recovery', label: '付款恢复', icon: 'refresh' },
   { href: '/admin/products',  label: '商品',   icon: 'tag' },
   { href: '/admin/customers', label: '客户',   icon: 'users' },
   { href: '/admin/content',   label: '内容',   icon: 'file' },

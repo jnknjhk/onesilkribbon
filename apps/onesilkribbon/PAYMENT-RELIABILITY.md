@@ -7,7 +7,7 @@
 1. 在丝带站 Supabase 项目（ref: jmwautbooalixgvlfhnk）执行
    `supabase/migrations/2026-10-14-payment-reliability.sql`。
 2. 确认执行成功，再部署本次代码。缺少函数时新结账会拒绝生成支付链接。
-3. 检查 `/admin/payment-recovery`，并在测试支付环境验证下单及通知。
+3. 检查后台「设置 → 付款恢复」，并在测试支付环境验证下单及通知。
 
 迁移新增恢复记录、付款凭证、邮件待发送记录及事务函数，不删除或重写历史订单。
 新下单时订单主记录、商品明细和快照一起保存，才创建付款链接。
@@ -17,7 +17,8 @@ PayPal 会话保留，不再成功后删除。维护清理不得删除被付款�
 
 ## 恢复
 
-打开 `/admin/payment-recovery` 可查看未完成的凭证、通知和 PayPal 待核对订单。
+打开 `/admin/settings?tab=payment-recovery`（设置 → 付款恢复）可查看未完成的凭证、通知和 PayPal 待核对订单。
+旧地址 `/admin/payment-recovery` 自动跳转到设置页。
 核对按钮只读取 PayPal 状态，不会收取新的款项；真正未付款订单显示未完成属正常。
 PayPal 客户未返回本站时，可在此手动核对；本轮未新增 PayPal webhook 或定时任务。
 旧 Stripe 订单在回调重试时从已有明细接管。旧已付款订单没有事务快照时不重复扣库存，

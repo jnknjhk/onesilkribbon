@@ -16,19 +16,20 @@ import { ORDER_STATUS } from '../../lib/status'
 // 没设置过时前台用的默认值（和旧版后台一致）
 const SHIPPING_DEFAULTS = { shipping_rate: '3.95', free_shipping_threshold: '45.00', free_shipping_enabled: 'true' }
 
-export default function SettingsPage() {
+export default function SettingsPage({ paymentRecovery }) {
   const cfg = useAdminConfig()
   const [get, set] = useUrlState({ tab: 'store' })
   const tabs = [
     { key: 'store', label: '店铺设置' },
     ...(cfg.features.maintenance ? [{ key: 'maintenance', label: '数据维护' }] : []),
+    ...(paymentRecovery ? [{ key: 'payment-recovery', label: '付款恢复' }] : []),
   ]
   const tab = tabs.some(t => t.key === get('tab')) ? get('tab') : 'store'
   return (
     <div>
       <PageHeader title="设置" />
       <Tabs value={tab} onChange={v => set({ tab: v })} tabs={tabs} />
-      {tab === 'maintenance' ? <Maintenance /> : <StoreSettings />}
+      {tab === 'payment-recovery' ? paymentRecovery : tab === 'maintenance' ? <Maintenance /> : <StoreSettings />}
     </div>
   )
 }

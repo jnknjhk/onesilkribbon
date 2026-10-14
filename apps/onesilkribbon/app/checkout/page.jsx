@@ -239,7 +239,10 @@ function CheckoutContent() {
         return
       }
       const { approvalUrl } = await res.json()
-      if (approvalUrl) window.location.href = approvalUrl
+      if (approvalUrl) {
+        try { sessionStorage.setItem('osr-checkout-basket', JSON.stringify({ items, token: new URL(approvalUrl).searchParams.get('token') })) } catch {}
+        window.location.href = approvalUrl
+      }
       else setLoading(false)
     } catch (err) { console.error(err); setLoading(false) }
   }
@@ -257,7 +260,10 @@ function CheckoutContent() {
         return
       }
       const { url } = await res.json()
-      if (url) window.location.href = url
+      if (url) {
+        try { sessionStorage.setItem('osr-checkout-basket', JSON.stringify({ items, sessionId: new URL(url).pathname.split('/').pop() })) } catch {}
+        window.location.href = url
+      }
       else setLoading(false)
     } catch (err) { console.error(err); setLoading(false) }
   }

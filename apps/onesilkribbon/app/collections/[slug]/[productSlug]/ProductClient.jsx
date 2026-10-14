@@ -347,7 +347,7 @@ export default function ProductClient({ initialProduct, initialSkus, slug, relat
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, alignItems: 'start' }} className="desc-grid">
                 <div style={{ fontSize: 15, fontWeight: 400, lineHeight: 2.2, color: 'var(--taupe)' }}>
                   {safe(product.description) ? (
-                    <div dangerouslySetInnerHTML={{ __html: safe(product.description).replace(/\n/g, '<br/>').replace(/✦/g, '<span style="color:var(--gold)">✦</span>') }} />
+                    <div dangerouslySetInnerHTML={{ __html: product.descriptionHtml || '' }} />
                   ) : (
                     <p><span style={{ color: 'var(--gold)' }}>✦</span>{' '}A beautiful silk ribbon, handcrafted with care.</p>
                   )}

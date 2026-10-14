@@ -3,6 +3,7 @@ import { supabaseAdmin as supabaseServer } from '@osr/core/lib/supabase'
 import { permanentRedirect, notFound } from 'next/navigation'
 import ProductClient from './ProductClient'
 import { findRenamedProduct } from '@osr/core/lib/product-redirects'
+import { safeProductHtml } from '@/lib/product-content'
 
 export const revalidate = 60
 
@@ -264,10 +265,10 @@ export default async function ProductPage({ params }) {
       {jsonLd && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
         />
       )}
-      <ProductClient initialProduct={product} initialSkus={skus || []} slug={productSlug} related={related} />
+      <ProductClient initialProduct={{ ...product, descriptionHtml: safeProductHtml(product.description) }} initialSkus={skus || []} slug={productSlug} related={related} />
     </>
   )
 }

@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@osr/core/lib/auth'
 import Link from 'next/link'
 import { safeNextPath } from '@osr/core/lib/safe-next'
+import { createSupabaseBrowserClient } from '@osr/core/lib/supabase'
 
 function LoginContent() {
   const { user, loading, signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth()

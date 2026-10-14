@@ -13,11 +13,40 @@ export default function ResetPasswordPage() {
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    // Supabase redirects with hash tokens — wait for session to be set
     const supabase = createSupabaseBrowserClient()
-    supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') setReady(true)
+    let active = true
+    const timer = setTimeout(() => {
+      if (active) setError('This reset link could not be verified. Please request a new link from the login page.')
+    }, 15000)
+    const accept = () => {
+      if (!active) return
+      clearTimeout(timer)
+      setError('')
+      setReady(true)
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' && session) accept()
     })
+    // The shared auth client may already have consumed the recovery event.
+    const verify = async () => {
+      const url = new URL(window.location.href)
+      if (url.searchParams.has('error') || new URLSearchParams(url.hash.slice(1)).has('error')) {
+        throw new Error('This reset link has expired. Please request a new link.')
+      }
+      const { data } = await supabase.auth.getSession()
+      if (data.session) { accept(); return }
+      const code = url.searchParams.get('code')
+      if (code) {
+        const { data: exchanged, error } = await supabase.auth.exchangeCodeForSession(code)
+        if (error) throw error
+        if (exchanged.session) accept()
+      }
+    }
+    verify().catch(() => {
+      if (active) { clearTimeout(timer); setError('This reset link could not be verified. Please request a new link from the login page.') }
+    })
+    return () => { active = false; clearTimeout(timer); subscription.unsubscribe() }
   }, [])
 
   const handleReset = async () => {
@@ -26,7 +55,10 @@ export default function ResetPasswordPage() {
     if (password !== confirm) { setError('Passwords do not match'); return }
     setLoading(true); setError('')
     const supabase = createSupabaseBrowserClient()
-    const { error } = await supabase.auth.updateUser({ password })
+    let result
+    try { result = await supabase.auth.updateUser({ password }) }
+    catch { setError('Connection failed. Please try again.'); setLoading(false); return }
+    const { error } = result
     if (error) { setError(error.message); setLoading(false); return }
     setSuccess(true)
     setTimeout(() => router.replace('/account'), 2000)
@@ -49,7 +81,8 @@ export default function ResetPasswordPage() {
             </p>
           ) : !ready ? (
             <p style={{ fontSize: 13, color: C.taupe, textAlign: 'center', lineHeight: 1.7 }}>
-              Verifying your reset link…
+              {error || 'Verifying your reset link…'}
+              {error && <><br /><a href="/login" style={{ color: C.gold }}>Request a new reset link</a></>}
             </p>
           ) : (
             <>

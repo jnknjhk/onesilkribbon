@@ -4,6 +4,21 @@ import { prepareOrder, orderRecord, recordPayment, completeOrder, deliverNotific
 const BASE = process.env.PAYPAL_MODE === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com'
 const parse = value => typeof value === 'string' ? JSON.parse(value) : value
 
+export async function getPayPalOrder(token) {
+  const response = await fetch(BASE + '/v1/oauth2/token', {
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded',
+      Authorization: 'Basic ' + Buffer.from(process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID + ':' + process.env.PAYPAL_SECRET).toString('base64') },
+    body: 'grant_type=client_credentials',
+  })
+  const auth = await response.json()
+  if (!response.ok || !auth.access_token) throw new Error('PayPal authentication failed')
+  const result = await fetch(BASE + '/v2/checkout/orders/' + encodeURIComponent(token), {
+    headers: { Authorization: 'Bearer ' + auth.access_token },
+  })
+  if (!result.ok) throw new Error('PayPal lookup failed; reservation retained')
+  return result.json()
+}
+
 export async function recoverPayPal(orderNumber, token, { capture = true } = {}) {
   const { data: session, error: readError } = await supabaseAdmin.from('paypal_sessions')
     .select('*').eq('order_number', orderNumber).maybeSingle()
@@ -30,8 +45,8 @@ export async function recoverPayPal(orderNumber, token, { capture = true } = {})
       return
     }
     // Preserve old in-flight PayPal checkouts before requesting capture.
-    await prepareOrder(orderRecord({ orderNumber, form: parse(session.form), totals: parse(session.totals),
-      userId: session.user_id, provider: 'paypal' }), parse(session.items))
+    await prepareOrder({ ...orderRecord({ orderNumber, form: parse(session.form), totals: parse(session.totals),
+      userId: session.user_id, provider: 'paypal' }), managedCapture: false }, parse(session.items))
   }
   const authRes = await fetch(BASE + '/v1/oauth2/token', {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded',
@@ -50,6 +65,9 @@ export async function recoverPayPal(orderNumber, token, { capture = true } = {})
   // Always retrieve first: an earlier request may have captured successfully before timing out.
   let data = await readProvider()
   if (data.status !== 'COMPLETED' && capture && data.status === 'APPROVED') {
+    // Serialize capture eligibility against cancellation before making the external call.
+    const { error: captureError } = await supabaseAdmin.rpc('begin_paypal_capture', { p_order_number: orderNumber })
+    if (captureError) throw captureError
     try {
       const response = await fetch(BASE + '/v2/checkout/orders/' + encodeURIComponent(token) + '/capture', {
         method: 'POST', headers: { ...headers, 'PayPal-Request-Id': 'capture-' + token },

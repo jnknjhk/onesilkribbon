@@ -13,7 +13,7 @@ export function orderRecord({ orderNumber, form, totals, userId, provider }) {
     shipping_line2: form.line2 || null, shipping_city: form.city,
     shipping_postcode: form.postcode || '', shipping_country: form.country,
     phone: form.phone ? `${form.dialCode || ''} ${form.phone}`.trim() : null,
-    payment_method: provider, couponCode: totals.couponCode || '',
+    payment_method: provider, couponCode: totals.couponCode || '', managedCapture: true,
   }
 }
 

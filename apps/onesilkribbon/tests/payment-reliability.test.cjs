@@ -124,7 +124,7 @@ test('Stripe finalization failures return 503 for provider retries', async () =>
 function paypalBindings(overrides = {}) {
   const session={paypal_order_id:'PP1',items:JSON.stringify(items),form:'{}',totals:'{}'}
   return {
-    supabaseAdmin:{ from(table){ const q={select(){return q},eq(){return q},maybeSingle:async()=>({data:
+    supabaseAdmin:{ rpc:async()=>({error:null}), from(table){ const q={select(){return q},eq(){return q},maybeSingle:async()=>({data:
       table==='paypal_sessions'?session:table==='payment_checkouts'?{order_number:'pp-order'}:{status:'pending'}})};return q } },
     recordPayment:async()=>{},completeOrder:async()=>{},deliverNotifications:async()=>{},
     fetch:async url=>Response.json(url.endsWith('token')?{access_token:'access'}:{

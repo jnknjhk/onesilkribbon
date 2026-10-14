@@ -20,6 +20,7 @@ export async function POST(req) {
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'], mode: 'payment', customer_email: form.email,
+      expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
       line_items: [{ price_data: { currency: 'gbp', unit_amount: gbpToPence(totals.total),
         product_data: { name: 'One Silk Ribbon Order',
           description: lineItems.map(i => `${i.name} ×${i.qty}`).join(', ').slice(0, 500) } }, quantity: 1 }],
@@ -38,5 +39,8 @@ export async function POST(req) {
     }
     await saveCheckoutDetailsToAccount({ userId: user?.id, form })
     return Response.json({ url: session.url })
-  } catch (err) { return errorResponse(err, { tag: 'stripe-create-checkout-session' }) }
+  } catch (err) {
+    if (err?.code === 'P0001') return Response.json({ error: 'Stock or promo availability changed. Please review your basket and try again.' }, { status: 409 })
+    return errorResponse(err, { tag: 'stripe-create-checkout-session' })
+  }
 }

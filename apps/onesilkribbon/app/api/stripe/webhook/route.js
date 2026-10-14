@@ -9,6 +9,21 @@ export async function POST(req) {
   try {
     event = stripe.webhooks.constructEvent(await req.text(), req.headers.get('stripe-signature'), process.env.STRIPE_WEBHOOK_SECRET)
   } catch { return Response.json({ error: 'Webhook signature failed' }, { status: 400 }) }
+  if (event.type === 'checkout.session.expired') {
+    try {
+      const session = event.data.object
+      const { data: order, error } = await supabaseAdmin.from('orders').select('order_number,payment_intent_id,status,payment_method')
+        .eq('order_number', session.metadata?.orderNumber || '').maybeSingle()
+      if (error) throw error
+      if (!order || order.status !== 'pending') return Response.json({ received: true })
+      if (order.payment_method !== 'stripe' || order.payment_intent_id !== session.id) throw new Error('Expired checkout identity mismatch')
+      const { error: releaseError } = await supabaseAdmin.rpc('release_checkout_reservation', {
+        p_order_number: order.order_number, p_reason: 'Stripe 付款链接已过期',
+      })
+      if (releaseError) throw releaseError
+      return Response.json({ received: true })
+    } catch (err) { return errorResponse(err, { status: 503, tag: 'stripe-checkout-expired' }) }
+  }
   if (!['checkout.session.completed', 'checkout.session.async_payment_succeeded'].includes(event.type)) {
     return Response.json({ received: true })
   }

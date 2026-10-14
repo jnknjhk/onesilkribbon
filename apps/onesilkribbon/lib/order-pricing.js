@@ -8,30 +8,53 @@ export async function computeAuthoritativeOrder({ items, couponCode, shippingSet
     return { ok: false, error: 'Your basket is empty' }
   }
 
-  const skuIds = [...new Set(items.map(i => i.skuId).filter(Boolean))]
-  if (skuIds.length === 0) {
-    return { ok: false, error: 'Invalid basket items' }
+  if (items.length > 200) return { ok: false, error: 'Too many basket items' }
+  const grouped = new Map()
+  for (const item of items) {
+    const qty = Number(item?.qty)
+    if (!item?.skuId || !['string','number'].includes(typeof item.qty) || !Number.isSafeInteger(qty) || qty < 1 || qty > 10000) {
+      return { ok: false, error: 'Invalid basket quantity' }
+    }
+    const totalQty = (grouped.get(item.skuId)?.qty || 0) + qty
+    if (totalQty > 10000) return { ok: false, error: 'Invalid basket quantity' }
+    grouped.set(item.skuId, { ...item, qty: totalQty })
   }
+  const skuIds = [...grouped.keys()]
+
+  // Only managed PayPal checkouts that never began capture can expire by local deadline.
+  // Stripe reservations are released only after provider expiry is confirmed.
+  const { error: expiryError } = await supabaseAdmin.rpc('release_expired_paypal_reservations')
+  if (expiryError) return { ok: false, error: 'Could not verify available stock, please try again' }
 
   const { data: skus, error } = await supabaseAdmin
     .from('product_skus')
-    .select('id, product_id, price_gbp, stock_qty, is_active')
+    .select('id, product_id, price_gbp, stock_qty, is_active, colour, width_mm, length_m')
     .in('id', skuIds)
 
   if (error) {
     return { ok: false, error: 'Could not verify products, please try again' }
   }
 
+  const { data: products, error: productError } = await supabaseAdmin.from('products')
+    .select('id,name,is_active').in('id', [...new Set((skus || []).map(s => s.product_id))])
+  if (productError) return { ok: false, error: 'Could not verify products, please try again' }
+  const productMap = Object.fromEntries((products || []).map(p => [p.id, p]))
+
   const skuMap = Object.fromEntries((skus || []).map(s => [s.id, s]))
   const unavailable = []
   const lineItems = []
 
-  for (const item of items) {
+  for (const item of grouped.values()) {
     const sku = item.skuId ? skuMap[item.skuId] : null
-    const qty = Math.max(1, parseInt(item.qty, 10) || 1)
+    const qty = item.qty
+    const product = sku && productMap[sku.product_id]
 
-    if (!sku || sku.is_active === false) {
+    if (!sku || sku.is_active === false || !product || product.is_active !== true) {
       unavailable.push({ name: item.name || 'Item', reason: 'no longer available' })
+      continue
+    }
+    if (!Number.isFinite(Number(sku.price_gbp)) || Number(sku.price_gbp) <= 0) {
+      unavailable.push({ name: product.name, reason: 'price unavailable' })
       continue
     }
     if ((sku.stock_qty || 0) < qty) {
@@ -41,9 +64,9 @@ export async function computeAuthoritativeOrder({ items, couponCode, shippingSet
 
     lineItems.push({
       skuId: sku.id,
-      productId: item.productId || sku.product_id,
-      name: item.name || 'Product',
-      skuDesc: item.skuDesc || '',
+      productId: sku.product_id,
+      name: product.name,
+      skuDesc: [sku.width_mm ? `${sku.width_mm}mm` : '', sku.colour, sku.length_m ? `${sku.length_m}m` : ''].filter(Boolean).join(' · '),
       qty,
       price: parseFloat(sku.price_gbp) || 0, // 权威价格，来自数据库，而非客户端
     })
@@ -63,13 +86,14 @@ export async function computeAuthoritativeOrder({ items, couponCode, shippingSet
   // 运费设置：调用方可以传入已查好的 shippingSettings，否则这里自己查
   let resolvedShippingSettings = shippingSettings
   if (!resolvedShippingSettings) {
-    const { data: settingsRows } = await supabaseAdmin
+    const { data: settingsRows, error: settingsError } = await supabaseAdmin
       .from('settings')
       .select('key, value')
       .in('key', ['shipping_rate', 'free_shipping_threshold', 'free_shipping_enabled'])
+    if (settingsError) return { ok: false, error: 'Could not verify shipping, please try again' }
     const map = Object.fromEntries((settingsRows || []).map(r => [r.key, r.value]))
     resolvedShippingSettings = {
-      shippingRate: parseFloat(map.shipping_rate) || 0,
+      shippingRate: Number.isFinite(Number(map.shipping_rate)) ? Number(map.shipping_rate) : 3.95,
       freeShippingThreshold: parseFloat(map.free_shipping_threshold) || 45,
       freeShippingEnabled: map.free_shipping_enabled !== 'false',
     }
@@ -101,8 +125,8 @@ export async function computeAuthoritativeOrder({ items, couponCode, shippingSet
         discountAmount = parseFloat(Math.min(discountAmount, Math.max(0, subtotal - 0.30)).toFixed(2))
         appliedCouponCode = coupon.code
       }
-      // 优惠码不再有效时，静默忽略折扣（不阻断下单），但不会应用任何折扣
     }
+    if (!appliedCouponCode) return { ok: false, error: 'This promo code is no longer valid. Please review your basket.' }
   }
 
   const totals = calculateTotals(subtotal - discountAmount, resolvedShippingSettings)

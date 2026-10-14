@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { redirect } from 'next/navigation'
+import { errorResponse } from '@osr/core/lib/api-error'
 
 const RESEND_API = 'https://api.resend.com/emails'
 const FROM       = `One Silk Ribbon <${process.env.EMAIL_FROM || 'song@onesilkribbon.com'}>`
@@ -18,13 +19,6 @@ const styles = `
   .footer p{font-size:11px;color:#9A8878;line-height:1.8;margin:0}
   .footer a{color:#B89B6A;text-decoration:none}
 `
-
-function generateCouponCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  let code = 'WELCOME-'
-  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)]
-  return code
-}
 
 async function sendCouponEmail(email, couponCode) {
   const html = `
@@ -45,84 +39,36 @@ async function sendCouponEmail(email, couponCode) {
   </div>
 </div></body></html>`
 
-  await fetch(RESEND_API, {
+  const response = await fetch(RESEND_API, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.RESEND_API_KEY}` },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.RESEND_API_KEY}`, 'Idempotency-Key': `welcome/${couponCode}` },
     body: JSON.stringify({ from: FROM, to: email, subject: `Your exclusive welcome code — One Silk Ribbon`, html }),
   })
+  if (!response.ok) throw new Error('Welcome email failed')
 }
 
 export async function GET(req) {
-  const { searchParams } = new URL(req.url)
-  const token = searchParams.get('token')
-
-  if (!token) redirect('/?verified=error')
-
-  // 查找 token
-  const { data: subscriber } = await supabaseAdmin
-    .from('subscribers')
-    .select('*')
-    .eq('verify_token', token)
-    .single()
-
-  if (!subscriber) redirect('/?verified=invalid')
-
-  // 检查是否过期
-  if (new Date(subscriber.token_expires_at) < new Date()) redirect('/?verified=expired')
-
-  // 已验证过
-  if (subscriber.verified) redirect('/?verified=already')
-
-  // 生成唯一优惠码
-  let couponCode, attempts = 0
-  do {
-    couponCode = generateCouponCode()
-    const { data: existing } = await supabaseAdmin.from('coupons').select('id').eq('code', couponCode).single()
-    if (!existing) break
-    attempts++
-  } while (attempts < 10)
-
-  // 写入 coupons 表
-  await supabaseAdmin.from('coupons').insert({
-    code:           couponCode,
-    description:    `Welcome discount for ${subscriber.email}`,
-    discount_type:  'percentage',
-    discount_value: 10,
-    min_order_gbp:  0,
-    max_uses:       1,
-    uses_count:     0,
-    active:         true,
-    expires_at:     null,
-  })
-
-  // 更新 subscriber
-  await supabaseAdmin.from('subscribers').update({
-    verified:         true,
-    status:           'active',
-    verify_token:     null,
-    token_expires_at: null,
-    coupon_code:      couponCode,
-    subscribed_at:    new Date().toISOString(),
-  }).eq('id', subscriber.id)
-
-  // 同步写入 customers 表
-  const { data: existingCustomer } = await supabaseAdmin
-    .from('customers')
-    .select('id')
-    .eq('email', subscriber.email)
-    .single()
-
-  if (!existingCustomer) {
-    await supabaseAdmin.from('customers').insert({
-      email:      subscriber.email,
-      source:     subscriber.source || 'welcome_popup',
-      created_at: new Date().toISOString(),
-    })
+  const token = new URL(req.url).searchParams.get('token')
+  if (!token || !/^[a-f0-9]{64}$/.test(token)) redirect('/?verified=invalid')
+  let code
+  try {
+    const { data: claim, error } = await supabaseAdmin.rpc('claim_welcome_coupon', { p_token: token })
+    if (error) {
+      if (error.code === 'P0001') redirect('/?verified=invalid')
+      throw error
+    }
+    code = claim.coupon_code
+    if (!claim.emailed_at) {
+      await sendCouponEmail(claim.email, code)
+      const { error: saveError } = await supabaseAdmin.from('welcome_coupon_claims')
+        .update({ emailed_at: new Date().toISOString() }).eq('token', token)
+      if (saveError) throw saveError
+    }
+  } catch (err) {
+    // redirect() throws: propagate it instead of converting it into a database error.
+    if (err?.digest?.startsWith('NEXT_REDIRECT')) throw err
+    return errorResponse(err, { status: 503, tag: 'welcome-coupon',
+      message: 'Verification is pending. Your existing code is retained; refresh this same link to retry.' })
   }
-
-  // 发送优惠码邮件
-  await sendCouponEmail(subscriber.email, couponCode)
-
-  // redirect 必须在 try/catch 外部调用
-  redirect(`/?verified=success&code=${couponCode}`)
+  redirect('/?verified=success&code=' + encodeURIComponent(code))
 }

@@ -122,6 +122,7 @@ export async function POST(req) {
 
     return Response.json({ approvalUrl })
   } catch (err) {
+    if (err?.code === 'P0001') return Response.json({ error: 'Stock or promo availability changed. Please review your basket and try again.' }, { status: 409 })
     return errorResponse(err, { tag: 'paypal-create-order' })
   }
 }

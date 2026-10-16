@@ -37,7 +37,7 @@ export async function POST(req) {
       line_items: [{ price_data: { currency: 'gbp', unit_amount: gbpToPence(totals.total),
         product_data: { name: 'One Silk Ribbon Order',
           description: lineItems.map(i => `${i.name} ×${i.qty}`).join(', ').slice(0, 500) } }, quantity: 1 }],
-      success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/order-confirmed?order=${orderNumber}&session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/api/payment-confirmation?order=${orderNumber}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/checkout`,
       metadata: { orderNumber, couponCode: totals.couponCode || '' },
       payment_intent_data: { metadata: { orderNumber } },

@@ -36,7 +36,7 @@ test('description filtering removes scripts, handlers and unsafe URLs while reta
 })
 
 test('confirmation page never invents an order or clears the basket on entry', () => {
-  const source = read('app/order-confirmed/page.jsx')
+  const source = read('app/order-confirmed/OrderConfirmedClient.jsx')
   assert.doesNotMatch(source, /OSR-2026-0001/)
   assert.match(source, /if \(status !== 'confirmed'\) return/)
   assert.match(source, /if \(!stripeMatch\) return/)
@@ -52,25 +52,26 @@ test('reset form handles session fallback and cleans up its listener', () => {
   assert.match(source, /15000/)
 })
 
-test('status endpoint verifies Stripe binding, reports pending and never leaks customer data', async () => {
+test('status endpoint verifies scoped cookie, reports pending and never leaks customer data', async () => {
   let order = { status: 'pending', payment_method: 'stripe', payment_intent_id: 'cs_test_abcdefghijklmnopqrstuvwxyz' }
-  let metadata = { orderNumber: 'OSR-TEST' }
   globalThis.__statusDb = { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: order }) }) }) }) }
-  globalThis.__statusStripe = class { checkout = { sessions: { retrieve: async () => ({ id: 'cs_test_abcdefghijklmnopqrstuvwxyz', payment_intent: 'pi_paid', metadata }) } } }
+  const proofs = await load(read('lib/payment-proof.js'))
+  globalThis.__statusProofs = proofs
   const source = read('app/api/order-status/route.js')
     .replace("import { supabaseAdmin } from '@osr/core/lib/supabase'", 'const supabaseAdmin = globalThis.__statusDb')
-    .replace("import { verifyPaymentProof } from '@/lib/payment-proof'", 'const verifyPaymentProof = () => false')
-    .replace("import Stripe from 'stripe'", 'const Stripe = globalThis.__statusStripe')
+    .replace("import { paymentProofDetails, readConfirmationCookie } from '@/lib/payment-proof'", 'const {paymentProofDetails,readConfirmationCookie}=globalThis.__statusProofs')
   try {
     const { GET } = await load(source)
-    const req = new Request('https://example.com/api/order-status?order=OSR-TEST&session_id=cs_test_abcdefghijklmnopqrstuvwxyz')
+    const req = new Request('https://example.com/api/order-status?order=OSR-TEST',{
+      headers:{cookie:`${proofs.confirmationCookieName('OSR-TEST')}=${proofs.createPaymentProof('OSR-TEST')}`},
+    })
     assert.deepEqual(await (await GET(req)).json(), { status: 'pending' })
     order = { ...order, status: 'paid', payment_intent_id: 'pi_paid' }
     const paid = await GET(req)
     assert.equal(paid.headers.get('cache-control'), 'no-store')
     assert.deepEqual(await paid.json(), { status: 'confirmed' })
-    metadata = { orderNumber: 'OSR-OTHER' }
+    order = null
     assert.equal((await GET(req)).status, 404)
     assert.equal((await GET(new Request('https://example.com/api/order-status?order=OSR-TEST'))).status, 400)
-  } finally { delete globalThis.__statusDb; delete globalThis.__statusStripe }
+  } finally { delete globalThis.__statusDb; delete globalThis.__statusProofs }
 })

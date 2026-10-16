@@ -12,13 +12,28 @@
 // 这里用 URL 解析器按浏览器的规则算一遍，解析后 origin 变了就拒绝。
 const PLACEHOLDER_ORIGIN = 'http://placeholder.invalid'
 
-export function safeNextPath(next, fallback = '/account') {
-  if (typeof next !== 'string' || !next.startsWith('/')) return fallback
+function relativePath(next) {
+  if (typeof next !== 'string' || next.length > 4096 || !next.startsWith('/') || next.startsWith('//') || /[\\\u0000-\u001f\u007f]/.test(next)) return null
   try {
     const url = new URL(next, PLACEHOLDER_ORIGIN)
-    if (url.origin !== PLACEHOLDER_ORIGIN) return fallback
+    if (url.origin !== PLACEHOLDER_ORIGIN || url.pathname.startsWith('//')) return null
+    // Reject encoded separators/control characters and dot-segment variants too.
+    // Do not decode the returned URL: legitimate query/hash values remain intact.
+    let decoded = url.pathname
+    for (let depth = 0; depth < 4; depth++) {
+      if (/[\\\u0000-\u001f\u007f]/.test(decoded)) return null
+      const parsed = new URL(decoded, PLACEHOLDER_ORIGIN)
+      if (parsed.origin !== PLACEHOLDER_ORIGIN || parsed.pathname.startsWith('//')) return null
+      const value = decodeURIComponent(decoded)
+      if (value === decoded) break
+      decoded = value
+    }
     return url.pathname + url.search + url.hash
   } catch {
-    return fallback
+    return null
   }
+}
+
+export function safeNextPath(next, fallback = '/account') {
+  return relativePath(next) || relativePath(fallback) || '/account'
 }

@@ -1,9 +1,15 @@
 import * as Sentry from '@sentry/nextjs'
+import { telemetryPrivacyHooks } from './lib/telemetry-privacy'
 
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
   environment: process.env.NODE_ENV,
   enabled: process.env.NODE_ENV === 'production',
+  sendDefaultPii: false,
+  ...telemetryPrivacyHooks,
+  integrations: [Sentry.requestDataIntegration({
+    include: { data: false, cookies: false, query_string: false, user: false, ip: false, headers: false },
+  })],
 
   // 注意：tracesSampleRate 管的是"性能追踪"的采样，不是错误。错误事件
   // （captureException / captureMessage）始终全量上报，不受它影响。

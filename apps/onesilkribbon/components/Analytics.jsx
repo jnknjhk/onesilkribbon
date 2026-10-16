@@ -12,6 +12,13 @@ const GA_ID = 'G-D48ERTWLOR'
 export default function Analytics() {
   const [consented, setConsented] = useState(false)
   const pathname = usePathname() || ''
+  const privatePage = ['/admin','/admin-login','/account','/auth','/login','/checkout','/order-confirmed','/track-order']
+    .some(path=>pathname===path || pathname.startsWith(path+'/'))
+
+  useEffect(() => {
+    // Also disable an already-loaded tag when navigating into a private flow.
+    window[`ga-disable-${GA_ID}`] = !consented || privatePage
+  },[consented,privatePage])
 
   useEffect(() => {
     const read = () => setConsented(hasConsented())
@@ -26,6 +33,6 @@ export default function Analytics() {
   }, [])
 
   // 自己在后台的操作不算网站访问量
-  if (!consented || pathname === '/admin' || pathname.startsWith('/admin/')) return null
+  if (!consented || privatePage) return null
   return <GoogleAnalytics gaId={GA_ID} />
 }

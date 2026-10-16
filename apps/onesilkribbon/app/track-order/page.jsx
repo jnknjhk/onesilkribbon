@@ -19,7 +19,8 @@ function TrackOrderContent() {
     try {
       // 订单号是可猜的，所以查询必须带上下单邮箱——接口那边会两个一起校验
       const res = await fetch(
-        `/api/tracking?order=${encodeURIComponent(orderNum.trim())}&email=${encodeURIComponent(email.trim())}`
+        '/api/tracking', {method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({order:orderNum.trim(),email:email.trim()}),cache:'no-store'}
       )
       if (!res.ok) { setError('Order not found. Please check your order number and email address.'); setLoading(false); return }
       const data = await res.json()

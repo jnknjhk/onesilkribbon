@@ -1,15 +1,22 @@
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 
-export async function GET(req) {
-  const { searchParams } = new URL(req.url)
-  const orderNumber = searchParams.get('order')
-  const email = searchParams.get('email')
+const reply = (body,options) => Response.json(body,{...options,headers:{'Cache-Control':'private, no-store','Referrer-Policy':'no-referrer'}})
+
+export async function GET() {
+  return reply({error:'Please use the tracking form.'},{status:405})
+}
+
+export async function POST(req) {
+  let body
+  try { body = await req.json() } catch { return reply({error:'Invalid request'},{status:400}) }
+  const orderNumber = typeof body?.order==='string' ? body.order.trim() : ''
+  const email = typeof body?.email==='string' ? body.email.trim() : ''
 
   // 光凭订单号就能查到收件人、城市和物流单号——而订单号是可猜的：
   // PayPal 单是 OSR-YYMMDD-4位随机数，Stripe 单是 OSR-年份-4位-3位，
   // 猜中一个只需要几千次请求。所以必须同时验证下单邮箱才返回任何信息。
-  if (!orderNumber || !email) {
-    return Response.json({ error: 'Order number and email are required' }, { status: 400 })
+  if (!orderNumber || orderNumber.length>100 || !email || email.length>254 || !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email)) {
+    return reply({ error: 'Order number and email are required' }, { status: 400 })
   }
 
   try {
@@ -26,7 +33,7 @@ export async function GET(req) {
       (order.customer_email || '').trim().toLowerCase() === email.trim().toLowerCase()
 
     if (error || !order || !emailMatches) {
-      return Response.json({ error: 'Order not found' }, { status: 404 })
+      return reply({ error: 'Order not found' }, { status: 404 })
     }
 
     // Mask sensitive address info for privacy
@@ -36,7 +43,7 @@ export async function GET(req) {
 
     // If no tracking number yet, return order status
     if (!order.tracking_number) {
-      return Response.json({
+      return reply({
         orderNumber: order.order_number,
         status: order.status === 'paid' ? 'Processing' : order.status,
         statusStep: order.status === 'paid' ? 1 : 0,
@@ -122,7 +129,7 @@ export async function GET(req) {
       message: 'Order dispatched',
     }]
 
-    return Response.json({
+    return reply({
       orderNumber: order.order_number,
       status: tracking?.tag || 'InTransit',
       statusStep: statusMap[tracking?.tag] ?? 2,
@@ -138,6 +145,6 @@ export async function GET(req) {
     })
   } catch (err) {
     console.error('Tracking error:', err)
-    return Response.json({ error: 'Tracking service unavailable' }, { status: 500 })
+    return reply({ error: 'Tracking service unavailable' }, { status: 500 })
   }
 }

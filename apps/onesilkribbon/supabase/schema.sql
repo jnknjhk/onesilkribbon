@@ -265,6 +265,10 @@ revoke all on site_images      from anon, authenticated;
 revoke all on subscribers      from anon, authenticated;
 revoke all on tracking_events  from anon, authenticated;
 revoke all on paypal_sessions  from anon, authenticated;
+-- Sensitive legacy tables also remain service-only if an old permissive policy exists.
+alter table newsletter_subscribers enable row level security;
+revoke all on orders,order_items,newsletter_subscribers from public,anon,authenticated;
+grant all on orders,order_items,newsletter_subscribers to service_role;
 
 -- user_addresses（结账地址回存到账户用的表）：线上早就建好并开了 RLS，
 -- 但一直没写进本文件，照 schema.sql 重建库时会漏掉这张存客户住址的表。

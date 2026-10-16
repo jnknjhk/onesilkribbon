@@ -3,19 +3,22 @@ import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { errorResponse } from '@osr/core/lib/api-error'
 import { completeOrder, deliverNotifications } from '@/lib/payment-orders'
 import { recoverPayPal } from '@/lib/paypal-payment'
+import { reconcileStripeReservation } from '@/lib/stripe-reservations'
 
 export async function GET() {
   if (!await verifyAdmin()) return Response.json({ error: 'Unauthorized' }, { status: 401 })
-  const [receipts, notifications, pendingPayPal] = await Promise.all([
+  const [receipts, notifications, pendingPayPal, pendingStripe] = await Promise.all([
     supabaseAdmin.from('payment_receipts').select('provider,payment_id,order_number,created_at')
       .is('processed_at', null).order('created_at').limit(100),
     supabaseAdmin.from('payment_notifications').select('order_number,customer_sent_at,owner_sent_at')
       .or('customer_sent_at.is.null,owner_sent_at.is.null').order('created_at').limit(100),
     supabaseAdmin.from('orders').select('order_number,created_at')
       .eq('payment_method', 'paypal').eq('status', 'pending').order('created_at').limit(100),
+    supabaseAdmin.from('orders').select('order_number,created_at')
+      .eq('payment_method', 'stripe').eq('status', 'pending').order('created_at').limit(100),
   ])
-  if (receipts.error || notifications.error || pendingPayPal.error) return errorResponse(receipts.error || notifications.error || pendingPayPal.error)
-  return Response.json({ receipts: receipts.data, notifications: notifications.data, pendingPayPal: pendingPayPal.data })
+  if (receipts.error || notifications.error || pendingPayPal.error || pendingStripe.error) return errorResponse(receipts.error || notifications.error || pendingPayPal.error || pendingStripe.error)
+  return Response.json({ receipts: receipts.data, notifications: notifications.data, pendingPayPal: pendingPayPal.data, pendingStripe: pendingStripe.data })
 }
 
 export async function POST(req) {
@@ -23,6 +26,23 @@ export async function POST(req) {
   try {
     const { orderNumber } = await req.json()
     if (typeof orderNumber !== 'string' || !orderNumber) return Response.json({ error: 'Missing order number' }, { status: 400 })
+    const { data: order, error: orderError } = await supabaseAdmin.from('orders').select('payment_method,status')
+      .eq('order_number',orderNumber).single()
+    if (orderError) throw orderError
+    if (order.payment_method === 'stripe' && order.status === 'pending') {
+      // Preserve the original recovery path for durable, already-verified receipts,
+      // including historical orders that never had a checkout-attempt record.
+      const { data: savedReceipts, error: receiptError } = await supabaseAdmin.from('payment_receipts')
+        .select('provider,payment_id').eq('order_number',orderNumber).is('processed_at',null)
+      if (receiptError) throw receiptError
+      if (savedReceipts?.length) {
+        for (const receipt of savedReceipts) await completeOrder(receipt.provider,receipt.payment_id)
+        await deliverNotifications(orderNumber)
+        return Response.json({success:true})
+      }
+      const result = await reconcileStripeReservation(orderNumber)
+      return Response.json({ success: true, pending: result.status === 'pending' })
+    }
     const { data: session, error } = await supabaseAdmin.from('paypal_sessions').select('paypal_order_id')
       .eq('order_number', orderNumber).maybeSingle()
     if (error) throw error

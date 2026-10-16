@@ -191,7 +191,7 @@ function CheckoutContent() {
     if (!couponCode.trim()) return
     setCouponLoading(true); setCouponError('')
     try {
-      const res = await fetch('/api/coupon', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code:couponCode, subtotal:subtotalValue }) })
+      const res = await fetch('/api/coupon', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code:couponCode, items }) })
       const data = await res.json()
       if (data.valid) { setCoupon(data); setCouponError('') }
       else { setCouponError(data.error || 'Invalid promo code'); setCoupon(null) }
@@ -201,7 +201,7 @@ function CheckoutContent() {
 
   const discountAmount = coupon ? coupon.discountAmount : 0
   const totals = {
-    ...calculateTotals(subtotalValue - discountAmount, shippingSettings),
+    ...calculateTotals(subtotalValue, shippingSettings, discountAmount),
     discount: discountAmount.toFixed(2),
     couponCode: coupon?.code || '',
   }
@@ -212,7 +212,7 @@ function CheckoutContent() {
     // 重新验证优惠码，等待结果后再跳转，避免价格闪变
     if (coupon) {
       try {
-        const res = await fetch('/api/coupon', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code:coupon.code, subtotal:subtotalValue }) })
+        const res = await fetch('/api/coupon', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code:coupon.code, items }) })
         const data = await res.json()
         if (!data.valid) {
           setCoupon(null)

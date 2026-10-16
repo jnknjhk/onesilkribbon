@@ -5,6 +5,7 @@ import ProductClient from './ProductClient'
 import { findRenamedProduct } from '@osr/core/lib/product-redirects'
 import { safeProductHtml } from '@/lib/product-content'
 import { selectInitialSku, validSkus, productGroupSchema } from '@/lib/product-variants'
+import { safeJsonLd } from '@/lib/safe-json-ld'
 
 export const revalidate = 60
 
@@ -208,10 +209,10 @@ export default async function ProductPage({ params, searchParams }) {
       {product && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify([
+          dangerouslySetInnerHTML={{ __html: safeJsonLd([
             productGroupSchema(product, purchasableSkus, productUrl, shippingDetails, returnPolicy),
             { '@context': 'https://schema.org', ...breadcrumb },
-          ]).replace(/</g, '\\u003c') }}
+          ]) }}
         />
       )}
       <ProductClient key={`${product.id}:${initialSku?.id || ''}`} initialProduct={{ ...product, descriptionHtml: safeProductHtml(product.description) }} initialSkus={purchasableSkus} initialSku={initialSku} slug={productSlug} related={related} />

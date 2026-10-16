@@ -1,17 +1,16 @@
-import Stripe from 'stripe'
+import { reconcileStripeReservation } from '@/lib/stripe-reservations'
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { getPayPalOrder } from '@/lib/paypal-payment'
 
 export async function cancelUnpaidOrder(order, reason) {
   if (order.status === 'cancelled') return order
   if (order.status !== 'pending') throw new Error('已付款订单不能取消，请先核对付款或退款。')
-  if (order.payment_method === 'stripe' && order.payment_intent_id) {
-    if (!order.payment_intent_id.startsWith('cs_')) throw new Error('请先核对 Stripe 付款状态。')
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
-    let session = await stripe.checkout.sessions.retrieve(order.payment_intent_id)
-    if (session.payment_status === 'paid' || session.status === 'complete') throw new Error('Stripe 已付款或正在处理，请先核对付款。')
-    if (session.status === 'open') session = await stripe.checkout.sessions.expire(session.id)
-    if (session.status !== 'expired') throw new Error('无法确认付款链接已关闭，库存预留保持不变。')
+  if (order.payment_method === 'stripe') {
+    const result = await reconcileStripeReservation(order.order_number, { cancel: true })
+    if (result.status !== 'cancelled') throw new Error('Stripe 已付款或仍待核对，不能取消。')
+    const { data, error } = await supabaseAdmin.from('orders').select('*').eq('order_number',order.order_number).single()
+    if (error) throw error
+    return data
   }
   if (order.payment_method === 'paypal') {
     const { data: session, error } = await supabaseAdmin.from('paypal_sessions').select('paypal_order_id')

@@ -1,4 +1,5 @@
 import { cache } from 'react'
+import { safeJsonLd } from '@/lib/safe-json-ld'
 import { supabaseAdmin as supabaseServer } from '@osr/core/lib/supabase'
 import { notFound } from 'next/navigation'
 import CollectionClient from './CollectionClient'
@@ -144,7 +145,7 @@ export default async function CollectionPage({ params }) {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
       />
       <CollectionClient initialProducts={products || []} slug={slug} initialHeroImage={heroImage} />
     </>

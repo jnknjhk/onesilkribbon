@@ -3,6 +3,8 @@ import { computeAuthoritativeOrder } from '@/lib/order-pricing'
 import { getAuthUser } from '@osr/core/lib/get-auth-user'
 import { errorResponse } from '@osr/core/lib/api-error'
 import { newOrderNumber, orderRecord, prepareOrder } from '@/lib/payment-orders'
+import { checkoutForm } from '@/lib/checkout-form'
+import { refreshCheckoutReservations } from '@/lib/stripe-reservations'
 
 const PAYPAL_BASE = process.env.PAYPAL_MODE === 'live'
   ? 'https://api-m.paypal.com'
@@ -23,7 +25,9 @@ async function getPayPalToken() {
 
 export async function POST(req) {
   try {
-    const { items, form, coupon } = await req.json()
+    const { items, form: rawForm, coupon } = (await req.json()) || {}
+    const form = checkoutForm(rawForm)
+    await refreshCheckoutReservations()
     // userId 绝不信任客户端传的值，从 token/cookie 里解析出真正登录的用户
     const authUser = await getAuthUser(req)
     const userId = authUser?.id || null
@@ -37,7 +41,7 @@ export async function POST(req) {
 
     const orderNumber = newOrderNumber()
 
-    const itemsTotal     = orderLineItems.reduce((sum, i) => sum + i.price * i.qty, 0)
+    const itemsTotal     = Number(totals.subtotal)
     const discountAmount = parseFloat(totals.discount) || 0
     const shippingAmount = parseFloat(totals.shipping) || 0
     const grandTotal     = parseFloat(totals.total)
@@ -122,6 +126,7 @@ export async function POST(req) {
 
     return Response.json({ approvalUrl })
   } catch (err) {
+    if (err?.code === 'INVALID_CHECKOUT_FORM' || err instanceof SyntaxError) return Response.json({ error: 'Please check your contact and delivery details.' }, { status: 400 })
     if (err?.code === 'P0001') return Response.json({ error: 'Stock or promo availability changed. Please review your basket and try again.' }, { status: 409 })
     return errorResponse(err, { tag: 'paypal-create-order' })
   }

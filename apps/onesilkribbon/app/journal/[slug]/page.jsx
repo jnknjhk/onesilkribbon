@@ -1,4 +1,5 @@
 import { cache } from 'react'
+import { safeJsonLd } from '@/lib/safe-json-ld'
 import { supabaseAdmin as supabaseServer } from '@osr/core/lib/supabase'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -100,7 +101,7 @@ export default async function JournalPost({ params }) {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
       />
       <div style={{ paddingTop: 68, background: 'var(--cream)', minHeight: '100vh' }}>
 

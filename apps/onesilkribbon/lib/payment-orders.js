@@ -59,6 +59,7 @@ export async function deliverNotifications(orderNumber) {
       line1: order.shipping_line1, line2: order.shipping_line2 || '', city: order.shipping_city,
       postcode: order.shipping_postcode, country: order.shipping_country, phone: order.phone || '' },
     totals: { subtotal: order.subtotal_gbp, shipping: order.shipping_gbp, total: order.total_gbp,
+      discount: order.discount_gbp || 0,
       freeShipping: Number(order.shipping_gbp) === 0 },
   }
   const failures = []

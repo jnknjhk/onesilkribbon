@@ -2,6 +2,7 @@ import Stripe from 'stripe'
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { errorResponse } from '@osr/core/lib/api-error'
 import { recordPayment, prepareOrder, completeOrder, deliverNotifications } from '@/lib/payment-orders'
+import { stripeProviderScope } from '@/lib/stripe-reservations'
 
 export async function POST(req) {
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
@@ -12,11 +13,22 @@ export async function POST(req) {
   if (event.type === 'checkout.session.expired') {
     try {
       const session = event.data.object
-      const { data: order, error } = await supabaseAdmin.from('orders').select('order_number,payment_intent_id,status,payment_method')
+      const { data: order, error } = await supabaseAdmin.from('orders').select('order_number,payment_intent_id,status,payment_method,total_gbp')
         .eq('order_number', session.metadata?.orderNumber || '').maybeSingle()
       if (error) throw error
       if (!order || order.status !== 'pending') return Response.json({ received: true })
-      if (order.payment_method !== 'stripe' || order.payment_intent_id !== session.id) throw new Error('Expired checkout identity mismatch')
+      if (order.payment_method !== 'stripe') throw new Error('Expired checkout identity mismatch')
+      if (session.currency !== 'gbp' || session.amount_total !== Math.round(Number(order.total_gbp)*100)) throw new Error('Expired checkout amount mismatch')
+      if (order.payment_intent_id !== session.id) {
+        // A provider session can expire even if the response/binding write was lost.
+        const { data: attempt, error: attemptError } = await supabaseAdmin.from('stripe_checkout_attempts')
+          .select('session_id,provider_scope,provider_started_at').eq('order_number',order.order_number).maybeSingle()
+        if (attemptError) throw attemptError
+        if (order.payment_intent_id || !attempt?.provider_started_at || attempt.provider_scope !== stripeProviderScope() ||
+          (attempt.session_id && attempt.session_id !== session.id)) {
+          throw new Error('Expired checkout identity mismatch')
+        }
+      }
       const { error: releaseError } = await supabaseAdmin.rpc('release_checkout_reservation', {
         p_order_number: order.order_number, p_reason: 'Stripe 付款链接已过期',
       })

@@ -41,6 +41,9 @@ before(async()=>{
     create table subscribers(id uuid primary key default gen_random_uuid(),email text unique,verify_token text unique,
       verified boolean default false,token_expires_at timestamptz,status text,coupon_code text,source text,subscribed_at timestamptz);
     create table customers(email text primary key);
+    create table newsletter_subscribers(id uuid primary key default gen_random_uuid(),email text);
+    grant all on orders,order_items,newsletter_subscribers to public,anon,authenticated;
+    create policy "Old dashboard allow all" on orders for all using(true) with check(true);
     create table paypal_sessions(id uuid primary key default gen_random_uuid(),order_number text);
     insert into products values('${product}','Silk',true);
     insert into product_skus values('${sku}','${product}',100,10,true),('${lastSku}','${product}',1,10,true);
@@ -50,6 +53,8 @@ before(async()=>{
   for(const name of ['2026-10-14-payment-reliability.sql','2026-10-14-inventory-coupons.sql','2026-10-14-inventory-coupons.sql']) {
     await db.exec(fs.readFileSync(path.join(__dirname,'../supabase/migrations',name),'utf8'))
   }
+  const security=fs.readFileSync(path.join(__dirname,'../supabase/migrations/2026-10-16-audit-security.sql'),'utf8')
+  await db.exec(security);await db.exec(security)
 })
 after(async()=>{await db?.close()})
 test('two checkouts competing for the last item: only one gets a reservation',async()=>{
@@ -182,13 +187,63 @@ test('public roles cannot bypass reservations using original functions',async()=
   assert.deepEqual(rows[0],{welcome:false,release:false,bypass:false})
 })
 
+test('audit migration removes arbitrary legacy policies and revokes sensitive-table access without deleting orders',async()=>{
+  for(const role of ['anon','authenticated']) for(const table of ['orders','order_items','newsletter_subscribers','stripe_checkout_attempts']) {
+    const {rows}=await db.query('select has_table_privilege($1,$2,\'select,insert,update,delete\') allowed',[role,table])
+    assert.equal(rows[0].allowed,false,`${role}/${table}`)
+  }
+  assert.equal((await db.query("select count(*)::int n from pg_policies where tablename in ('orders','order_items','newsletter_subscribers')")).rows[0].n,0)
+  assert.equal((await db.query("select count(*)::int n from orders where order_number='reserved'")).rows[0].n,1)
+})
+
+test('Stripe preparation and durable attempt roll back together on persistence failure',async()=>{
+  await db.exec(`create function reject_stripe_attempt() returns trigger language plpgsql as $$ begin raise exception 'attempt insert failed'; end $$;
+    create trigger reject_stripe_attempt before insert on stripe_checkout_attempts for each row execute function reject_stripe_attempt();`)
+  const before=await stock()
+  try {
+    await assert.rejects(db.query('select prepare_stripe_checkout($1::jsonb,$2::jsonb,now()+interval \'45 minutes\',$3)',
+      [JSON.stringify(record('atomic-failure',[item()])),JSON.stringify([item()]),'a'.repeat(64)]))
+    assert.equal(await stock(),before)
+    assert.equal((await db.query("select count(*)::int n from orders where order_number='atomic-failure'")).rows[0].n,0)
+  } finally { await db.exec('drop trigger reject_stripe_attempt on stripe_checkout_attempts; drop function reject_stripe_attempt()') }
+})
+
+test('unstarted Stripe preparation releases once; cancellation prevents provider start',async()=>{
+  const before=await stock()
+  await db.query('select prepare_stripe_checkout($1::jsonb,$2::jsonb,now()+interval \'45 minutes\',$3)',
+    [JSON.stringify(record('stripe-never-started',[item()])),JSON.stringify([item()]),'a'.repeat(64)])
+  assert.equal(await stock(),before-2)
+  await db.query("select release_unstarted_stripe_checkout('stripe-never-started')")
+  await db.query("select release_unstarted_stripe_checkout('stripe-never-started')")
+  assert.equal(await stock(),before)
+  await assert.rejects(db.query("select begin_stripe_creation('stripe-never-started')"))
+})
+
+test('started Stripe attempt cannot be reclaimed by local cleanup or unstarted guard',async()=>{
+  await db.query('select prepare_stripe_checkout($1::jsonb,$2::jsonb,now()+interval \'45 minutes\',$3)',
+    [JSON.stringify(record('stripe-started',[item()])),JSON.stringify([item()]),'a'.repeat(64)])
+  await db.query("select begin_stripe_creation('stripe-started')")
+  await db.exec("update stripe_checkout_attempts set created_at=now()-interval '5 minutes' where order_number='stripe-started'")
+  const before=await stock()
+  await assert.rejects(db.query("select release_unstarted_stripe_checkout('stripe-started')"))
+  await db.query('select release_abandoned_stripe_preparations()')
+  assert.equal(await stock(),before)
+  assert.equal((await db.query("select state from checkout_reservations where order_number='stripe-started'")).rows[0].state,'active')
+  for(const role of ['anon','authenticated']) {
+    assert.equal((await db.query("select has_function_privilege($1,'begin_stripe_creation(text)','execute') allowed",[role])).rows[0].allowed,false)
+  }
+})
+
 function pricing({qty=2,active=true}={}) {
   const source=fs.readFileSync(path.join(__dirname,'../lib/order-pricing.js'),'utf8')
     .replace(/^import .*$/gm,'').replace('export async function','async function')
   const mock={rpc:async()=>({error:null}),from(table){const q={select(){return q},in:async()=>({data:table==='products'
     ?[{id:product,name:'Real product',is_active:active}]
     :[{id:sku,product_id:product,price_gbp:10,stock_qty:qty,is_active:true,width_mm:7,colour:'Blue',length_m:10}]})};return q}}
-  return new Function('supabaseAdmin','calculateTotals',source+';return computeAuthoritativeOrder')(mock,n=>({subtotal:n,total:n}))
+  const moneySource=fs.readFileSync(path.join(__dirname,'../lib/pricing.js'),'utf8').replace(/^export /gm,'')
+  const money=new Function(moneySource+';return {calculateTotals,gbpToPence,penceToGBP,cartSubtotalPence,couponDiscountPence}')()
+  const bindings={supabaseAdmin:mock,...money}
+  return new Function(...Object.keys(bindings),source+';return computeAuthoritativeOrder')(...Object.values(bindings))
 }
 test('pricing merges duplicate lines and uses database product identity',async()=>{
   const run=pricing()
@@ -229,6 +284,7 @@ test('refund provider response lost: retry finds existing refund instead of crea
 test('cannot release Stripe reservation while provider still reports a payable link',async()=>{
   let releases=0
   const cancel=load('lib/checkout-cancel.js',{
+    reconcileStripeReservation:async()=>{throw Error('network down')},
     supabaseAdmin:{rpc:async()=>{releases++}},
     Stripe:class {checkout={sessions:{retrieve:async()=>({id:'cs_test',status:'open',payment_status:'unpaid'}),
       expire:async()=>{throw Error('network down')}}}},

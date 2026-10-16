@@ -30,12 +30,12 @@ export default function PaymentRecovery({ embedded = false }) {
       })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || '恢复失败，资料已保留')
-      setMessage('处理完成：' + orderNumber)
+      setMessage((result.pending ? '付款链接仍有效，库存预留已保留：' : '处理完成：') + orderNumber)
       await load()
     } catch (err) { setFailed(true); setMessage(err.message) }
     finally { setBusy(false) }
   }
-  const groups = [['待恢复付款', data?.receipts], ['待发送通知', data?.notifications], ['PayPal 待核对（可能尚未付款）', data?.pendingPayPal]]
+  const groups = [['待恢复付款', data?.receipts], ['待发送通知', data?.notifications], ['PayPal 待核对（可能尚未付款）', data?.pendingPayPal], ['Stripe 待核对（含链接创建异常）', data?.pendingStripe]]
   return <div className="payment-recovery">
     {embedded ? <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
       <p>核对已有付款并补齐订单、库存和通知；不会发起新的扣款。</p>

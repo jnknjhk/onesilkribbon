@@ -1,5 +1,16 @@
 // ─── Email sender via Resend ──────────────────────────────────────────────────
 import { logEmail } from '@/lib/email-log'
+import { escapeHtml } from '@osr/core/lib/escape-html'
+
+function safeTrackingUrl(value) {
+  if (typeof value !== 'string' || !/^https:\/\//i.test(value) || /[\s\\]/.test(value)) return ''
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' && !url.username && !url.password ? url.href : ''
+  } catch {
+    return ''
+  }
+}
 
 const RESEND_API = 'https://api.resend.com/emails'
 const FROM       = `One Silk Ribbon <${process.env.EMAIL_FROM || 'song@onesilkribbon.com'}>`
@@ -91,44 +102,45 @@ const layout = (content) => `
 export async function sendOrderConfirmation({ order, items, form, totals, deliveryKey }) {
   const itemsHtml = items.map(i => `
     <div class="item-row">
-      <span class="item-name">${i.name} <span style="color:#9A8878;font-size:12px;">× ${i.qty}</span><br>
-        <span style="font-size:11px;color:#9A8878;">${i.skuDesc || ''}</span>
+      <span class="item-name">${escapeHtml(i.name)} <span style="color:#9A8878;font-size:12px;">× ${escapeHtml(i.qty)}</span><br>
+        <span style="font-size:11px;color:#9A8878;">${escapeHtml(i.skuDesc || '')}</span>
       </span>
-      <span class="item-price">£${(i.price * i.qty).toFixed(2)}</span>
+      <span class="item-price">£${escapeHtml((i.price * i.qty).toFixed(2))}</span>
     </div>
   `).join('')
 
   const html = layout(`
     <p class="greeting">Thank you for your order</p>
     <p class="text">
-      Dear ${form.firstName},<br><br>
+      Dear ${escapeHtml(form.firstName)},<br><br>
       We've received your order and it's being lovingly prepared. 
       You'll receive a shipping notification once your ribbons are on their way.
     </p>
 
     <div class="order-box">
       <h3>Order Details</h3>
-      <p class="order-number">${order.order_number}</p>
-      <p style="font-size:12px;color:#9A8878;margin:0 0 16px;">Placed on ${new Date(order.created_at || Date.now()).toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' })}</p>
+      <p class="order-number">${escapeHtml(order.order_number)}</p>
+      <p style="font-size:12px;color:#9A8878;margin:0 0 16px;">Placed on ${escapeHtml(new Date(order.created_at || Date.now()).toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' }))}</p>
       ${itemsHtml}
       <div class="totals">
-        <div class="total-row"><span>Subtotal (tax included)</span><span>£${totals.subtotal || totals.subtotalExVat || '0.00'}</span></div>
-        <div class="total-row"><span>Shipping</span><span>${totals.freeShipping ? 'Free' : '£' + totals.shipping}</span></div>
-        <div class="total-row grand"><span>Total</span><span>£${totals.total}</span></div>
+        <div class="total-row"><span>Subtotal (tax included)</span><span>£${escapeHtml(totals.subtotal || totals.subtotalExVat || '0.00')}</span></div>
+        ${totals.discount != null ? `<div class="total-row"><span>Discount</span><span>−£${escapeHtml(totals.discount)}</span></div>` : ''}
+        <div class="total-row"><span>Shipping</span><span>${totals.freeShipping ? 'Free' : '£' + escapeHtml(totals.shipping)}</span></div>
+        <div class="total-row grand"><span>Total</span><span>£${escapeHtml(totals.total)}</span></div>
       </div>
     </div>
 
     <div class="address-box">
       <h3>Delivering To</h3>
       <p>
-        ${form.firstName} ${form.lastName}<br>
-        ${form.line1}${form.line2 ? '<br>' + form.line2 : ''}<br>
-        ${form.city}${form.postcode ? ', ' + form.postcode : ''}<br>
-        ${form.country}
+        ${escapeHtml(form.firstName)} ${escapeHtml(form.lastName)}<br>
+        ${escapeHtml(form.line1)}${form.line2 ? '<br>' + escapeHtml(form.line2) : ''}<br>
+        ${escapeHtml(form.city)}${form.postcode ? ', ' + escapeHtml(form.postcode) : ''}<br>
+        ${escapeHtml(form.country)}
       </p>
     </div>
 
-    <a href="https://onesilkribbon.com/track-order?order=${order.order_number}" class="btn">Track Your Order</a>
+    <a href="https://onesilkribbon.com/track-order?order=${escapeHtml(encodeURIComponent(order.order_number))}" class="btn">Track Your Order</a>
 
     <hr class="divider">
     <p class="text" style="font-size:13px;">
@@ -149,28 +161,29 @@ export async function sendOrderConfirmation({ order, items, form, totals, delive
 
 // ─── Owner Notification ───────────────────────────────────────────────────────
 export async function sendOwnerNotification({ order, items, form, totals, deliveryKey }) {
-  const itemsText = items.map(i => `${i.name}${i.skuDesc ? ' · ' + i.skuDesc : ''} × ${i.qty} · £${Number(i.price).toFixed(2)} each — £${(i.price * i.qty).toFixed(2)}`).join('<br>')
+  const itemsText = items.map(i => `${escapeHtml(i.name)}${i.skuDesc ? ' · ' + escapeHtml(i.skuDesc) : ''} × ${escapeHtml(i.qty)} · £${escapeHtml(Number(i.price).toFixed(2))} each — £${escapeHtml((i.price * i.qty).toFixed(2))}`).join('<br>')
 
   const html = layout(`
     <p class="greeting">New Order Received 🎉</p>
     <div class="order-box">
       <h3>Order</h3>
-      <p class="order-number">${order.order_number}</p>
+      <p class="order-number">${escapeHtml(order.order_number)}</p>
       <p style="font-size:13px;color:#4a4039;margin:8px 0;">${itemsText}</p>
       <div class="totals">
-        <div class="total-row grand"><span>Total</span><span>£${totals.total}</span></div>
+        ${totals.discount != null ? `<div class="total-row"><span>Discount</span><span>−£${escapeHtml(totals.discount)}</span></div>` : ''}
+        <div class="total-row grand"><span>Total</span><span>£${escapeHtml(totals.total)}</span></div>
       </div>
     </div>
     <div class="address-box">
       <h3>Customer</h3>
       <p>
-        ${form.firstName} ${form.lastName}<br>
-        <a href="mailto:${form.email}">${form.email}</a><br>
-        ${form.dialCode || ''} ${form.phone || ''}<br><br>
-        ${form.line1}${form.line2 ? ', ' + form.line2 : ''}, ${form.city}${form.postcode ? ', ' + form.postcode : ''}, ${form.country}
+        ${escapeHtml(form.firstName)} ${escapeHtml(form.lastName)}<br>
+        <a href="mailto:${escapeHtml(form.email)}">${escapeHtml(form.email)}</a><br>
+        ${escapeHtml(form.dialCode || '')} ${escapeHtml(form.phone || '')}<br><br>
+        ${escapeHtml(form.line1)}${form.line2 ? ', ' + escapeHtml(form.line2) : ''}, ${escapeHtml(form.city)}${form.postcode ? ', ' + escapeHtml(form.postcode) : ''}, ${escapeHtml(form.country)}
       </p>
     </div>
-    <a href="https://onesilkribbon.com/admin/orders/${encodeURIComponent(order.order_number)}" class="btn">View in Admin</a>
+    <a href="https://onesilkribbon.com/admin/orders/${escapeHtml(encodeURIComponent(order.order_number))}" class="btn">View in Admin</a>
   `)
 
   await sendEmail({
@@ -185,10 +198,11 @@ export async function sendOwnerNotification({ order, items, form, totals, delive
 
 // ─── 2. Shipping Notification ─────────────────────────────────────────────────
 export async function sendShippingNotification({ order, trackingNumber, carrier, trackingUrl }) {
+  const trackingHref = safeTrackingUrl(trackingUrl)
   const html = layout(`
     <p class="greeting">Your order is on its way</p>
     <p class="text">
-      Dear ${order.shipping_name?.split(' ')[0] || 'Customer'},<br><br>
+      Dear ${escapeHtml(order.shipping_name?.split(' ')[0] || 'Customer')},<br><br>
       Your One Silk Ribbon order has been carefully packaged and handed to our courier. 
       We hope you love your ribbons as much as we loved making them.
     </p>
@@ -196,14 +210,14 @@ export async function sendShippingNotification({ order, trackingNumber, carrier,
     <div class="order-box">
       <h3>Tracking Information</h3>
       <p style="font-size:13px;color:#9A8878;margin:0 0 4px;">Order</p>
-      <p class="order-number" style="font-size:16px;">${order.order_number}</p>
+      <p class="order-number" style="font-size:16px;">${escapeHtml(order.order_number)}</p>
       <p style="font-size:13px;color:#9A8878;margin:16px 0 4px;">Carrier</p>
-      <p style="font-size:14px;color:#1C1714;margin:0;">${carrier}</p>
+      <p style="font-size:14px;color:#1C1714;margin:0;">${escapeHtml(carrier)}</p>
       <p style="font-size:13px;color:#9A8878;margin:16px 0 4px;">Tracking Number</p>
-      <p style="font-size:14px;color:#1C1714;margin:0;">${trackingNumber}</p>
+      <p style="font-size:14px;color:#1C1714;margin:0;">${escapeHtml(trackingNumber)}</p>
     </div>
 
-    ${trackingUrl ? `<a href="${trackingUrl}" class="btn">Track Your Parcel</a>` : ''}
+    ${trackingHref ? `<a href="${escapeHtml(trackingHref)}" class="btn">Track Your Parcel</a>` : ''}
 
     <hr class="divider">
     <p class="text" style="font-size:13px;">

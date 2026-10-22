@@ -44,6 +44,7 @@ export default function HomeClient({ heroImages, storyImage, collectionImages, f
       <StorySection storyImage={storyImage} />
       <FeaturedProducts products={featuredProducts} />
       <JournalSection posts={journalPosts} />
+      <SilkNotes />
       <NewsletterSection />
       <style dangerouslySetInnerHTML={{ __html: `
         .reveal { opacity: 0; transform: translateY(32px); transition: opacity 0.9s ease, transform 0.9s ease; }
@@ -115,13 +116,12 @@ function Hero({ heroImages }) {
         <p className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.1s', fontSize: 10, letterSpacing: '0.4em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 32 }}>
           100% Pure Mulberry Silk · Handcrafted
         </p>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(48px, 8.5vw, 96px)', fontWeight: 600, lineHeight: 1.08, color: '#fff', marginBottom: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', letterSpacing: '-0.02em' }}>
-          <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.3s', display: 'block', fontWeight: 500 }}>Woven from</span>
-          <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.55s', display: 'block', fontStyle: 'italic', color: 'var(--gold)', fontWeight: 600 }}>nature&apos;s finest</span>
-          <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.8s', display: 'block', fontWeight: 500 }}>thread</span>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(44px, 7.5vw, 88px)', fontWeight: 600, lineHeight: 1.08, color: '#fff', marginBottom: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', letterSpacing: '-0.02em' }}>
+          <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.3s', display: 'block', fontWeight: 500 }}>Handmade Mulberry</span>
+          <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.55s', display: 'block', fontStyle: 'italic', color: 'var(--gold)', fontWeight: 600 }}>Silk Ribbon</span>
         </h1>
         <p className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '1.1s', fontSize: 15, lineHeight: 1.75, color: 'rgba(255,255,255,0.72)', maxWidth: 460, marginBottom: 52, textAlign: 'center', fontFamily: 'var(--font-serif-alt)', fontWeight: 400, letterSpacing: '0.01em' }}>
-          Each ribbon carries the quiet beauty of silk in its most natural form — carefully chosen, beautifully made, made to last.
+          Woven from nature&apos;s finest thread — each ribbon carries the quiet beauty of silk in its most natural form, carefully chosen and made to last.
         </p>
         <div className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '1.4s' }}>
           <Link href="/collections"><button className="hero-btn"><span className="hero-btn-line" />Explore Collections<span className="hero-btn-line" /></button></Link>
@@ -390,6 +390,73 @@ function JournalSection({ posts }) {
         .journal-card:hover .journal-card-link { color: var(--ink); }
         @media (max-width: 900px) { .journal-grid { grid-template-columns: 1fr 1fr; } }
         @media (max-width: 600px) { .journal-grid { grid-template-columns: 1fr; } }
+      ` }} />
+    </section>
+  )
+}
+
+/* ═══ SILK NOTES（首页品类说明区） ═══ */
+// 首页正文原来只有 3,100 字符左右，且 H1/H2 里没有品类词，Google 很难判断
+// 这个站到底在卖什么。这一段既补内容厚度，也把「真丝缎带」的工艺信息
+// 和内链铺开——六个系列、护理指南、定制批发都能从首页一跳到达。
+// 文案刻意不写具体色号数量：站上曾同时出现 200 / 30+ / 12 三个互相矛盾的
+// 数字，与其编一个，不如只讲能验证的工艺。
+function SilkNotes() {
+  return (
+    <section className="silk-notes">
+      <div className="silk-notes-inner reveal">
+        <span className="eyebrow" style={{ marginBottom: 16 }}>About Our Silk</span>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(26px, 3.2vw, 38px)', fontWeight: 300, lineHeight: 1.25, marginBottom: 'clamp(28px, 4vw, 44px)' }}>
+          Mulberry silk ribbon, <em style={{ fontStyle: 'italic', color: 'var(--gold)' }}>made by hand in the UK</em>
+        </h2>
+
+        <div className="silk-notes-cols">
+          <div>
+            <p>
+              Every ribbon here begins as Grade 6A mulberry silk — the top grade, reeled as one
+              continuous filament rather than spun from short fibres. That is the difference you
+              can feel: silk holds a bow without wire, drapes instead of creasing, and still looks
+              right on a bouquet photographed ten hours later.
+            </p>
+            <p>
+              We dye in small batches by hand, so no two yards are quite identical. Colour is built
+              up in layers rather than printed onto the surface, which gives a depth flat-dyed
+              ribbon cannot match — and means the reverse side is as presentable as the front.
+            </p>
+          </div>
+          <div>
+            <p>
+              Our edges are torn, not cut. Each length is measured along the grain and frayed by
+              hand to produce the soft, slightly irregular edge that florists ask for by name.
+            </p>
+            <p>
+              Widths run from 2mm for invitation suites and hair ties, through 10mm for place
+              settings and favour boxes, up to 60mm for bouquet stems and larger gift wrapping.
+              Unsure which to choose? The <Link href="/care-guide">silk care guide</Link> covers
+              widths, lengths and washing.
+            </p>
+          </div>
+        </div>
+
+        <ul className="silk-notes-links">
+          <li><Link href="/collections/fine-silk-ribbons">Fine silk ribbon, 2mm–10mm</Link></li>
+          <li><Link href="/collections/hand-frayed-silk-ribbons">Hand-frayed silk ribbon</Link></li>
+          <li><Link href="/collections/vintage-inspired-ribbons">Vintage-inspired ribbon</Link></li>
+          <li><Link href="/collections/handcrafted-adornments">Handcrafted adornments</Link></li>
+          <li><Link href="/bespoke">Bespoke &amp; wholesale</Link></li>
+        </ul>
+      </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        .silk-notes { padding: var(--section-padding-y, 100px) var(--page-padding, 60px); background: var(--cream); }
+        .silk-notes-inner { max-width: 1080px; margin: 0 auto; }
+        .silk-notes-cols { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(28px, 4vw, 64px); }
+        .silk-notes-cols p { font-size: 14px; line-height: 2; color: var(--taupe); margin-bottom: 20px; }
+        .silk-notes-cols p:last-child { margin-bottom: 0; }
+        .silk-notes-links { list-style: none; display: flex; flex-wrap: wrap; gap: 10px 28px; margin-top: clamp(32px, 4vw, 48px); padding-top: 28px; border-top: 1px solid var(--sand); }
+        .silk-notes-links a { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color 0.3s, color 0.3s; }
+        .silk-notes-links a:hover { color: var(--ink); border-bottom-color: var(--ink); }
+        @media (max-width: 768px) { .silk-notes-cols { grid-template-columns: 1fr; } }
       ` }} />
     </section>
   )

@@ -6,13 +6,18 @@ import CollectionClient from './CollectionClient'
 
 export const revalidate = 60
 
+// seoTitle 只用于 <title>，name 继续给 H1、面包屑、结构化数据用。
+// 原来集合页 <title> 直接取 name，拼上品牌模板也只有 36 个字符——
+// "Fine Silk Ribbons | One Silk Ribbon"，把 60 字符的标题位浪费了将近一半，
+// 而 "2mm silk ribbon"、"hand frayed silk ribbon" 这类规格词恰恰是
+// 大词抢不过、又确实有人搜的长尾。这里只做加法：保留原名，补规格和品类。
 const COLLECTION_META = {
-  'fine-silk-ribbons':        { name: 'Fine Silk Ribbons',        desc: 'Our signature ultra-fine 100% mulberry silk ribbons for UK weddings and invitations, in widths from 2mm to 10mm and 30 hand-dyed colourways.' },
-  'hand-frayed-silk-ribbons': { name: 'Hand-Frayed Silk Ribbons', desc: 'Each edge carefully hand-frayed for an ethereal, organic finish. Perfect for UK wedding bouquets, invitations and fine floristry.' },
-  'handcrafted-adornments':   { name: 'Handcrafted Adornments',   desc: 'Handmade silk scrunchies, bows and decorative pieces — perfect wedding favours and gifts, made from pure mulberry silk in the UK.' },
-  'patterned-ribbons':        { name: 'Patterned Ribbons',        desc: 'Botanical, geometric and heritage-inspired patterns hand-printed on pure silk — ideal for bouquets and gift wrapping.' },
-  'studio-tools':             { name: 'Studio Tools',             desc: 'Everything you need for a well-appointed ribbon, floristry and craft studio.' },
-  'vintage-inspired-ribbons': { name: 'Vintage-Inspired Ribbons', desc: 'Heritage tones and antique-inspired textures for romantic UK weddings, evoking the beauty of a bygone era.' },
+  'fine-silk-ribbons':        { name: 'Fine Silk Ribbons',        seoTitle: 'Fine Silk Ribbons, 2mm–10mm Mulberry Silk', desc: 'Our signature ultra-fine 100% mulberry silk ribbons for UK weddings and invitations, in widths from 2mm to 10mm and 30 hand-dyed colourways.' },
+  'hand-frayed-silk-ribbons': { name: 'Hand-Frayed Silk Ribbons', seoTitle: 'Hand-Frayed Mulberry Silk Ribbons', desc: 'Each edge carefully hand-frayed for an ethereal, organic finish. Perfect for UK wedding bouquets, invitations and fine floristry.' },
+  'handcrafted-adornments':   { name: 'Handcrafted Adornments',   seoTitle: 'Handcrafted Silk Bows & Scrunchies', desc: 'Handmade silk scrunchies, bows and decorative pieces — perfect wedding favours and gifts, made from pure mulberry silk in the UK.' },
+  'patterned-ribbons':        { name: 'Patterned Ribbons',        seoTitle: 'Patterned Mulberry Silk Ribbons', desc: 'Botanical, geometric and heritage-inspired patterns hand-printed on pure silk — ideal for bouquets and gift wrapping.' },
+  'studio-tools':             { name: 'Studio Tools',             seoTitle: 'Studio Tools for Ribbon Makers & Florists', desc: 'Everything you need for a well-appointed ribbon, floristry and craft studio.' },
+  'vintage-inspired-ribbons': { name: 'Vintage-Inspired Ribbons', seoTitle: 'Vintage-Inspired Mulberry Silk Ribbons', desc: 'Heritage tones and antique-inspired textures for romantic UK weddings, evoking the beauty of a bygone era.' },
 }
 
 // generateMetadata 和页面组件都要用同一张 hero 图，用 cache() 包一层避免同一次请求打两次库
@@ -44,7 +49,7 @@ export async function generateMetadata({ params }) {
   const productCount = await getActiveProductCount(slug)
   // 根布局的 title.template 会自动拼上 "| One Silk Ribbon"，<title> 用短标题；
   // openGraph/twitter 不走 template，单独给带完整品牌的版本
-  const title = meta.name
+  const title = meta.seoTitle || meta.name
   const socialTitle = `${meta.name} | One Silk Ribbon`
 
   return {

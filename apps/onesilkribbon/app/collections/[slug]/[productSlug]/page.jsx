@@ -6,6 +6,7 @@ import { findRenamedProduct } from '@osr/core/lib/product-redirects'
 import { safeProductHtml } from '@/lib/product-content'
 import { selectInitialSku, validSkus, productGroupSchema } from '@/lib/product-variants'
 import { safeJsonLd } from '@/lib/safe-json-ld'
+import { buildMetaDescription } from '@/lib/seo-meta'
 
 export const revalidate = 60
 
@@ -47,9 +48,14 @@ export async function generateMetadata({ params }) {
   // 单独给一个带完整品牌的版本，社交平台分享卡片上才不会显得没头没尾。
   const title = product.name
   const socialTitle = `${product.name} — One Silk Ribbon`
-  const description = product.description
-    ? product.description.replace(/<[^>]+>/g, '').slice(0, 160)
-    : `Handmade 100% mulberry silk ribbon, hand-dyed and hand-finished. Perfect for weddings and bouquets. Shop ${product.name} at One Silk Ribbon.`
+  // 不要再用 slice(0, 160) 直接切正文：线上实测会断在半个单词上（"Crafted fr"），
+  // 而且商品描述第一行往往是「色号 | 品类名」，跟 <title> 完全重复，
+  // 白白吃掉 40 多个字符的摘要空间。buildMetaDescription 会跳过标题回声、
+  // 归一化换行，并在句子或词边界收尾。
+  const description = buildMetaDescription(product.description, {
+    productName: product.name,
+    fallback: `Handmade ${product.name.toLowerCase()} in 100% pure mulberry silk, hand-dyed and hand-finished in the UK. Perfect for weddings, bouquets and gift wrapping.`,
+  })
   const image = Array.isArray(product.images) ? product.images[0] : null
 
   return {

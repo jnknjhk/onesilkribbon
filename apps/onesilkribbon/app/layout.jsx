@@ -56,11 +56,11 @@ const organizationSchema = {
       url: 'https://onesilkribbon.com',
       name: 'One Silk Ribbon',
       publisher: { '@id': 'https://onesilkribbon.com/#organization' },
-      potentialAction: {
-        '@type': 'SearchAction',
-        target: { '@type': 'EntryPoint', urlTemplate: 'https://onesilkribbon.com/collections?q={search_term_string}' },
-        'query-input': 'required name=search_term_string',
-      },
+      // 这里原来声明了 SearchAction，指向 /collections?q={search_term_string}，
+      // 但 /collections 根本不读 q 参数（站内搜索实际走 /api/search），
+      // 等于向 Google 申报了一个不存在的能力。而且 Google 已在 2023 年底
+      // 下线 sitelinks searchbox，这个声明既无效又拉低结构化数据的可信度，
+      // 而商品页的 Product/ProductGroup 才是真正需要被信任的那部分。故移除。
     },
   ],
 }

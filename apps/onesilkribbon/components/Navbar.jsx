@@ -15,12 +15,16 @@ export function Navbar() {
   const [searchResults, setSearchResults] = useState([])
   const [searching, setSearching] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
+  const [searchError, setSearchError] = useState('')
+  const [searchRetry, setSearchRetry] = useState(0)
   const searchInputRef = useRef(null)
   const accountRef = useRef(null)
+  const navRef = useRef(null)
+  const panelRef = useRef(null)
   const pathname = usePathname()
   const router = useRouter()
 
-  const { toggleCart, getItemCount } = useCart()
+  const { toggleCart, getItemCount, isOpen: cartOpen } = useCart()
   const { user, loading, signOut } = useAuth()
   const itemCount = getItemCount ? getItemCount() : 0
 
@@ -35,6 +39,48 @@ export function Navbar() {
   }, [])
 
   useBodyScrollLock(menuOpen || searchOpen)
+
+  useEffect(() => {
+    if (!cartOpen) return
+    setMenuOpen(false); setSearchOpen(false); setAccountOpen(false)
+  }, [cartOpen])
+
+  useEffect(() => {
+    const wide = window.matchMedia('(min-width: 901px)')
+    const closeMobileMenu = () => { if (wide.matches) setMenuOpen(false) }
+    closeMobileMenu()
+    wide.addEventListener('change', closeMobileMenu)
+    return () => wide.removeEventListener('change', closeMobileMenu)
+  }, [])
+
+  useEffect(() => {
+    if ((!menuOpen && !searchOpen) || cartOpen) return
+    const nav = navRef.current, panel = panelRef.current
+    const previous = document.activeElement
+    const selector = 'a[href], button:not([disabled]), input:not([disabled])'
+    const controls = () => [nav, panel].flatMap(root =>
+      [...(root?.querySelectorAll(selector) || [])].filter(el => el.getClientRects().length > 0)
+    )
+    const belongs = element => nav?.contains(element) || panel?.contains(element)
+    panel?.querySelector(searchOpen ? 'input' : 'a[href]')?.focus({ preventScroll: true })
+    const trapTab = event => {
+      if (event.key !== 'Tab' || event.defaultPrevented) return
+      const elements = controls()
+      const first = elements[0], last = elements[elements.length - 1]
+      if (!first) return
+      if (event.shiftKey && (document.activeElement === first || !belongs(document.activeElement))) {
+        event.preventDefault(); last.focus()
+      } else if (!event.shiftKey && (document.activeElement === last || !belongs(document.activeElement))) {
+        event.preventDefault(); first.focus()
+      }
+    }
+    document.addEventListener('keydown', trapTab)
+    return () => {
+      document.removeEventListener('keydown', trapTab)
+      // A newly opened basket or welcome dialog owns its own focus.
+      if (previous?.isConnected && (panel?.contains(document.activeElement) || document.activeElement === document.body)) previous.focus({ preventScroll: true })
+    }
+  }, [menuOpen, searchOpen, cartOpen])
 
   useEffect(() => {
     setMenuOpen(false)
@@ -64,24 +110,28 @@ export function Navbar() {
   useEffect(() => {
     const query = searchQuery.trim()
     setSearchResults([])
+    setSearchError('')
     if (!searchOpen || query.length < 2 || query.length > 100) {
       setSearching(false)
       return
     }
     const controller = new AbortController()
     let active = true
+    let deadline
     setSearching(true)
     const timer = setTimeout(async () => {
+      deadline = setTimeout(() => controller.abort(), 10000)
       try {
         const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, { signal: controller.signal })
         if (!res.ok) throw new Error('Search unavailable')
         const data = await res.json()
-        if (active) setSearchResults(Array.isArray(data) ? data : [])
-      } catch { if (active) setSearchResults([]) }
-      finally { if (active) setSearching(false) }
+        if (!Array.isArray(data)) throw new Error('Search unavailable')
+        if (active) setSearchResults(data)
+      } catch { if (active) { setSearchResults([]); setSearchError('Search is unavailable right now. Please try again.') } }
+      finally { clearTimeout(deadline); if (active) setSearching(false) }
     }, 300)
-    return () => { active = false; clearTimeout(timer); controller.abort() }
-  }, [searchQuery, searchOpen])
+    return () => { active = false; clearTimeout(timer); clearTimeout(deadline); controller.abort() }
+  }, [searchQuery, searchOpen, searchRetry])
 
   useEffect(() => {
     const handler = (e) => {
@@ -139,14 +189,14 @@ export function Navbar() {
 
   return (
     <>
-      <nav className="site-nav" style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
+      <nav ref={navRef} className="site-nav" style={{
+        position: 'fixed', top: 0, left: 0, right: 0, zIndex: menuOpen || searchOpen ? 180 : 100,
         padding: scrolled ? '8px 0' : '14px 0',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         background: (scrolled || menuOpen || searchOpen) ? 'rgba(247,243,238,0.95)' : 'transparent',
         backdropFilter: (scrolled || menuOpen || searchOpen) ? 'blur(12px)' : 'none',
         borderBottom: scrolled ? '1px solid var(--sand)' : 'none',
-        transition: 'all 0.4s ease',
+        transition: 'background 0.4s ease, backdrop-filter 0.4s ease, border-color 0.4s ease, padding 0.4s ease',
       }}>
         <Link href="/" onClick={() => { setMenuOpen(false); setSearchOpen(false) }} className="nav-brand">
           <Image src={logoSrc} alt="One Silk Ribbon" width={34} height={34} loading="eager" className="nav-logo" style={{ transition: 'opacity 0.3s' }} />
@@ -236,7 +286,7 @@ export function Navbar() {
           )}
 
           {/* 购物车 */}
-          <button onClick={toggleCart} className="nav-icon-btn" aria-label="Basket" style={{ position: 'relative' }}>
+          <button onClick={() => { setMenuOpen(false); setSearchOpen(false); setAccountOpen(false); toggleCart() }} className="nav-icon-btn" aria-label="Basket" style={{ position: 'relative' }}>
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke={iconStroke} strokeWidth="1.4" style={{ transition: 'stroke 0.4s', filter: isLight ? 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))' : 'none' }}>
               <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
               <line x1="3" y1="6" x2="21" y2="6"/>
@@ -265,19 +315,23 @@ export function Navbar() {
       {/* 搜索弹出层 */}
       {searchOpen && (
         <>
-          <div onClick={() => setSearchOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 98, background: 'rgba(28,23,20,0.4)', backdropFilter: 'blur(2px)', animation: 'fadeIn 0.2s ease' }} />
-          <div className="search-panel">
+          <div onClick={() => setSearchOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 178, background: 'rgba(28,23,20,0.4)', backdropFilter: 'blur(2px)', animation: 'fadeIn 0.2s ease' }} />
+          <div ref={panelRef} className="search-panel" style={{ zIndex: 179 }} role="search" aria-label="Product search">
             <div className="search-inner">
               <div className="search-input-wrap">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--taupe)" strokeWidth="1.4" style={{ flexShrink: 0 }}>
                   <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
                 </svg>
                 <input ref={searchInputRef} type="search" aria-label="Search products" maxLength={100} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search products…" className="search-input" />
-                <button aria-label="Close search" onClick={() => setSearchOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--taupe)', fontSize: 18, cursor: 'pointer', padding: 4, lineHeight: 1 }}>✕</button>
+                <button aria-label="Close search" onClick={() => setSearchOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--taupe)', fontSize: 18, cursor: 'pointer', padding: 4, minWidth:44, minHeight:44, lineHeight: 1 }}>✕</button>
               </div>
               <div className="search-results" aria-live="polite" aria-busy={searching}>
                 {searching && <p style={{ padding: '20px 0', fontSize: 12, color: 'var(--taupe)', textAlign: 'center' }}>Searching…</p>}
-                {!searching && searchQuery.length >= 2 && searchResults.length === 0 && (
+                {searchError && <div role="alert" style={{ padding:'16px 0', fontSize:13, color:'var(--deep)' }}>
+                  <p>{searchError}</p>
+                  <button className="btn-text" style={{ minHeight:44 }} onClick={() => setSearchRetry(value => value + 1)}>Retry search</button>
+                </div>}
+                {!searching && !searchError && searchQuery.trim().length >= 2 && searchResults.length === 0 && (
                   <p style={{ padding: '20px 0', fontSize: 13, color: 'var(--taupe)', textAlign: 'center' }}>No products found for &quot;{searchQuery}&quot;</p>
                 )}
                 {searchResults.map(p => {
@@ -302,7 +356,7 @@ export function Navbar() {
 
       {/* 移动端菜单 */}
       {menuOpen && (
-        <div className="mobile-menu" style={{ position: 'fixed', inset: 0, zIndex: 99, background: 'var(--cream)', paddingTop: 72, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <div ref={panelRef} className="mobile-menu" aria-label="Mobile navigation" style={{ position: 'fixed', inset: 0, zIndex: 179, background: 'var(--cream)', paddingTop: 72, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
           <div style={{ padding: '20px 32px 40px', display: 'flex', flexDirection: 'column' }}>
             <p style={{ fontSize: 9, letterSpacing: '.32em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid var(--sand)' }}>Shop</p>
             {mobileCollections.map(c => (

@@ -92,8 +92,17 @@ function CheckoutContent() {
   const [paymentRequestError, setPaymentRequestError] = useState('')
   const prefilledUser = useRef(null)
   const editedFields = useRef(new Set())
+  const stepHeading = useRef(null)
+  const previousStep = useRef(step)
   const [continuing, setContinuing] = useState(false)
   const [stockError, setStockError] = useState('')
+
+  useEffect(() => {
+    if (previousStep.current === step) return
+    previousStep.current = step
+    stepHeading.current?.focus({ preventScroll: true })
+    stepHeading.current?.scrollIntoView({ block: 'start', behavior: 'instant' })
+  }, [step])
 
   // ── 加载运费设置 ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -179,7 +188,14 @@ function CheckoutContent() {
   const validate = () => {
     const fields = ['email','firstName','lastName','line1','city','postcode','phone']
     setTouched(Object.fromEntries(fields.map(f => [f, true])))
-    return fields.map(f => validateField(f, form[f])).every(Boolean)
+    const results = fields.map(f => validateField(f, form[f]))
+    const firstInvalid = fields.find((field, index) => !results[index])
+    if (firstInvalid) {
+      const input = document.getElementById(`checkout-${firstInvalid}`)
+      input?.focus({ preventScroll: true })
+      input?.scrollIntoView({ block: 'center', behavior: 'instant' })
+    }
+    return results.every(Boolean)
   }
 
   const applyCoupon = async () => {
@@ -294,16 +310,16 @@ function CheckoutContent() {
           <a className="checkout-summary-link" href="#checkout-summary">View order summary · {shippingSettings ? formatGBP(totals.total) : 'Calculating…'}</a>
           <div className="checkout-steps" style={{ display:'flex', gap:32, marginBottom:48, borderBottom:'1px solid var(--sand)', paddingBottom:24 }}>
             {[['details','1. Your Details'],['payment','2. Payment']].map(([id, label]) => (
-              <span key={id} onClick={() => { if (step==='payment' && id==='details') setStep('details') }}
-                style={{ fontSize:11, letterSpacing:'0.2em', textTransform:'uppercase', color: step===id ? 'var(--ink)' : 'var(--taupe)', cursor: step==='payment' && id==='details' ? 'pointer' : 'default' }}>
+              <button type="button" key={id} disabled={step!=='payment' || id!=='details'} aria-current={step===id ? 'step' : undefined} onClick={() => { if (step==='payment' && id==='details') setStep('details') }}
+                style={{ background:'none', border:0, padding:0, minHeight:44, textAlign:'left', fontSize:11, letterSpacing:'0.2em', textTransform:'uppercase', color: step===id ? 'var(--ink)' : 'var(--taupe)', cursor: step==='payment' && id==='details' ? 'pointer' : 'default' }}>
                 {label}
-              </span>
+              </button>
             ))}
           </div>
 
           {step === 'details' && (
             <>
-              <h2 style={{ fontFamily:'var(--font-display)', fontSize:28, fontWeight:300, marginBottom:32, color:'var(--ink)' }}>Contact & Delivery</h2>
+              <h2 ref={stepHeading} tabIndex={-1} className="checkout-step-heading" style={{ fontFamily:'var(--font-display)', fontSize:28, fontWeight:300, marginBottom:32, color:'var(--ink)' }}>Contact & Delivery</h2>
 
               {/* 未登录提示 */}
               {!user && (
@@ -363,7 +379,7 @@ function CheckoutContent() {
 
           {step === 'payment' && (
             <>
-              <h2 style={{ fontFamily:'var(--font-display)', fontSize:28, fontWeight:300, marginBottom:32, color:'var(--ink)' }}>Payment Method</h2>
+              <h2 ref={stepHeading} tabIndex={-1} className="checkout-step-heading" style={{ fontFamily:'var(--font-display)', fontSize:28, fontWeight:300, marginBottom:32, color:'var(--ink)' }}>Payment Method</h2>
               <div style={{ background:'var(--mist)', padding:24, marginBottom:36, fontSize:13, color:'var(--deep)', lineHeight:1.7 }}>
                 <p style={{ fontSize:10, letterSpacing:'0.2em', textTransform:'uppercase', color:'var(--taupe)', marginBottom:8 }}>Delivering to</p>
                 <p><strong style={{ fontWeight:400 }}>{form.firstName} {form.lastName}</strong></p>
@@ -471,6 +487,7 @@ function CheckoutContent() {
       <style dangerouslySetInnerHTML={{ __html: `
         .checkout-grid > *, .checkout-fields > * { min-width: 0; }
         .checkout-summary-link { display: none; }
+        .checkout-step-heading { scroll-margin-top: 92px; }
         .checkout-summary { scroll-margin-top: 88px; overflow-wrap: anywhere; }
         .checkout-summary input { overflow-wrap: normal; }
         @media(max-width:960px){
@@ -484,7 +501,7 @@ function CheckoutContent() {
           .checkout-fields { grid-template-columns: minmax(0,1fr) !important; gap: 20px !important; }
           .checkout-fields > * { grid-column: 1 / -1 !important; }
           .checkout-steps { gap: 20px !important; margin-bottom: 28px !important; }
-          .checkout-steps span { font-size: 10px !important; letter-spacing: .12em !important; }
+          .checkout-steps button { font-size: 10px !important; letter-spacing: .12em !important; }
           .checkout-signin a { display: inline-flex; align-items: center; min-height: 44px; white-space: nowrap; }
           .checkout-summary > div:first-child { padding: 24px 20px !important; }
         }

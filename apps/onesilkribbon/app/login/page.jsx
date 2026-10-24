@@ -1,5 +1,5 @@
 'use client'
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@osr/core/lib/auth'
 import Link from 'next/link'
@@ -27,7 +27,36 @@ function LoginContent() {
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotLoading, setForgotLoading] = useState(false)
   const [forgotMsg, setForgotMsg] = useState('')
+  const forgotRef = useRef(null)
   useBodyScrollLock(showForgot)
+
+  useEffect(() => {
+    if (!showForgot) return
+    const dialog = forgotRef.current
+    const previous = document.activeElement
+    const controls = () => [...(dialog?.querySelectorAll('button:not([disabled]), input:not([disabled])') || [])]
+    const firstInput = dialog?.querySelector('input')
+    ;(firstInput || controls()[0])?.focus({ preventScroll: true })
+    const onKeyDown = event => {
+      if (event.key === 'Escape') {
+        event.stopImmediatePropagation(); setShowForgot(false); setForgotMsg('')
+      }
+      if (event.key !== 'Tab') return
+      event.stopImmediatePropagation()
+      const elements = controls(), first = elements[0], last = elements[elements.length - 1]
+      if (!first) return
+      if (event.shiftKey && (document.activeElement === first || !dialog?.contains(document.activeElement))) {
+        event.preventDefault(); last.focus()
+      } else if (!event.shiftKey && (document.activeElement === last || !dialog?.contains(document.activeElement))) {
+        event.preventDefault(); first.focus()
+      }
+    }
+    document.addEventListener('keydown', onKeyDown, true)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, true)
+      if (previous?.isConnected && (dialog?.contains(document.activeElement) || document.activeElement === document.body)) previous.focus({ preventScroll: true })
+    }
+  }, [showForgot, forgotMsg])
 
   useEffect(() => {
     if (!loading && user) router.replace(next)
@@ -106,7 +135,7 @@ function LoginContent() {
             {mode === 'login' && (
               <div style={{ textAlign: 'right', marginBottom: 16, marginTop: -8 }}>
                 <button onClick={() => { setShowForgot(true); setForgotMsg(''); setForgotEmail(email) }}
-                  style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 11, letterSpacing: '.04em' }}>
+                  style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 11, letterSpacing: '.04em', minHeight:44, padding:'0 8px' }}>
                   Forgot password?
                 </button>
               </div>
@@ -139,15 +168,15 @@ function LoginContent() {
         )}
 
         {showForgot && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-            <div style={{ background: '#fff', padding: 32, width: '100%', maxWidth: 380, borderRadius: 4 }}>
+          <div className="forgot-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+            <div ref={forgotRef} className="forgot-dialog" role="dialog" aria-modal="true" aria-labelledby="forgot-title" style={{ background: '#fff', padding: 32, width: '100%', maxWidth: 380, borderRadius: 4 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-                <p style={{ fontSize: 15, color: C.ink }}>Reset Password</p>
-                <button onClick={() => { setShowForgot(false); setForgotMsg('') }} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: C.muted }}>×</button>
+                <p id="forgot-title" style={{ fontSize: 15, color: C.ink }}>Reset Password</p>
+                <button aria-label="Close password reset" onClick={() => { setShowForgot(false); setForgotMsg('') }} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: C.muted, minWidth:44, minHeight:44 }}>×</button>
               </div>
               <p style={{ fontSize: 13, color: C.muted, marginBottom: 20, lineHeight: 1.7 }}>Enter your email address and we&apos;ll send you a link to reset your password.</p>
               {forgotMsg ? (
-                <p style={{ fontSize: 13, color: forgotMsg.includes('sent') ? '#166534' : '#991b1b', lineHeight: 1.7 }}>{forgotMsg}</p>
+                <p role="status" style={{ fontSize: 13, color: forgotMsg.includes('sent') ? '#166534' : '#991b1b', lineHeight: 1.7 }}>{forgotMsg}</p>
               ) : (
                 <>
                   <input aria-label="Email for password reset" autoComplete="email" type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)}
@@ -169,6 +198,10 @@ function LoginContent() {
             {mode === 'login' ? 'Create one' : 'Sign in'}
           </button>
         </p>
+        <style>{`
+          .forgot-dialog { max-height: calc(100vh - 48px); max-height: calc(100dvh - 48px); overflow-y: auto; overscroll-behavior: contain; }
+          @media (max-width: 600px) { .forgot-overlay { padding: 16px !important; } .forgot-dialog { padding: 24px !important; max-height: calc(100dvh - 32px); } }
+        `}</style>
       </div>
     </div>
   )

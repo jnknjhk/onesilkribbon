@@ -152,7 +152,7 @@ function BatchShip({ open, orders, onClose, onDone }) {
           body: { orderNumber: o.order_number, trackingNumber: n, carrier: name, trackingUrl: trackingUrlFor(name, n) },
         })
         ok++
-        setResults(r => ({ ...r, [o.order_number]: { ok: true, emailSent: res.emailSent !== false } }))
+        setResults(r => ({ ...r, [o.order_number]: { ok: true, emailSent: res.emailSent !== false, historySaved: res.historySaved !== false } }))
       } catch (e) {
         setResults(r => ({ ...r, [o.order_number]: { ok: false, error: e.message } }))
       }
@@ -187,6 +187,7 @@ function BatchShip({ open, orders, onClose, onDone }) {
                   {r && <div style={{ fontSize: 12, marginTop: 2 }} className={r.ok ? s.textSuccess : s.textDanger}>
                     {r.ok ? (r.emailSent ? '已发货，已通知顾客' : '已发货，但通知邮件没发出去') : r.error}
                   </div>}
+                  {r?.ok && r.historySaved === false && <div className={s.textDanger} style={{ fontSize: 12 }}>发货信息已保存，物流历史未保存；无需重复发货</div>}
                 </div>
                 <Field>
                   <Input size="sm" placeholder="快递单号" value={numbers[o.order_number] || ''} disabled={r?.ok || running}

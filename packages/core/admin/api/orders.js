@@ -16,8 +16,9 @@ async function tabCounts() {
   const entries = await Promise.all(ORDER_TABS.map(async t => {
     let q = supabaseAdmin.from('orders').select('id', { count: 'exact', head: true })
     if (t.statuses) q = q.in('status', t.statuses)
-    const { count } = await q
-    return [t.key, count || 0]
+    const { count, error } = await q
+    if (error || !Number.isInteger(count)) throw error || new Error('Missing order count')
+    return [t.key, count]
   }))
   return Object.fromEntries(entries)
 }
@@ -26,8 +27,9 @@ async function tabCounts() {
 async function attachItemSummary(orders) {
   const ids = orders.map(o => o.id)
   if (ids.length === 0) return orders
-  const { data: items } = await supabaseAdmin
+  const { data: items, error } = await supabaseAdmin
     .from('order_items').select('order_id, product_name, sku_description, quantity').in('order_id', ids)
+  if (error) throw error
   const byOrder = {}
   for (const it of items || []) (byOrder[it.order_id] ||= []).push(it)
   return orders.map(o => {
@@ -50,17 +52,19 @@ async function orderDetail(number) {
   if (error) return errorResponse(error, { tag: 'admin-order-detail' })
   if (!order) return Response.json({ error: '找不到这个订单' }, { status: 404 })
 
-  const [{ data: items }, { data: events }, emailsRes] = await Promise.all([
+  const [itemsRes, eventsRes, emailsRes] = await Promise.all([
     supabaseAdmin.from('order_items').select('*').eq('order_id', order.id),
     supabaseAdmin.from('tracking_events').select('*').eq('order_id', order.id).order('event_time', { ascending: true }),
     // 邮件记录表只有部分站点有；查不到就当没有，不影响订单本身
     supabaseAdmin.from('email_log').select('id, kind, to_email, subject, status, error, created_at')
       .eq('order_number', order.order_number).order('created_at', { ascending: true }),
   ])
+  if (itemsRes.error) return errorResponse(itemsRes.error, { tag: 'admin-order-items' })
+  if (eventsRes.error) return errorResponse(eventsRes.error, { tag: 'admin-order-events' })
   return Response.json({
     order,
-    items: items || [],
-    events: events || [],
+    items: itemsRes.data || [],
+    events: eventsRes.data || [],
     emails: emailsRes?.error ? null : (emailsRes?.data || []),
   })
 }
@@ -85,7 +89,7 @@ export async function GET(req) {
     }
 
     const number = searchParams.get('number')
-    if (number) return orderDetail(number)
+    if (number) return await orderDetail(number)
 
     // 打印装箱单：一次取多张订单和各自的商品
     const numbers = searchParams.get('numbers')
@@ -94,9 +98,10 @@ export async function GET(req) {
       const { data: orders, error } = await supabaseAdmin.from('orders').select('*').in('order_number', list)
       if (error) return errorResponse(error, { tag: 'admin-orders-print' })
       const ids = (orders || []).map(o => o.id)
-      const { data: items } = ids.length
+      const { data: items, error: itemsError } = ids.length
         ? await supabaseAdmin.from('order_items').select('*').in('order_id', ids)
         : { data: [] }
+      if (itemsError) return errorResponse(itemsError, { tag: 'admin-orders-print-items' })
       const byOrder = {}
       for (const it of items || []) (byOrder[it.order_id] ||= []).push(it)
       // 按请求里的顺序返回
@@ -162,8 +167,9 @@ export async function PATCH(req) {
         status:        'cancelled',
         cancel_reason: reason || null,
         cancelled_at:  new Date().toISOString(),
-      }).eq('id', id).eq('status', current.status).select().single()
+      }).eq('id', id).eq('status', current.status).select().maybeSingle()
       if (error) return errorResponse(error, { tag: 'admin-orders-cancel' })
+      if (!data) return Response.json({ error: '订单状态已变化，请刷新后再操作' }, { status: 409 })
       return Response.json({ success: true, order: data })
     }
 
@@ -177,19 +183,27 @@ export async function PATCH(req) {
       const { data, error } = await supabaseAdmin.from('orders').update({
         status:       'delivered',
         delivered_at: deliveredAt,
-      }).eq('id', id).select().single()
+      }).eq('id', id).eq('status', current.status).select().maybeSingle()
       if (error) return errorResponse(error, { tag: 'admin-orders-deliver' })
+      if (!data) return Response.json({ error: '订单状态已变化，请刷新后再操作' }, { status: 409 })
 
-      await supabaseAdmin.from('tracking_events').insert({
-        order_id:        id,
-        tracking_number: data.tracking_number || null,
-        carrier:         data.tracking_carrier || null,
-        status:          'Delivered',
-        message:         '已确认送达（后台手动标记）',
-        location:        data.shipping_city || null,
-        event_time:      deliveredAt,
-      })
-      return Response.json({ success: true, order: data })
+      let historySaved = true
+      try {
+        const { error: historyError } = await supabaseAdmin.from('tracking_events').insert({
+          order_id:        id,
+          tracking_number: data.tracking_number || null,
+          carrier:         data.tracking_carrier || null,
+          status:          'Delivered',
+          message:         '已确认送达（后台手动标记）',
+          location:        data.shipping_city || null,
+          event_time:      deliveredAt,
+        })
+        if (historyError) throw historyError
+      } catch (err) {
+        historySaved = false
+        errorResponse(err, { tag: 'admin-orders-deliver-history' })
+      }
+      return Response.json({ success: true, order: data, historySaved })
     }
 
     // 内部备注（orders.notes，只有后台看得到）

@@ -7,13 +7,13 @@ import { supabaseAdmin } from '@osr/core/lib/supabase'
 // （.single() 查不到行会抛错），后台客户列表也看不到姓名电话。
 
 // 确保某个登录用户有一条 user_profiles 记录，返回这条记录。
-// 用 upsert 而不是"先查再插"，避免并发下重复插入。
+// 冲突时只读取已有档案，登录元数据不能覆盖客户自己编辑过的资料。
 export async function ensureUserProfile(user) {
   if (!user?.id) return null
 
   const meta = user.user_metadata || {}
   // Google 登录给的是 full_name / name，邮箱注册可能什么都没有
-  const fullName = meta.full_name || meta.name || ''
+  const fullName = typeof meta.full_name === 'string' ? meta.full_name : typeof meta.name === 'string' ? meta.name : ''
   const [firstFromMeta, ...restFromMeta] = fullName.trim().split(/\s+/)
 
   const { data, error } = await supabaseAdmin
@@ -21,20 +21,22 @@ export async function ensureUserProfile(user) {
     .upsert({
       id:         user.id,
       email:      user.email,
-      // 已有档案不要被这里的默认值覆盖掉——onConflict 只在插入时用到这些值，
-      // 但 upsert 更新时也会写，所以只在确实有值时才带上
       ...(firstFromMeta ? { first_name: firstFromMeta } : {}),
       ...(restFromMeta.length ? { last_name: restFromMeta.join(' ') } : {}),
-      ...(meta.avatar_url ? { avatar_url: meta.avatar_url } : {}),
-    }, { onConflict: 'id', ignoreDuplicates: false })
+      ...(typeof meta.avatar_url === 'string' ? { avatar_url: meta.avatar_url } : {}),
+    }, { onConflict: 'id', ignoreDuplicates: true })
     .select()
-    .single()
+    .maybeSingle()
 
   if (error) {
-    console.error('[ensureUserProfile]', error.message)
+    console.error('[ensureUserProfile] Profile creation failed')
     return null
   }
-  return data
+  if (data) return data
+  const { data: existing, error: readError } = await supabaseAdmin
+    .from('user_profiles').select('*').eq('id', user.id).maybeSingle()
+  if (readError) console.error('[ensureUserProfile] Profile lookup failed')
+  return readError ? null : existing
 }
 
 // 下单时把客户填的收货信息补进他的账户：

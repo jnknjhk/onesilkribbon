@@ -161,7 +161,12 @@ export default function OrderDetail({ number }) {
         message="物流没有自动回传签收时，用这个手动把订单标记为已送达。"
         onCancel={() => setModal(null)}
         onConfirm={async () => {
-          try { await api('/api/admin/orders', { method: 'PATCH', body: { id: order.id, action: 'deliver' } }); toast.success('已标记为送达'); done() }
+          try {
+            const res = await api('/api/admin/orders', { method: 'PATCH', body: { id: order.id, action: 'deliver' } })
+            toast.success('已标记为送达')
+            if (res.historySaved === false) toast.error('送达状态已保存，但物流历史记录未保存，请核对；无需重复确认送达')
+            done()
+          }
           catch (e) { toast.error(e.message) }
         }} />
     </div>
@@ -248,6 +253,7 @@ function ShipModal({ order, onClose, onDone }) {
               } })
               if (res.emailSent === false) toast.error('已标记发货，但通知邮件没发出去（可在邮件记录里查看原因）')
               else toast.success(editing ? '快递信息已更新，已重新通知顾客' : '已发货，已通知顾客')
+              if (res.historySaved === false) toast.error('发货信息已保存，但物流历史记录未保存，请核对；无需重复发货')
               onDone()
             } catch (e) { toast.error('发货失败：' + e.message); setSaving(false) }
           }}>{editing ? '保存并通知顾客' : '发货并通知顾客'}</Button>

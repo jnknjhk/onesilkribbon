@@ -69,25 +69,34 @@ export default function OrderDetailPage() {
   const [tracking, setTracking] = useState([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [error, setError] = useState('')
+  const [retry, setRetry] = useState(0)
 
   useEffect(() => {
     if (!user || !id) return
-    fetch(`/api/user/orders?id=${id}`, {
-      headers: { Authorization: `Bearer ${user.accessToken || ''}` },
+    const controller = new AbortController()
+    setLoading(true); setNotFound(false); setError(''); setOrder(null)
+    fetch(`/api/user/orders?id=${encodeURIComponent(id)}`, {
+      headers: user.accessToken ? { Authorization: `Bearer ${user.accessToken}` } : {},
+      signal: controller.signal, credentials: 'same-origin', cache: 'no-store',
     })
       .then(r => {
-        if (r.status === 404) { setNotFound(true); setLoading(false); return null }
+        if (controller.signal.aborted) return null
+        if (r.status === 404) { setNotFound(true); return null }
+        if (!r.ok) throw new Error(r.status === 401 ? 'Your session has expired. Please sign in again.' : 'We could not load your order. Please try again.')
         return r.json()
       })
       .then(data => {
-        if (!data) return
+        if (!data || controller.signal.aborted) return
+        if (!data.order || !Array.isArray(data.items) || !Array.isArray(data.tracking)) throw new Error('We could not load your order. Please try again.')
         setOrder(data.order)
         setItems(data.items || [])
         setTracking(data.tracking || [])
-        setLoading(false)
       })
-      .catch(() => setLoading(false))
-  }, [user, id])
+      .catch(err => { if (!controller.signal.aborted) setError(err.message || 'We could not load your order. Please try again.') })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    return () => controller.abort()
+  }, [user, id, retry])
 
   const fmtDate = s => new Date(s).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
   const fmtTime = s => new Date(s).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
@@ -105,6 +114,11 @@ export default function OrderDetailPage() {
       {loading ? (
         <div style={{ padding: '80px 0', textAlign: 'center' }}>
           <div style={{ width: 22, height: 22, border: '2px solid var(--sand)', borderTopColor: 'var(--gold)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto' }} />
+        </div>
+      ) : error ? (
+        <div role="alert" style={{ padding: '60px 0', textAlign: 'center' }}>
+          <p style={{ fontSize: 14, color: 'var(--taupe)', marginBottom: 20 }}>{error}</p>
+          <button className="btn-text" onClick={() => setRetry(value => value + 1)}>Retry loading order</button>
         </div>
       ) : notFound ? (
         <div style={{ padding: '60px 0', textAlign: 'center' }}>

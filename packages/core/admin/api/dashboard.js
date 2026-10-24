@@ -27,7 +27,8 @@ export async function GET() {
       supabaseAdmin.from('email_log').select('id', { count: 'exact', head: true })
         .eq('status', 'failed').gte('created_at', sevenDaysAgo),
     ])
-    if (ordersRes.error) return errorResponse(ordersRes.error, { tag: 'admin-dashboard-orders' })
+    const sourceError = ordersRes.error || skusRes.error || productsRes.error || itemsRes.error
+    if (sourceError) return errorResponse(sourceError, { tag: 'admin-dashboard-read' })
 
     const orders = ordersRes.data
     const threshold = Number.isFinite(parseInt(settings.low_stock_threshold, 10))

@@ -4,6 +4,8 @@ const fs = require('node:fs')
 const path = require('node:path')
 const vm = require('node:vm')
 const source = fs.readFileSync(path.resolve(__dirname, '../../../packages/core/admin/api/products.js'), 'utf8')
+const stockSource = fs.readFileSync(path.resolve(__dirname, '../../../packages/core/admin/lib/stock-quantity.js'), 'utf8')
+const parseStockQuantity = new Function(stockSource.replace(/^export /gm, '') + ';return parseStockQuantity')()
 
 function harness(respond) {
   const calls = []
@@ -12,6 +14,7 @@ function harness(respond) {
     verifyAdmin: async () => ({ email: 'admin@example.com' }),
     errorResponse: () => Response.json({ error: 'Operation failed safely' }, { status: 500 }),
     recordSlugChange: async () => {},
+    parseStockQuantity,
     supabase: { from(table) {
       const call = { table, operation: 'read', filters: [] }
       calls.push(call)
@@ -19,6 +22,7 @@ function harness(respond) {
         select(columns, options) { call.columns = columns; call.options = options; return query },
         eq(key, value) { call.filters.push([key, value]); return query },
         in(key, value) { call.filters.push([key, value]); return query },
+        is(key, value) { call.filters.push([key, value]); return query },
         order() { return query },
         update(row) { call.operation = 'update'; call.row = row; return query },
         delete() { call.operation = 'delete'; return query },
@@ -62,7 +66,7 @@ test('a protected SKU deletion failure cannot continue deleting the parent produ
 
 test('stale or foreign SKU identifiers are rejected before the product is changed', async () => {
   const h = harness(call => ({ data: call.table === 'products' ? { slug: 'ribbon' } : [{ id: 'owned' }] }))
-  assert.equal((await h.post({ action: 'update', product: { id: 'p', slug: 'ribbon' }, skus: [{ id: 'foreign' }] })).status, 409)
+  assert.equal((await h.post({ action: 'update', product: { id: 'p', slug: 'ribbon' }, skus: [{ id: 'foreign', price_gbp: 10, stock_qty: 5, loaded_stock_qty: 5 }] })).status, 409)
   assert.ok(h.calls.every(call => call.operation === 'read'))
 })
 
@@ -82,7 +86,7 @@ test('deliberate stock edits compare against the loaded value and reject an inte
     if (call.operation === 'update' && call.table === 'product_skus') return { data: null }
     return { data: call.table === 'products' ? { slug: 'ribbon' } : [{ id: 'owned' }] }
   })
-  const response = await h.post({ action: 'update', product: { id: 'p', slug: 'ribbon' }, skus: [{ id: 'owned', stock_qty: 20, loaded_stock_qty: 10 }] })
+  const response = await h.post({ action: 'update', product: { id: 'p', slug: 'ribbon' }, skus: [{ id: 'owned', price_gbp: 10, stock_qty: 20, loaded_stock_qty: 10 }] })
   assert.equal(response.status, 409)
   const stockUpdate = h.calls.find(call => call.table === 'product_skus' && call.operation === 'update')
   assert.ok(stockUpdate.filters.some(([key, value]) => key === 'stock_qty' && value === 10))

@@ -17,14 +17,23 @@ export default function ProductEditorPage({ id }) {
   const [error, setError] = useState('')
   const [version, setVersion] = useState(0)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (signal) => {
     try {
-      const d = await api(`/api/admin/products?id=${encodeURIComponent(id)}`)
+      const d = await api(`/api/admin/products?id=${encodeURIComponent(id)}`, { signal })
+      if (signal?.aborted) return false
+      if (!d?.product || d.product.id !== id || !Array.isArray(d.skus)) throw new Error('商品数据不完整，请重新加载')
       setData(d); setError('')
-    } catch (e) { setError(e.message) }
+      return true
+    } catch (e) { if (!signal?.aborted) setError(e.message); return false }
   }, [id])
 
-  useEffect(() => { if (!isNew) load() }, [isNew, load])
+  useEffect(() => {
+    setData(null); setError('')
+    if (isNew) return
+    const controller = new AbortController()
+    load(controller.signal)
+    return () => controller.abort()
+  }, [isNew, load])
 
   if (isNew) {
     return <ProductEditor product="new" initialSkus={[]} onSaved={newId => router.replace(`/admin/products/${newId}`)} />
@@ -37,10 +46,10 @@ export default function ProductEditorPage({ id }) {
       </div>
     )
   }
-  if (!data) return <div><PageHeader back="/admin/products" title="加载中…" /><Card><SkeletonRows rows={8} /></Card></div>
+  if (!data || data.product.id !== id) return <div><PageHeader back="/admin/products" title="加载中…" /><Card><SkeletonRows rows={8} /></Card></div>
 
   return (
-    <ProductEditor key={version} product={data.product} initialSkus={data.skus}
-      onSaved={async () => { await load(); setVersion(v => v + 1) }} />
+    <ProductEditor key={`${id}:${version}`} product={data.product} initialSkus={data.skus}
+      onSaved={async () => { if (await load()) setVersion(v => v + 1) }} />
   )
 }

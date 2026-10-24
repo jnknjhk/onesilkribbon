@@ -7,6 +7,7 @@ import { verifyAdmin } from '../../lib/admin-auth'
 import { errorResponse } from '../../lib/api-error'
 import { fetchAll } from './_helpers'
 import { recordSlugChange } from '../../lib/product-redirects'
+import { parseStockQuantity } from '../lib/stock-quantity'
 
 export async function GET(req) {
   const admin = await verifyAdmin()
@@ -47,8 +48,8 @@ function skuRow(sku, productId, slug) {
     colour_hex: sku.colour_hex || '#D4C5B0',
     width_mm: sku.width_mm ? parseInt(sku.width_mm) : null,
     length_m: sku.length_m ? parseInt(sku.length_m) : null,
-    price_gbp: parseFloat(sku.price_gbp) || 0,
-    stock_qty: parseInt(sku.stock_qty) || 0,
+    price_gbp: Number(sku.price_gbp),
+    stock_qty: parseStockQuantity(sku.stock_qty) ?? 0,
     is_active: sku.is_active !== false,
     attributes: sku.attributes || {},
     // 以前新建/复制商品时这一项没写进去，SKU 上选好的图片会丢
@@ -97,7 +98,40 @@ export async function POST(req) {
   if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    const { action, product, skus, deletedSkuIds } = await req.json()
+    const body = await req.json()
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return Response.json({ error: '无效的商品信息' }, { status: 400 })
+    const { action, product, skus, deletedSkuIds } = body
+    if (!product || typeof product !== 'object' || Array.isArray(product) ||
+        (action !== 'create' && (typeof product.id !== 'string' || !product.id))) {
+      return Response.json({ error: '无效的商品信息' }, { status: 400 })
+    }
+    if (action === 'create' || action === 'update') {
+      if (!Array.isArray(skus) || skus.length > 2000 ||
+          (deletedSkuIds !== undefined && (!Array.isArray(deletedSkuIds) || deletedSkuIds.length > 2000))) {
+        return Response.json({ error: '规格列表不完整，请刷新后重试' }, { status: 400 })
+      }
+      const ids = new Set()
+      for (const sku of skus) {
+        if (!sku || typeof sku !== 'object' || Array.isArray(sku) ||
+            (sku.id != null && (typeof sku.id !== 'string' || !sku.id || ids.has(sku.id)))) {
+          return Response.json({ error: '规格列表有无效或重复记录，请刷新后重试' }, { status: 400 })
+        }
+        if (sku.id) ids.add(sku.id)
+        if (sku.id && !Object.hasOwn(sku, 'loaded_stock_qty')) {
+          return Response.json({ error: '缺少加载时的库存，请刷新商品页面后再保存' }, { status: 409 })
+        }
+        const price = Number(sku.price_gbp)
+        if (!['number', 'string'].includes(typeof sku.price_gbp) || String(sku.price_gbp).trim() === '' ||
+            !Number.isFinite(price) || price < 0 || price > 99999999.99 ||
+            (parseStockQuantity(sku.stock_qty) === null && !(sku.id && sku.stock_qty === null && sku.loaded_stock_qty === null)) ||
+            (Object.hasOwn(sku, 'loaded_stock_qty') && sku.loaded_stock_qty !== null && parseStockQuantity(sku.loaded_stock_qty, { allowNegative: true }) === null)) {
+          return Response.json({ error: '规格价格或库存无效；库存请填写 0 或正整数' }, { status: 400 })
+        }
+      }
+      if ((deletedSkuIds || []).some(id => typeof id !== 'string' || !id || ids.has(id))) {
+        return Response.json({ error: '待删除规格与保存列表冲突，请刷新后重试' }, { status: 400 })
+      }
+    }
 
     if (action === 'create') {
       const { data, error } = await supabase.from('products').insert(productRow(product)).select('id').single()
@@ -127,14 +161,10 @@ export async function POST(req) {
         await recordSlugChange(supabase, before.slug, product.slug, product.id)
       }
 
-      // 要删的 SKU = 前端标记删除的 + 数据库里有、但这次提交的列表里没有的
+      // Only explicitly deleted SKUs may be removed. An older editor does not
+      // know about SKUs created by another operator after it was opened.
       const submitted = skus || []
-      const keepIds = new Set(submitted.filter(s => s.id).map(s => s.id))
-      let removeIds = [...new Set(deletedSkuIds || [])]
-      if (submitted.length > 0) {
-        for (const row of existingSkus || []) if (!keepIds.has(row.id)) removeIds.push(row.id)
-      }
-      removeIds = [...new Set(removeIds)].filter(id => !keepIds.has(id))
+      const removeIds = [...new Set(deletedSkuIds || [])]
       const removed = await removeSkus(removeIds)
 
       for (const sku of submitted) {
@@ -143,15 +173,14 @@ export async function POST(req) {
           // 库存只在管理员真的改过时才写。编辑器打开期间如果有订单付款，webhook 已经把库存
           // 扣掉了；这时候再把打开编辑器那一刻的旧数字原样写回去，就等于把卖掉的又加回来，
           // 接着就会超卖。前端会带上 loaded_stock_qty（加载时的库存），两者相同说明没动过。
-          // 老版本的后台页面不带这个字段，就照旧写入。
-          if ('loaded_stock_qty' in sku &&
-              (parseInt(sku.stock_qty, 10) || 0) === (parseInt(sku.loaded_stock_qty, 10) || 0)) {
+          if ((parseStockQuantity(sku.stock_qty) ?? 0) === (parseStockQuantity(sku.loaded_stock_qty, { allowNegative: true }) ?? 0)) {
             delete row.stock_qty
           }
           let update = supabase.from('product_skus').update(row).eq('id', sku.id).eq('product_id', product.id)
           // If stock was deliberately edited, compare with the value originally
           // loaded. A checkout that happened meanwhile must not be overwritten.
-          if ('stock_qty' in row && 'loaded_stock_qty' in sku) update = update.eq('stock_qty', parseInt(sku.loaded_stock_qty, 10) || 0)
+          if ('stock_qty' in row) update = sku.loaded_stock_qty === null
+            ? update.is('stock_qty', null) : update.eq('stock_qty', parseStockQuantity(sku.loaded_stock_qty, { allowNegative: true }))
           const { data: savedSku, error: skuErr } = await update.select('id').maybeSingle()
           if (skuErr) return errorResponse(skuErr, { tag: 'admin-products-update-sku', message: '商品信息已保存，但有 SKU 没保存成功，请刷新后检查' })
           if (!savedSku) return Response.json({ error: '规格或库存已被其他操作修改，请刷新后检查，避免覆盖新订单库存' }, { status: 409 })

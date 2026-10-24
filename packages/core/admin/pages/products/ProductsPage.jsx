@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAdminConfig, collectionLabel } from '../../config'
 import { api } from '../../lib/api'
+import { parseStockQuantity } from '../../lib/stock-quantity'
 import { money } from '../../lib/format'
 import { useUrlState } from '../../lib/url-state'
 import {
@@ -252,9 +253,9 @@ function StockView({ cfg, products, skus, threshold, loading, get, set, onSaved 
   async function save() {
     const updates = dirtyIds.map(id => {
       const k = skus.find(x => x.id === id)
-      return { id, stock_qty: parseInt(edits[id], 10), expected: k.stock_qty ?? null }
+      return { id, stock_qty: parseStockQuantity(edits[id]), expected: k.stock_qty ?? null }
     })
-    if (updates.some(u => !Number.isInteger(u.stock_qty) || u.stock_qty < 0)) { toast.error('库存必须是 0 或正整数'); return }
+    if (updates.some(u => u.stock_qty === null)) { toast.error('库存必须是 0 或正整数'); return }
     setSaving(true)
     try {
       const { results } = await api('/api/admin/stock', { method: 'PATCH', body: { updates } })

@@ -38,26 +38,30 @@ function StoreSettings() {
   const toast = useToast()
   const [form, setForm] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [retry, setRetry] = useState(0)
   const baseline = useRef('')
 
   useEffect(() => {
-    api('/api/admin/settings').then(({ settings = {} }) => {
+    const controller = new AbortController()
+    setError('')
+    api('/api/admin/settings', { signal: controller.signal }).then(({ settings }) => {
+      if (controller.signal.aborted) return
+      if (!settings || typeof settings !== 'object' || Array.isArray(settings)) throw new Error('设置数据不完整，请重试')
       // 和旧版一样：数据库里还没有运费设置时显示默认值
       const next = {
-        ...(settings.shipping_rate ? {
-          shipping_rate: settings.shipping_rate,
-          free_shipping_threshold: settings.free_shipping_threshold || SHIPPING_DEFAULTS.free_shipping_threshold,
-          free_shipping_enabled: settings.free_shipping_enabled ?? SHIPPING_DEFAULTS.free_shipping_enabled,
-        } : SHIPPING_DEFAULTS),
+        ...Object.fromEntries(Object.entries(SHIPPING_DEFAULTS).map(([key, fallback]) => [key, settings[key] ?? fallback])),
         low_stock_threshold: settings.low_stock_threshold ?? '3',
       }
       baseline.current = JSON.stringify(next)
       setForm(next)
-    }).catch(e => toast.error('设置加载失败：' + e.message))
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    }).catch(e => { if (!controller.signal.aborted) setError('设置加载失败：' + e.message) })
+    return () => controller.abort()
+  }, [retry])
 
   const dirty = form && JSON.stringify(form) !== baseline.current
   useUnsavedWarning(dirty)
+  if (error) return <Card><Notice tone="danger">{error}</Notice><Button onClick={() => setRetry(value => value + 1)}>重新加载设置</Button></Card>
   if (!form) return <Card><SkeletonRows rows={5} /></Card>
 
   const setF = patch => setForm(p => ({ ...p, ...patch }))

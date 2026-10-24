@@ -11,11 +11,12 @@ export async function fetchAll(makeQuery, { pageSize = 1000, maxPages = 500 } = 
   for (let i = 0; i < maxPages; i++) {
     const { data, error } = await makeQuery().range(from, from + pageSize - 1)
     if (error) return { data: out, error }
-    if (!data || data.length === 0) break
+    if (!Array.isArray(data)) return { data: out, error: new Error('Invalid paginated response') }
+    if (data.length === 0) return { data: out, error: null }
     out.push(...data)
     from += data.length
   }
-  return { data: out, error: null }
+  return { data: out, error: new Error('Pagination safety limit reached; result is incomplete') }
 }
 
 // 把订单商品的数量加回库存（退款时可选）。
@@ -57,6 +58,8 @@ export function dayKey(dateLike) {
 export async function readSettings(supabase, keys) {
   let q = supabase.from('settings').select('key, value')
   if (keys) q = q.in('key', keys)
-  const { data } = await q
-  return Object.fromEntries((data || []).map(r => [r.key, r.value]))
+  const { data, error } = await q
+  if (error) throw error
+  if (!Array.isArray(data)) throw new Error('Invalid settings response')
+  return Object.fromEntries(data.map(r => [r.key, r.value]))
 }

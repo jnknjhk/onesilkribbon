@@ -115,10 +115,11 @@ function scrub(input) {
   }
 }
 
-// 8.55.1 accepts null from all four hooks (including beforeSendSpan).
+// Sentry 10 restores the ORIGINAL span when beforeSendSpan returns null.
+// Return an empty redacted object on failure instead; other hooks may drop it.
 export const telemetryPrivacyHooks = {
   beforeSend: scrub,
   beforeSendTransaction: scrub,
-  beforeSendSpan: scrub,
+  beforeSendSpan: span => scrub(span) || {},
   beforeBreadcrumb: scrub,
 }

@@ -36,7 +36,7 @@ const getProduct = cache(async (productSlug) => {
 
 // ── 动态 Metadata ─────────────────────────────────────────────────────────────
 export async function generateMetadata({ params }) {
-  const { slug, productSlug } = params
+  const { slug, productSlug } = await params
   const product = await getProduct(productSlug)
 
   if (!product) return { title: 'Product Not Found' }
@@ -88,7 +88,8 @@ export async function generateMetadata({ params }) {
 
 // ── 服务端渲染：预取产品数据 ───────────────────────────────────────────────────
 export default async function ProductPage({ params, searchParams }) {
-  const { slug, productSlug } = params
+  const { slug, productSlug } = await params
+  const query = await searchParams
   const product = await getProduct(productSlug)
 
   // 商品不存在——之前这里不管 product 是不是 null 都照样往下渲染，只是 ProductClient
@@ -115,7 +116,7 @@ export default async function ProductPage({ params, searchParams }) {
         .order('price_gbp', { ascending: true })
     : { data: [] }
   const purchasableSkus = validSkus(skus)
-  const initialSku = selectInitialSku(purchasableSkus, typeof searchParams?.sku === 'string' ? searchParams.sku : '')
+  const initialSku = selectInitialSku(purchasableSkus, typeof query?.sku === 'string' ? query.sku : '')
 
   // 同系列其他商品，给底部"More from this collection"用——只在真的有其他商品时才查/传，
   // 页面侧再判断一次是否为空来决定要不要渲染整个区块

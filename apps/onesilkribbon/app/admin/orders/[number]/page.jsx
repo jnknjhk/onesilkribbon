@@ -1,5 +1,6 @@
 import OrderDetail from '@osr/core/admin/pages/orders/OrderDetail'
 
-export default function OrderPage({ params }) {
-  return <OrderDetail number={decodeURIComponent(params.number)} />
+export default async function OrderPage({ params }) {
+  const { number } = await params
+  return <OrderDetail number={number} />
 }

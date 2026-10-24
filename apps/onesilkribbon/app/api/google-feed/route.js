@@ -5,6 +5,8 @@ import { variantUrl } from '@/lib/product-variants'
 // Google 每天会来抓取这个接口一次左右，不需要每次请求都是全新数据，
 // 用 ISR 缓存一小时，避免每次抓取都全量查库。
 export const revalidate = 3600
+// GET handlers no longer opt into the full-route cache by default in Next 15.
+export const dynamic = 'force-static'
 
 const SITE_URL = 'https://onesilkribbon.com'
 const BRAND    = 'One Silk Ribbon'

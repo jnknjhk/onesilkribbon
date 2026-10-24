@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useCart } from '@/lib/cart'
 import { useAuth } from '@osr/core/lib/auth'
-import { formatGBP, calculateTotals } from '@/lib/pricing'
+import { formatGBP, calculateTotals, shippingSettingsFromApi } from '@/lib/pricing'
 
 const PAYMENT_ERROR_MESSAGES = {
   not_completed: 'Your PayPal payment was not completed. You have not been charged — please try again.',
@@ -51,11 +51,12 @@ const validEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim())
 function Field({ id, label, type='text', half=false, autoComplete, value, error, touch, onChange, onBlur }) {
   return (
     <div style={{ gridColumn: half ? 'span 1' : 'span 2' }}>
-      <label className="input-label">{label}</label>
-      <input type={type} value={value} autoComplete={autoComplete} placeholder="" className="input"
+      <label htmlFor={`checkout-${id}`} className="input-label">{label}</label>
+      <input id={`checkout-${id}`} name={id} type={type} value={value} autoComplete={autoComplete} placeholder="" className="input"
+        aria-invalid={!!error} aria-describedby={error ? `checkout-${id}-error` : undefined}
         onChange={e => onChange(id, e.target.value)} onBlur={() => onBlur(id)}
         style={{ borderColor: error ? '#C0392B' : touch && !error ? '#5a8a5a' : undefined }} />
-      {error && <p style={{ fontSize:11, color:'#C0392B', marginTop:4 }}>{error}</p>}
+      {error && <p id={`checkout-${id}-error`} role="alert" style={{ fontSize:11, color:'#C0392B', marginTop:4 }}>{error}</p>}
       {!error && touch && <p style={{ fontSize:11, color:'#5a8a5a', marginTop:4 }}>✓</p>}
     </div>
   )
@@ -85,19 +86,23 @@ function CheckoutContent() {
   const [couponError, setCouponError] = useState('')
   const [couponLoading, setCouponLoading] = useState(false)
   const [shippingSettings, setShippingSettings] = useState(null)
+  const [shippingError, setShippingError] = useState('')
+  const [paymentRequestError, setPaymentRequestError] = useState('')
   const [addressPrefilled, setAddressPrefilled] = useState(false)
   const [continuing, setContinuing] = useState(false)
   const [stockError, setStockError] = useState('')
 
   // ── 加载运费设置 ──────────────────────────────────────────────────────────
   useEffect(() => {
-    fetch('/api/settings').then(r => r.json()).then(data => {
-      setShippingSettings({
-        shippingRate:          parseFloat(data.shipping_rate)           || 0,
-        freeShippingThreshold: parseFloat(data.free_shipping_threshold) || 45,
-        freeShippingEnabled:   data.free_shipping_enabled !== 'false',
-      })
-    }).catch(() => {})
+    const controller = new AbortController()
+    let active = true
+    const timeout = setTimeout(() => controller.abort(), 15000)
+    fetch('/api/settings', { signal: controller.signal, cache: 'no-store' })
+      .then(r => { if (!r.ok) throw new Error('Settings unavailable'); return r.json() })
+      .then(data => { if (!controller.signal.aborted) setShippingSettings(shippingSettingsFromApi(data)) })
+      .catch(() => { if (active) setShippingError('We could not load delivery charges. Please refresh this page before paying.') })
+      .finally(() => clearTimeout(timeout))
+    return () => { active = false; clearTimeout(timeout); controller.abort() }
   }, [])
 
   // ── 登录用户自动预填默认地址 ──────────────────────────────────────────────
@@ -207,6 +212,7 @@ function CheckoutContent() {
   }
 
   const handleContinue = async () => {
+    if (!shippingSettings) return
     if (!validate()) return
     setContinuing(true)
     // 重新验证优惠码，等待结果后再跳转，避免价格闪变
@@ -227,7 +233,7 @@ function CheckoutContent() {
   }
 
   const handlePayPalPayment = async () => {
-    setLoading(true); setStockError('')
+    setLoading(true); setStockError(''); setPaymentRequestError('')
     try {
       const headers = { 'Content-Type':'application/json' }
       if (user?.accessToken) headers.Authorization = `Bearer ${user.accessToken}`
@@ -238,17 +244,21 @@ function CheckoutContent() {
         setLoading(false)
         return
       }
+      if (!res.ok) throw new Error('Checkout unavailable')
       const { approvalUrl } = await res.json()
       if (approvalUrl) {
         try { sessionStorage.setItem('osr-checkout-basket', JSON.stringify({ items, token: new URL(approvalUrl).searchParams.get('token') })) } catch {}
         window.location.href = approvalUrl
       }
-      else setLoading(false)
-    } catch (err) { console.error(err); setLoading(false) }
+      else throw new Error('Checkout link unavailable')
+    } catch {
+      setPaymentRequestError('We could not open PayPal checkout. Please try again or contact us.')
+      setLoading(false)
+    }
   }
 
   const handleStripePayment = async () => {
-    setLoading(true); setStockError('')
+    setLoading(true); setStockError(''); setPaymentRequestError('')
     try {
       const headers = { 'Content-Type':'application/json' }
       if (user?.accessToken) headers.Authorization = `Bearer ${user.accessToken}`
@@ -259,16 +269,21 @@ function CheckoutContent() {
         setLoading(false)
         return
       }
+      if (!res.ok) throw new Error('Checkout unavailable')
       const { url } = await res.json()
       if (url) {
         try { sessionStorage.setItem('osr-checkout-basket', JSON.stringify({ items, sessionId: new URL(url).pathname.split('/').pop() })) } catch {}
         window.location.href = url
       }
-      else setLoading(false)
-    } catch (err) { console.error(err); setLoading(false) }
+      else throw new Error('Checkout link unavailable')
+    } catch {
+      setPaymentRequestError('We could not open card checkout. Please try again or contact us.')
+      setLoading(false)
+    }
   }
 
   const handleSubmit = () => {
+    if (loading || !shippingSettings || !validate()) return
     if (paymentMethod === 'stripe') handleStripePayment()
     else handlePayPalPayment()
   }
@@ -351,7 +366,7 @@ function CheckoutContent() {
                   </div>
                 </div>
               </div>
-              <button className="btn-primary" onClick={handleContinue} disabled={continuing}>{continuing ? 'Verifying…' : 'Continue to Payment'}</button>
+              <button className="btn-primary" onClick={handleContinue} disabled={continuing || !shippingSettings}>{continuing ? 'Verifying…' : !shippingSettings ? 'Loading delivery charges…' : 'Continue to Payment'}</button>
             </>
           )}
 
@@ -388,8 +403,9 @@ function CheckoutContent() {
                   {stockError} Please return to your basket and adjust before continuing.
                 </div>
               )}
-              <button className="btn-primary" onClick={handleSubmit} disabled={loading}>
-                {loading ? 'Processing…' : `Place Order · ${formatGBP(totals.total)}`}
+              {paymentRequestError && <p role="alert" style={{ color: '#C0392B', fontSize: 13, marginBottom: 16 }}>{paymentRequestError}</p>}
+              <button className="btn-primary" onClick={handleSubmit} disabled={loading || !shippingSettings}>
+                {loading ? 'Processing…' : !shippingSettings ? 'Loading delivery charges…' : `Place Order · ${formatGBP(totals.total)}`}
               </button>
               <p style={{ fontSize:11, color:'var(--taupe)', textAlign:'center', marginTop:16, lineHeight:1.8 }}>
                 By placing your order you agree to our{' '}
@@ -445,6 +461,7 @@ function CheckoutContent() {
               />
               <div style={{ height:1, background:'var(--warm)', margin:'8px 0' }} />
               <SummaryRow label="Total" value={!shippingSettings ? 'Calculating…' : formatGBP(totals.total)} bold />
+              {shippingError && <p role="alert" style={{ color: '#C0392B', fontSize: 12, lineHeight: 1.6 }}>{shippingError}</p>}
             </div>
 
             {!totals.freeShipping && shippingSettings?.freeShippingEnabled && (

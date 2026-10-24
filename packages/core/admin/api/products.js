@@ -15,11 +15,11 @@ export async function GET(req) {
   try {
     const id = new URL(req.url).searchParams.get('id')
     if (id) {
-      const [{ data: product, error }, { data: skus }] = await Promise.all([
+      const [{ data: product, error }, { data: skus, error: skuError }] = await Promise.all([
         supabase.from('products').select('*').eq('id', id).maybeSingle(),
         supabase.from('product_skus').select('*').eq('product_id', id).order('created_at').order('id'),
       ])
-      if (error) return errorResponse(error, { tag: 'admin-products-get-one' })
+      if (error || skuError) return errorResponse(error || skuError, { tag: 'admin-products-get-one' })
       if (!product) return Response.json({ error: '找不到这个商品，可能已经被删除' }, { status: 404 })
       return Response.json({ product, skus: skus || [] })
     }
@@ -33,7 +33,7 @@ export async function GET(req) {
         .select('id, product_id, colour, colour_hex, attributes, stock_qty, price_gbp, is_active, sku_code')
         .order('product_id').order('id')),
     ])
-    if (products.error) return errorResponse(products.error, { tag: 'admin-products-get' })
+    if (products.error || skus.error) return errorResponse(products.error || skus.error, { tag: 'admin-products-get' })
     return Response.json({ products: products.data, skus: skus.data, total: products.data.length })
   } catch (err) {
     return errorResponse(err, { tag: 'admin-products-get' })
@@ -76,7 +76,8 @@ function productRow(product) {
 // 结果 SKU 既没删掉也没停用）。改成：有订单的停用，没有订单的才删除。
 async function removeSkus(ids) {
   if (!ids.length) return { deleted: 0, deactivated: 0 }
-  const { data: used } = await supabase.from('order_items').select('sku_id').in('sku_id', ids)
+  const { data: used, error: lookupError } = await supabase.from('order_items').select('sku_id').in('sku_id', ids)
+  if (lookupError) throw lookupError
   const usedSet = new Set((used || []).map(r => r.sku_id))
   const toDeactivate = ids.filter(id => usedSet.has(id))
   const toDelete = ids.filter(id => !usedSet.has(id))
@@ -109,7 +110,15 @@ export async function POST(req) {
     }
 
     if (action === 'update') {
-      const { data: before } = await supabase.from('products').select('slug').eq('id', product.id).maybeSingle()
+      const { data: before, error: beforeError } = await supabase.from('products').select('slug').eq('id', product.id).maybeSingle()
+      if (beforeError) throw beforeError
+      if (!before) return Response.json({ error: '商品不存在，请刷新后重试' }, { status: 404 })
+      const { data: existingSkus, error: existingError } = await supabase.from('product_skus').select('id').eq('product_id', product.id)
+      if (existingError) throw existingError
+      const existingIds = new Set((existingSkus || []).map(row => row.id))
+      if ([...(deletedSkuIds || []), ...(skus || []).filter(row => row.id).map(row => row.id)].some(id => !existingIds.has(id))) {
+        return Response.json({ error: '规格已变化或不属于此商品，请刷新后检查' }, { status: 409 })
+      }
       const { error } = await supabase.from('products').update(productRow(product)).eq('id', product.id)
       if (error) return errorResponse(error, { tag: 'admin-products-update' })
 
@@ -123,8 +132,7 @@ export async function POST(req) {
       const keepIds = new Set(submitted.filter(s => s.id).map(s => s.id))
       let removeIds = [...new Set(deletedSkuIds || [])]
       if (submitted.length > 0) {
-        const { data: existing } = await supabase.from('product_skus').select('id').eq('product_id', product.id)
-        for (const row of existing || []) if (!keepIds.has(row.id)) removeIds.push(row.id)
+        for (const row of existingSkus || []) if (!keepIds.has(row.id)) removeIds.push(row.id)
       }
       removeIds = [...new Set(removeIds)].filter(id => !keepIds.has(id))
       const removed = await removeSkus(removeIds)
@@ -140,8 +148,13 @@ export async function POST(req) {
               (parseInt(sku.stock_qty, 10) || 0) === (parseInt(sku.loaded_stock_qty, 10) || 0)) {
             delete row.stock_qty
           }
-          const { error: skuErr } = await supabase.from('product_skus').update(row).eq('id', sku.id)
+          let update = supabase.from('product_skus').update(row).eq('id', sku.id).eq('product_id', product.id)
+          // If stock was deliberately edited, compare with the value originally
+          // loaded. A checkout that happened meanwhile must not be overwritten.
+          if ('stock_qty' in row && 'loaded_stock_qty' in sku) update = update.eq('stock_qty', parseInt(sku.loaded_stock_qty, 10) || 0)
+          const { data: savedSku, error: skuErr } = await update.select('id').maybeSingle()
           if (skuErr) return errorResponse(skuErr, { tag: 'admin-products-update-sku', message: '商品信息已保存，但有 SKU 没保存成功，请刷新后检查' })
+          if (!savedSku) return Response.json({ error: '规格或库存已被其他操作修改，请刷新后检查，避免覆盖新订单库存' }, { status: 409 })
         } else {
           const { error: skuErr } = await supabase.from('product_skus').insert(skuRow(sku, product.id, product.slug))
           if (skuErr) return errorResponse(skuErr, { tag: 'admin-products-insert-sku', message: '商品信息已保存，但新加的 SKU 没保存成功，请刷新后检查' })
@@ -152,18 +165,24 @@ export async function POST(req) {
 
     if (action === 'delete') {
       // 有历史订单的商品不物理删除，改为下架 + 停用全部 SKU，保留订单数据完整
-      const { count: orderItemCount } = await supabase
+      const { count: orderItemCount, error: historyError } = await supabase
         .from('order_items').select('*', { count: 'exact', head: true }).eq('product_id', product.id)
+      if (historyError) throw historyError
+      if (!Number.isInteger(orderItemCount)) throw new Error('Unable to verify product history')
       if (orderItemCount && orderItemCount > 0) {
-        await supabase.from('product_skus').update({ is_active: false }).eq('product_id', product.id)
-        await supabase.from('products').update({ is_active: false }).eq('id', product.id)
+        const skuResult = await supabase.from('product_skus').update({ is_active: false }).eq('product_id', product.id)
+        if (skuResult.error) throw skuResult.error
+        const productResult = await supabase.from('products').update({ is_active: false }).eq('id', product.id)
+        if (productResult.error) throw productResult.error
         return Response.json({
           ok: true, softDeleted: true,
           message: `这个商品有 ${orderItemCount} 条历史订单记录，已改为下架而不是删除，订单历史保留完整。`,
         })
       }
-      await supabase.from('product_skus').delete().eq('product_id', product.id)
-      await supabase.from('products').delete().eq('id', product.id)
+      const skuResult = await supabase.from('product_skus').delete().eq('product_id', product.id)
+      if (skuResult.error) throw skuResult.error
+      const productResult = await supabase.from('products').delete().eq('id', product.id)
+      if (productResult.error) throw productResult.error
       return Response.json({ ok: true })
     }
 

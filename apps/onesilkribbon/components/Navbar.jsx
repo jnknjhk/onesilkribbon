@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useCart } from '@/lib/cart'
 import { useAuth } from '@osr/core/lib/auth'
+import { useBodyScrollLock } from '@/lib/use-body-scroll-lock'
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false)
@@ -14,7 +15,6 @@ export function Navbar() {
   const [searching, setSearching] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
   const searchInputRef = useRef(null)
-  const searchTimerRef = useRef(null)
   const accountRef = useRef(null)
   const pathname = usePathname()
   const router = useRouter()
@@ -28,37 +28,59 @@ export function Navbar() {
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50)
-    window.addEventListener('scroll', onScroll)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
+  useBodyScrollLock(menuOpen || searchOpen)
+
   useEffect(() => {
-    if (menuOpen || searchOpen) document.body.style.overflow = 'hidden'
-    else document.body.style.overflow = ''
-    return () => { document.body.style.overflow = '' }
-  }, [menuOpen, searchOpen])
+    setMenuOpen(false)
+    setSearchOpen(false)
+    setAccountOpen(false)
+  }, [pathname])
+
+  useEffect(() => {
+    const onKeyDown = event => {
+      if (event.key !== 'Escape') return
+      setMenuOpen(false)
+      setSearchOpen(false)
+      setAccountOpen(false)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   useEffect(() => {
     if (searchOpen && searchInputRef.current) {
-      setTimeout(() => searchInputRef.current?.focus(), 100)
+      const timer = setTimeout(() => searchInputRef.current?.focus(), 100)
+      return () => clearTimeout(timer)
     }
     if (!searchOpen) { setSearchQuery(''); setSearchResults([]) }
   }, [searchOpen])
 
   useEffect(() => {
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
-    if (searchQuery.trim().length < 2) { setSearchResults([]); return }
-    setSearching(true)
-    searchTimerRef.current = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery.trim())}`)
-        const data = await res.json()
-        setSearchResults(Array.isArray(data) ? data : [])
-      } catch { setSearchResults([]) }
+    const query = searchQuery.trim()
+    setSearchResults([])
+    if (!searchOpen || query.length < 2 || query.length > 100) {
       setSearching(false)
+      return
+    }
+    const controller = new AbortController()
+    let active = true
+    setSearching(true)
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, { signal: controller.signal })
+        if (!res.ok) throw new Error('Search unavailable')
+        const data = await res.json()
+        if (active) setSearchResults(Array.isArray(data) ? data : [])
+      } catch { if (active) setSearchResults([]) }
+      finally { if (active) setSearching(false) }
     }, 300)
-    return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current) }
-  }, [searchQuery])
+    return () => { active = false; clearTimeout(timer); controller.abort() }
+  }, [searchQuery, searchOpen])
 
   useEffect(() => {
     const handler = (e) => {
@@ -152,7 +174,7 @@ export function Navbar() {
 
         <div className="nav-icons">
           {/* 搜索 */}
-          <button onClick={() => { setSearchOpen(!searchOpen); setMenuOpen(false) }} className="nav-icon-btn" aria-label="Search">
+          <button onClick={() => { setSearchOpen(!searchOpen); setMenuOpen(false) }} className="nav-icon-btn" aria-label="Search" aria-expanded={searchOpen}>
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none"
               stroke={searchOpen ? 'var(--deep)' : iconStroke} strokeWidth="1.4"
               style={{ transition: 'stroke 0.4s', filter: isLight ? 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))' : 'none' }}>
@@ -227,7 +249,7 @@ export function Navbar() {
           </button>
 
           {/* 汉堡（移动端） */}
-          <button onClick={() => { setMenuOpen(!menuOpen); setSearchOpen(false) }} className="nav-mobile nav-icon-btn" aria-label="Menu">
+          <button onClick={() => { setMenuOpen(!menuOpen); setSearchOpen(false) }} className="nav-mobile nav-icon-btn" aria-label="Menu" aria-expanded={menuOpen}>
             <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke={menuOpen ? 'var(--ink)' : iconStroke} strokeWidth="1.3" style={{ transition: 'stroke 0.4s' }}>
               {menuOpen ? (
                 <><line x1="4" y1="4" x2="18" y2="18"/><line x1="18" y1="4" x2="4" y2="18"/></>
@@ -249,10 +271,10 @@ export function Navbar() {
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--taupe)" strokeWidth="1.4" style={{ flexShrink: 0 }}>
                   <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
                 </svg>
-                <input ref={searchInputRef} type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search products…" className="search-input" />
-                <button onClick={() => setSearchOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--taupe)', fontSize: 18, cursor: 'pointer', padding: 4, lineHeight: 1 }}>✕</button>
+                <input ref={searchInputRef} type="search" aria-label="Search products" maxLength={100} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search products…" className="search-input" />
+                <button aria-label="Close search" onClick={() => setSearchOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--taupe)', fontSize: 18, cursor: 'pointer', padding: 4, lineHeight: 1 }}>✕</button>
               </div>
-              <div className="search-results">
+              <div className="search-results" aria-live="polite" aria-busy={searching}>
                 {searching && <p style={{ padding: '20px 0', fontSize: 12, color: 'var(--taupe)', textAlign: 'center' }}>Searching…</p>}
                 {!searching && searchQuery.length >= 2 && searchResults.length === 0 && (
                   <p style={{ padding: '20px 0', fontSize: 13, color: 'var(--taupe)', textAlign: 'center' }}>No products found for &quot;{searchQuery}&quot;</p>

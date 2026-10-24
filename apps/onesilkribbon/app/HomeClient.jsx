@@ -25,15 +25,13 @@ const COLLECTION_FALLBACK_BG = {
 
 export default function HomeClient({ heroImages, storyImage, collectionImages, featuredProducts, journalPosts, freeThreshold = '45', freeEnabled = true }) {
   useEffect(() => {
-    const timer = setTimeout(() => {
-      const els = document.querySelectorAll('.reveal')
-      const obs = new IntersectionObserver(entries => {
-        entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target) } })
-      }, { threshold: 0.08 })
-      els.forEach(el => obs.observe(el))
-      return () => obs.disconnect()
-    }, 100)
-    return () => clearTimeout(timer)
+    if (!('IntersectionObserver' in window) || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const els = document.querySelectorAll('.reveal')
+    const obs = new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.remove('reveal-pending'); obs.unobserve(e.target) } })
+    }, { threshold: 0.08 })
+    els.forEach(el => { el.classList.add('reveal-pending'); obs.observe(el) })
+    return () => { obs.disconnect(); els.forEach(el => el.classList.remove('reveal-pending')) }
   }, [])
 
   return (
@@ -47,8 +45,14 @@ export default function HomeClient({ heroImages, storyImage, collectionImages, f
       <SilkNotes />
       <NewsletterSection />
       <style dangerouslySetInnerHTML={{ __html: `
-        .reveal { opacity: 0; transform: translateY(32px); transition: opacity 0.9s ease, transform 0.9s ease; }
-        .reveal.visible { opacity: 1; transform: translateY(0); }
+        .reveal { transition: opacity 0.9s ease, transform 0.9s ease; }
+        .reveal.reveal-pending { opacity: 0; transform: translateY(32px); }
+        @media (prefers-reduced-motion: reduce) {
+          .reveal.reveal-pending { opacity: 1; transform: none; }
+          .reveal, .hero-anim { transition: none !important; }
+          .hero-anim { opacity: 1 !important; transform: none !important; }
+          .hero-slide-active, .hero-scroll-line { animation: none !important; }
+        }
         .prod-card:hover .prod-img-inner { transform: scale(1.04); }
       ` }} />
     </>

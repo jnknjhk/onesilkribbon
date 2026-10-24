@@ -1,10 +1,13 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import NextImage from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useCart } from '@/lib/cart'
 import { skuAttributes, matchSku } from '@/lib/product-variants'
+import { shippingSettingsFromApi } from '@/lib/pricing'
+
+const EMPTY_LIST = []
 
 function safe(val) {
   if (val === null || val === undefined) return ''
@@ -28,24 +31,25 @@ function fmt(amount) { return '£' + safeNum(amount).toFixed(2) }
 export default function ProductClient({ initialProduct, initialSkus, initialSku, slug, related }) {
   const router = useRouter()
   const product = initialProduct || null
-  const skus = initialSkus || []
+  const skus = initialSkus || EMPTY_LIST
   const relatedProducts = related || []
   const [shippingInfo, setShippingInfo] = useState({ rate: '3.95', threshold: '45', freeEnabled: true })
-  const [selectedSku, setSelectedSku] = useState(initialSku || null)
   const [imgIdx, setImgIdx] = useState(0)
   const [qty, setQty] = useState(1)
   const [added, setAdded] = useState(false)
   const [buyingNow, setBuyingNow] = useState(false)
   const [tab, setTab] = useState('description')
   const [selectedAttrs, setSelectedAttrs] = useState(() => skuAttributes(product, initialSku))
-  const [userSelected, setUserSelected] = useState(false)
-  const [lastChangedAttr, setLastChangedAttr] = useState(null)
+  // Derive immediately: an effect leaves a render where the chosen option and
+  // the SKU sent to the basket disagree.
+  const selectedSku = matchSku(product, skus, selectedAttrs, initialSku)
+  const addedTimer = useRef(null)
+  useEffect(() => () => clearTimeout(addedTimer.current), [])
   const { addItem } = useCart()
 
   // 切换到不同商品（slug 变化）时重置选择状态，不重新请求数据——SSR 已经把数据备好了
   useEffect(() => {
     setSelectedAttrs(skuAttributes(product, initialSku))
-    setSelectedSku(initialSku || null)
     setImgIdx(0)
     setQty(1)
     // 从系列页往下滑很多之后点进商品，Next.js 的默认滚动还原有时候不会把新页面滚回顶部
@@ -70,20 +74,20 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
   }, [product, skus, selectedAttrs])
 
   useEffect(() => {
-    fetch('/api/settings')
-      .then(r => r.json())
-      .then(data => setShippingInfo({
-        rate: parseFloat(data.shipping_rate || 3.95).toFixed(2),
-        threshold: parseFloat(data.free_shipping_threshold || 45).toFixed(0),
-        freeEnabled: data.free_shipping_enabled !== 'false',
-      }))
+    const controller = new AbortController()
+    fetch('/api/settings', { signal: controller.signal, cache: 'no-store' })
+      .then(r => { if (!r.ok) throw new Error('Settings unavailable'); return r.json() })
+      .then(data => {
+        const settings = shippingSettingsFromApi(data)
+        if (!controller.signal.aborted) setShippingInfo({
+          rate: Number(settings.shippingRate).toFixed(2),
+          threshold: String(Number(settings.freeShippingThreshold)),
+          freeEnabled: settings.freeShippingEnabled,
+        })
+      })
       .catch(() => {})
+    return () => controller.abort()
   }, [])
-
-  useEffect(() => {
-    if (skus.length === 0) return
-    setSelectedSku(current => matchSku(product, skus, selectedAttrs, current))
-  }, [selectedAttrs, skus, product])
 
   if (!product) return (
     <div style={{ minHeight: '100vh', background: 'var(--cream)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 32 }}>
@@ -140,8 +144,6 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
 
   const handleAttrChange = (attrName, value) => {
     setSelectedAttrs(prev => ({ ...prev, [attrName]: value }))
-    setUserSelected(true)
-    setLastChangedAttr(attrName)
     setImgIdx(0)  // 切换颜色时重置到第一张图
   }
 
@@ -166,7 +168,8 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
     if (!item) return
     addItem(item)
     setAdded(true)
-    setTimeout(() => setAdded(false), 2000)
+    clearTimeout(addedTimer.current)
+    addedTimer.current = setTimeout(() => setAdded(false), 2000)
   }
 
   // Buy Now — 加入购物车后直接跳转结账

@@ -1,9 +1,10 @@
 'use client'
 import React from 'react'
 import { useCart } from '@/lib/cart'
-import { formatGBP, calculateTotals } from '@/lib/pricing'
+import { formatGBP, calculateTotals, shippingSettingsFromApi } from '@/lib/pricing'
 import Link from 'next/link'
 import Image from 'next/image'
+import { useBodyScrollLock } from '@/lib/use-body-scroll-lock'
 
 export function CartProvider({ children }) {
   return <>{children}</>
@@ -11,24 +12,44 @@ export function CartProvider({ children }) {
 
 export function CartDrawer() {
     const { items, isOpen, closeCart, removeItem, updateQty, getSubtotal } = useCart()
+    const drawerRef = React.useRef(null)
     const [shippingSettings, setShippingSettings] = React.useState(null)
 
     React.useEffect(() => {
-      fetch('/api/settings')
-        .then(r => r.json())
-        .then(data => setShippingSettings({
-          shippingRate:          parseFloat(data.shipping_rate)           || 0,
-          freeShippingThreshold: parseFloat(data.free_shipping_threshold) || 45.00,
-          freeShippingEnabled:   data.free_shipping_enabled !== 'false',
-        }))
+      if (!isOpen) return
+      const controller = new AbortController()
+      fetch('/api/settings', { signal: controller.signal, cache: 'no-store' })
+        .then(r => { if (!r.ok) throw new Error('Settings unavailable'); return r.json() })
+        .then(data => { if (!controller.signal.aborted) setShippingSettings(shippingSettingsFromApi(data)) })
         .catch(() => {})
-    }, [])
-
-    React.useEffect(() => {
-      if (isOpen) document.body.style.overflow = 'hidden'
-      else document.body.style.overflow = ''
-      return () => { document.body.style.overflow = '' }
+      return () => controller.abort()
     }, [isOpen])
+
+    useBodyScrollLock(isOpen)
+    React.useEffect(() => {
+      if (!isOpen) return
+      const previousFocus = document.activeElement
+      const focusable = () => [...(drawerRef.current?.querySelectorAll('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), [tabindex="0"]') || [])]
+      focusable()[0]?.focus({ preventScroll: true })
+      const onKeyDown = event => {
+        if (event.key === 'Escape') closeCart()
+        if (event.key !== 'Tab') return
+        const elements = focusable()
+        const first = elements[0]
+        const last = elements[elements.length - 1]
+        if (!first) return
+        if (event.shiftKey && (document.activeElement === first || !drawerRef.current?.contains(document.activeElement))) {
+          event.preventDefault(); last.focus()
+        } else if (!event.shiftKey && (document.activeElement === last || !drawerRef.current?.contains(document.activeElement))) {
+          event.preventDefault(); first.focus()
+        }
+      }
+      document.addEventListener('keydown', onKeyDown)
+      return () => {
+        document.removeEventListener('keydown', onKeyDown)
+        if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true })
+      }
+    }, [isOpen, closeCart])
 
     const totals = calculateTotals(getSubtotal ? getSubtotal() : 0, shippingSettings)
 
@@ -41,10 +62,11 @@ export function CartDrawer() {
         }} />
       )}
 
-      <div className="cart-drawer" style={{
+      <div ref={drawerRef} className="cart-drawer" role="dialog" aria-modal={isOpen ? true : undefined} aria-label="Your basket" aria-hidden={!isOpen} style={{
         position: 'fixed', top: 0, right: 0, bottom: 0,
         background: 'var(--cream)', zIndex: 201,
         transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
+        visibility: isOpen ? 'visible' : 'hidden',
         transition: 'transform 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
         display: 'flex', flexDirection: 'column',
       }}>
@@ -59,7 +81,7 @@ export function CartDrawer() {
               {items.length === 0 ? 'Empty' : `${items.reduce((s,i)=>s+i.qty,0)} item${items.reduce((s,i)=>s+i.qty,0)!==1?'s':''}`}
             </p>
           </div>
-          <button onClick={closeCart} style={{
+          <button aria-label="Close basket" onClick={closeCart} style={{
             background: 'none', border: 'none', color: 'var(--taupe)',
             fontSize: 22, lineHeight: 1, padding: 8,
             minWidth: 44, minHeight: 44,
@@ -107,9 +129,9 @@ export function CartDrawer() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
               <Row label="Subtotal" value={formatGBP(totals.subtotal)} />
-              <Row label="Shipping" value={totals.freeShipping ? 'Free' : formatGBP(totals.shipping)} />
+              <Row label="Shipping" value={!shippingSettings ? 'Calculated at checkout' : totals.freeShipping ? 'Free' : formatGBP(totals.shipping)} />
               <div style={{ height: 1, background: 'var(--sand)', margin: '4px 0' }} />
-              <Row label="Total" value={formatGBP(totals.total)} bold />
+              <Row label="Total" value={!shippingSettings ? 'Calculating…' : formatGBP(totals.total)} bold />
               <p style={{ fontSize: 10, color: 'var(--taupe)', letterSpacing: '.04em' }}>All prices include tax</p>
             </div>
 

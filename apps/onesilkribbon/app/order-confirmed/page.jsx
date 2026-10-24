@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation'
 import OrderConfirmedClient from './OrderConfirmedClient'
 
-export default function OrderConfirmedPage({searchParams}) {
+export default async function OrderConfirmedPage({searchParams: pendingSearchParams}) {
+  const searchParams = await pendingSearchParams
   // Exchange old links before rendering HTML or loading analytics with secrets.
   const proof = searchParams?.proof
   const sessionId = searchParams?.session_id

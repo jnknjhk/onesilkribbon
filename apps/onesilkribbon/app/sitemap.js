@@ -6,30 +6,41 @@ import { supabaseAdmin } from '@osr/core/lib/supabase'
 // 一小时重新生成一次，既跟得上内容更新，也不会让 Google 每次抓取都触发全量查库。
 export const revalidate = 3600
 
+function modified(value) {
+  if (!value) return {}
+  const date = new Date(value)
+  return Number.isFinite(date.getTime()) ? { lastModified: date } : {}
+}
+
 export default async function sitemap() {
   const baseUrl = 'https://onesilkribbon.com'
 
   // Static pages
   const staticPages = [
-    { url: baseUrl, lastModified: new Date(), changeFrequency: 'weekly', priority: 1 },
-    { url: `${baseUrl}/collections`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.9 },
-    { url: `${baseUrl}/about`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.7 },
-    { url: `${baseUrl}/contact`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
-    { url: `${baseUrl}/faq`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
-    { url: `${baseUrl}/shipping-returns`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
-    { url: `${baseUrl}/bespoke`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
-    { url: `${baseUrl}/care-guide`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
+    { url: baseUrl, changeFrequency: 'weekly', priority: 1 },
+    { url: `${baseUrl}/collections`, changeFrequency: 'weekly', priority: 0.9 },
+    { url: `${baseUrl}/about`, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${baseUrl}/contact`, changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${baseUrl}/faq`, changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${baseUrl}/shipping-returns`, changeFrequency: 'monthly', priority: 0.5 },
+    { url: `${baseUrl}/bespoke`, changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${baseUrl}/care-guide`, changeFrequency: 'monthly', priority: 0.5 },
   ]
 
   // Product pages
-  const { data: products } = await supabaseAdmin
-    .from('products')
-    .select('slug, collection, updated_at')
-    .eq('is_active', true)
+  const [productResult, postResult] = await Promise.all([
+    supabaseAdmin.from('products').select('slug, collection, updated_at').eq('is_active', true),
+    supabaseAdmin.from('journal_posts').select('slug, updated_at').eq('is_published', true),
+  ])
+  // Failed regeneration must preserve the previous ISR sitemap, not publish
+  // an apparently successful file with all products or articles missing.
+  if (productResult.error || postResult.error) throw new Error('Unable to generate sitemap')
+  const products = productResult.data || []
+  const posts = postResult.data || []
 
   const productPages = (products || []).map(p => ({
     url: `${baseUrl}/collections/${p.collection}/${p.slug}`,
-    lastModified: p.updated_at ? new Date(p.updated_at) : new Date(),
+    ...modified(p.updated_at),
     changeFrequency: 'weekly',
     priority: 0.8,
   }))
@@ -42,21 +53,15 @@ export default async function sitemap() {
   const collectionsWithProducts = [...new Set((products || []).map(p => p.collection))].filter(Boolean)
   const collectionPages = collectionsWithProducts.map(slug => ({
     url: `${baseUrl}/collections/${slug}`,
-    lastModified: new Date(),
     changeFrequency: 'weekly',
     priority: 0.8,
   }))
 
   // Journal/blog pages — 字段是 is_published，不是 published（之前打错字段名，
   // 查询会报错、悄悄退化成空数组，导致 Journal 文章从未真正进过 sitemap）
-  const { data: posts } = await supabaseAdmin
-    .from('journal_posts')
-    .select('slug, updated_at')
-    .eq('is_published', true)
-
   const journalPages = (posts || []).map(p => ({
     url: `${baseUrl}/journal/${p.slug}`,
-    lastModified: p.updated_at ? new Date(p.updated_at) : new Date(),
+    ...modified(p.updated_at),
     changeFrequency: 'monthly',
     priority: 0.6,
   }))
@@ -64,7 +69,7 @@ export default async function sitemap() {
   // /journal 列表页同理：一篇文章都没有的时候它只是一句 "No articles yet."，
   // 提交上去就是白送一个软 404。发了第一篇文章后会自动出现在这里。
   const journalIndex = journalPages.length > 0
-    ? [{ url: `${baseUrl}/journal`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.7 }]
+    ? [{ url: `${baseUrl}/journal`, changeFrequency: 'weekly', priority: 0.7 }]
     : []
 
   return [...staticPages, ...journalIndex, ...collectionPages, ...productPages, ...journalPages]

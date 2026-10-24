@@ -127,9 +127,10 @@ test('nested sensitive fields, serialized JSON and labeled exception secrets can
 
 test('invalid values, cycles, accessors, exotic objects and serialization traps fail closed', async () => {
   const { telemetryPrivacyHooks } = await load()
-  for (const hook of Object.values(telemetryPrivacyHooks)) {
+  for (const [name, hook] of Object.entries(telemetryPrivacyHooks)) {
+    const rejected = name === 'beforeSendSpan' ? {} : null
     for (const invalid of [null, undefined, false, 1, 'SECRET', [], new Error('SECRET'), new Date()]) {
-      assert.equal(hook(invalid), null)
+      assert.deepEqual(hook(invalid), rejected)
     }
     const cyclic = { message: 'GET /ok?x=QUERY', extra: { count: 2 } }
     cyclic.extra.parent = cyclic
@@ -147,11 +148,11 @@ test('invalid values, cycles, accessors, exotic objects and serialization traps 
     assert.deepEqual(output, { message: 'GET /ok', extra: { count: 2, firstCopy: { safe: 1 }, secondCopy: { safe: 1 } } })
     assert.doesNotThrow(() => JSON.stringify(output))
     const hostile = new Proxy({}, { ownKeys() { throw new Error('SECRET') } })
-    assert.equal(hook(hostile), null)
-    assert.equal(hook({ extra: hostile }), null)
+    assert.deepEqual(hook(hostile), rejected)
+    assert.deepEqual(hook({ extra: hostile }), rejected)
     const revoked = Proxy.revocable({}, {})
     revoked.revoke()
-    assert.equal(hook(revoked.proxy), null)
+    assert.deepEqual(hook(revoked.proxy), rejected)
     assert.deepEqual(hook({ request: { headers: [['Authorization', 'SECRET']] } }), { request: {} })
     for (const request of ['RAW-PRIVATE', ['RAW-PRIVATE'], 1, null]) assert.deepEqual(hook({ request }), {})
     assert.deepEqual(hook({ request: { headers: 'RAW-PRIVATE' } }), { request: {} })
@@ -204,7 +205,7 @@ test('all runtime configs install hooks and keep browser init independent of req
   assert.doesNotMatch(source, /^import\s|\b(?:require\s*\(|process\.|Buffer\.|fetch\s*\()/m)
 })
 
-test('installed 8.55.1 RequestData integration honors the disabled collection options', () => {
+test('installed RequestData integration honors the disabled collection options', () => {
   // Import the factory only; never initialize a Sentry client or transport.
   const { requestDataIntegration } = require('@sentry/core')
   const integration = requestDataIntegration({ include: {
@@ -213,8 +214,22 @@ test('installed 8.55.1 RequestData integration honors the disabled collection op
   const output = integration.processEvent({ sdkProcessingMetadata: {
     normalizedRequest: { method: 'POST', url: 'https://example.com/pay?x=QUERY', data: 'BODY', cookies: { a: 'COOKIE' }, headers: { Authorization: 'AUTH' } },
     request: { ip: '192.0.2.1', user: { email: 'buyer@example.com' } },
-  } })
+  } }, {}, { getDataCollectionOptions: () => ({
+    cookies: false, httpHeaders: { request: false }, urlQueryParams: false, userInfo: false,
+  }) })
   assert.equal(output.request.method, 'POST')
   for (const field of ['data', 'cookies', 'query_string', 'headers']) assert.ok(!(field in output.request))
   assert.ok(!output.user)
+})
+
+test('installed Sentry envelope never restores an oversized original span after privacy rejection', async () => {
+  const { createSpanEnvelope } = require('@sentry/core')
+  const { telemetryPrivacyHooks } = await load()
+  const privateSpan = { description: 'SECRET'.repeat(50000), data: Object.fromEntries(Array.from({ length: 10001 }, (_, i) => [`k${i}`, 'PRIVATE'])) }
+  const span = { getSpanJSON: () => privateSpan }
+  const client = { getOptions: () => telemetryPrivacyHooks, getDsn: () => undefined }
+  const envelope = createSpanEnvelope([span], client)
+  const serialized = JSON.stringify(envelope)
+  assert.doesNotMatch(serialized, /SECRET|PRIVATE/)
+  assert.deepEqual(telemetryPrivacyHooks.beforeSendSpan(privateSpan), {})
 })

@@ -11,10 +11,10 @@
     "./admin/*": "./admin/*.jsx"
   },
   "peerDependencies": {
-    "next": "^14.2.35",
-    "react": "^18.3.0",
+    "next": "^15.5.28",
+    "react": "^19.3.1",
     "@supabase/supabase-js": "^2.43.0",
     "@supabase/ssr": "^0.5.0",
-    "@sentry/nextjs": "^8.0.0"
+    "@sentry/nextjs": "^10.76.2"
   }
 }

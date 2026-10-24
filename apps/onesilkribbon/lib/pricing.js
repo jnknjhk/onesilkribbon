@@ -2,6 +2,20 @@
 export const FREE_SHIPPING_THRESHOLD = 45.00
 export const SHIPPING_RATE = 3.95
 
+export function shippingSettingsFromApi(data = {}) {
+  const money = (value, fallback) => {
+    try {
+      const pence = gbpToPence(value)
+      return pence >= 0 ? penceToGBP(pence) : fallback
+    } catch { return fallback }
+  }
+  return {
+    shippingRate: money(data?.shipping_rate, SHIPPING_RATE),
+    freeShippingThreshold: money(data?.free_shipping_threshold, FREE_SHIPPING_THRESHOLD),
+    freeShippingEnabled: data?.free_shipping_enabled !== 'false' && data?.free_shipping_enabled !== false,
+  }
+}
+
 /**
  * 计算订单总额
  * 商品标价已含税（VAT included in price），结算时只加运费

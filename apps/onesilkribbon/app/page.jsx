@@ -77,6 +77,7 @@ export default async function HomePage() {
       .from('product_skus')
       .select('product_id, price_gbp, colour_hex')
       .in('product_id', productIds)
+      .eq('is_active', true)
       .order('price_gbp', { ascending: true })
 
     featuredProducts = products.map(p => {

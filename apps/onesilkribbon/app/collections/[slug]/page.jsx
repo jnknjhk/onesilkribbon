@@ -38,7 +38,7 @@ const getActiveProductCount = cache(async (slug) => {
 })
 
 export async function generateMetadata({ params }) {
-  const { slug } = params
+  const { slug } = await params
   const meta = COLLECTION_META[slug]
   if (!meta) return { title: 'Collection' }
 
@@ -76,7 +76,7 @@ export async function generateMetadata({ params }) {
 }
 
 export default async function CollectionPage({ params }) {
-  const { slug } = params
+  const { slug } = await params
   const meta = COLLECTION_META[slug]
   // 系列 slug 不在这 6 个已知系列里——之前这里不管 meta 存不存在都照样往下渲染，
   // 只是显示成一个空的、用 slug 当标题的页面，HTTP 状态码还是 200，不是真的 404

@@ -25,7 +25,7 @@ const getPost = cache(async (slug) => {
 })
 
 export async function generateMetadata({ params }) {
-  const { slug } = params
+  const { slug } = await params
   const post = await getPost(slug)
   if (!post) return { title: 'Journal' }
 
@@ -55,7 +55,7 @@ export async function generateMetadata({ params }) {
 }
 
 export default async function JournalPost({ params }) {
-  const { slug } = params
+  const { slug } = await params
   const post = await getPost(slug)
 
   if (!post) notFound()

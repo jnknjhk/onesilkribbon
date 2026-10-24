@@ -1,4 +1,4 @@
-const { withSentryConfig } = require('@sentry/nextjs')
+const { withSentryConfig } = require('@sentry/nextjs/config')
 
 const { ADMIN_REDIRECTS } = require('@osr/core/admin/redirects')
 
@@ -58,6 +58,6 @@ module.exports = withSentryConfig(nextConfig, {
   project: process.env.SENTRY_PROJECT || 'onesilkribbon',
   silent:  true,
   widenClientFileUpload: true,
-  hideSourceMaps: true,
-  disableLogger:  true,
+  sourcemaps: { deleteSourcemapsAfterUpload: true },
+  bundleSizeOptimizations: { excludeDebugStatements: true },
 })

@@ -27,6 +27,8 @@ export default function GlobalError({ error, reset }) {
                 style={{ padding: '14px 32px', background: '#1C1714', color: '#fff', fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase', border: 'none', cursor: 'pointer' }}>
                 Try Again
               </button>
+              {/* The root router may be broken: recovery needs a full document load. */}
+              {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
               <a href="/"
                 style={{ padding: '14px 32px', background: 'transparent', color: '#1C1714', fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase', textDecoration: 'none', border: '1px solid #E8DDD0' }}>
                 Return Home

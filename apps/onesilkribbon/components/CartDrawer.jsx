@@ -89,7 +89,7 @@ export function CartDrawer() {
           }}>✕</button>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', WebkitOverflowScrolling: 'touch' }}>
+        <div className="cart-items" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px 24px', WebkitOverflowScrolling: 'touch' }}>
           {items.length === 0 ? (
             <div style={{ textAlign: 'center', paddingTop: 80 }}>
               <p style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontStyle: 'italic', color: 'var(--taupe)', marginBottom: 24 }}>
@@ -111,7 +111,7 @@ export function CartDrawer() {
         </div>
 
         {items.length > 0 && (
-          <div style={{ padding: '20px 24px 32px', borderTop: '1px solid var(--sand)', flexShrink: 0 }}>
+          <div className="cart-actions" style={{ padding: '20px 24px 32px', borderTop: '1px solid var(--sand)', flexShrink: 0 }}>
             {!totals.freeShipping && shippingSettings?.freeShippingEnabled && (
               <div style={{ marginBottom: 16 }}>
                 <p style={{ fontSize: 11, color: 'var(--taupe)', marginBottom: 8, letterSpacing: '0.05em' }}>
@@ -135,17 +135,22 @@ export function CartDrawer() {
               <p style={{ fontSize: 10, color: 'var(--taupe)', letterSpacing: '.04em' }}>All prices include tax</p>
             </div>
 
-            <Link href="/checkout" onClick={closeCart}>
-              <button className="btn-primary" style={{ marginBottom: 10 }}>Proceed to Checkout</button>
-            </Link>
+            <Link href="/checkout" onClick={closeCart} className="btn-primary" style={{ marginBottom: 10 }}>Proceed to Checkout</Link>
             <button onClick={closeCart} className="btn-secondary">Continue Shopping</button>
           </div>
         )}
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
-        .cart-drawer { width: min(480px, 100vw); }
-        @media (max-width: 520px) { .cart-drawer { width: 100vw; } }
+        .cart-drawer { width: min(480px, 100vw); height: 100%; height: 100dvh; }
+        .cart-items { overscroll-behavior: contain; }
+        .cart-item-controls { gap: 8px; flex-wrap: wrap; }
+        @media (max-width: 520px) {
+          .cart-drawer { width: 100%; }
+          .cart-actions { padding: 16px 20px max(20px, env(safe-area-inset-bottom)) !important; }
+          .cart-quantity button { width: 44px !important; height: 44px !important; }
+        }
+        @media (max-height: 600px) { .cart-drawer { overflow-y: auto; } .cart-items { flex: 1 0 auto !important; } }
       ` }} />
     </>
   )
@@ -160,15 +165,15 @@ function CartItem({ item, onRemove, onQtyChange }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 400, marginBottom: 4, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</p>
         <p style={{ fontSize: 11, color: 'var(--taupe)', marginBottom: 10, letterSpacing: '0.04em' }}>{item.skuDesc}</p>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--warm)' }}>
-            <button onClick={() => onQtyChange(item.qty - 1)} style={{ width: 36, height: 36, background: 'none', border: 'none', color: 'var(--deep)', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+        <div className="cart-item-controls" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="cart-quantity" style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--warm)' }}>
+            <button aria-label={`Decrease quantity of ${item.name}`} onClick={() => onQtyChange(item.qty - 1)} style={{ width: 36, height: 36, background: 'none', border: 'none', color: 'var(--deep)', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
             <span style={{ width: 28, textAlign: 'center', fontSize: 13 }}>{item.qty}</span>
-            <button onClick={() => onQtyChange(item.qty + 1)} style={{ width: 36, height: 36, background: 'none', border: 'none', color: 'var(--deep)', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+            <button aria-label={`Increase quantity of ${item.name}`} onClick={() => onQtyChange(item.qty + 1)} style={{ width: 36, height: 36, background: 'none', border: 'none', color: 'var(--deep)', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <p style={{ fontFamily: 'var(--font-display)', fontSize: 16, color: 'var(--ink)' }}>{formatGBP(item.price * item.qty)}</p>
-            <button onClick={onRemove} style={{ background: 'none', border: 'none', color: 'var(--taupe)', fontSize: 14, padding: 4, minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+            <button aria-label={`Remove ${item.name} from basket`} onClick={onRemove} style={{ background: 'none', border: 'none', color: 'var(--taupe)', fontSize: 14, padding: 4, minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
           </div>
         </div>
       </div>

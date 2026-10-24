@@ -73,7 +73,7 @@ export default function CookieBanner() {
 
       <style dangerouslySetInnerHTML={{ __html: `
         .cookie-banner {
-          position: fixed; bottom: 0; left: 0; right: 0; z-index: 999;
+          position: fixed; bottom: 0; left: 0; right: 0; z-index: 150;
           background: var(--ink);
           border-top: 1px solid rgba(255,255,255,0.08);
           padding: 16px var(--page-padding, 24px);
@@ -87,7 +87,7 @@ export default function CookieBanner() {
           .cookie-banner {
             flex-direction: column;
             align-items: stretch;
-            padding: 16px 20px 20px;
+            padding: 12px 20px max(12px, env(safe-area-inset-bottom));
             gap: 12px;
           }
           .cookie-actions {

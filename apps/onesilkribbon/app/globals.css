@@ -281,4 +281,17 @@ input, textarea, select {
 
   .container { padding: 0 20px; }
   .section-header { padding: 60px 20px 40px; }
+
+  input, textarea, select { scroll-margin-top: 100px; min-width: 0; }
+  .toast { white-space: normal; overflow-wrap: anywhere; text-align: center; bottom: max(24px, env(safe-area-inset-bottom)); }
+}
+
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .cart-drawer, .hero-slide, .hero-anim, .hero-in { transition-duration: .01ms !important; animation: none !important; }
 }

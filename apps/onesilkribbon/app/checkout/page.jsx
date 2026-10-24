@@ -281,7 +281,7 @@ function CheckoutContent() {
   const country = getCountry(form.country)
 
   return (
-    <div style={{ paddingTop:100, background:'var(--cream)', minHeight:'100vh' }}>
+    <div className="checkout-page" style={{ paddingTop:100, background:'var(--cream)', minHeight:'100vh' }}>
       <div style={{ maxWidth:1200, margin:'0 auto', padding:'40px 60px 100px', display:'grid', gridTemplateColumns:'1fr 400px', gap:80, alignItems:'start' }} className="checkout-grid">
 
         {/* Left */}
@@ -291,7 +291,8 @@ function CheckoutContent() {
               {PAYMENT_ERROR_MESSAGES[paymentError] || PAYMENT_ERROR_MESSAGES.exception}
             </div>
           )}
-          <div style={{ display:'flex', gap:32, marginBottom:48, borderBottom:'1px solid var(--sand)', paddingBottom:24 }}>
+          <a className="checkout-summary-link" href="#checkout-summary">View order summary · {shippingSettings ? formatGBP(totals.total) : 'Calculating…'}</a>
+          <div className="checkout-steps" style={{ display:'flex', gap:32, marginBottom:48, borderBottom:'1px solid var(--sand)', paddingBottom:24 }}>
             {[['details','1. Your Details'],['payment','2. Payment']].map(([id, label]) => (
               <span key={id} onClick={() => { if (step==='payment' && id==='details') setStep('details') }}
                 style={{ fontSize:11, letterSpacing:'0.2em', textTransform:'uppercase', color: step===id ? 'var(--ink)' : 'var(--taupe)', cursor: step==='payment' && id==='details' ? 'pointer' : 'default' }}>
@@ -306,13 +307,13 @@ function CheckoutContent() {
 
               {/* 未登录提示 */}
               {!user && (
-                <div style={{ background:'var(--mist)', padding:'14px 18px', marginBottom:24, fontSize:12, color:'var(--taupe)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <div className="checkout-signin" style={{ background:'var(--mist)', padding:'14px 18px', marginBottom:24, fontSize:12, color:'var(--taupe)', display:'flex', justifyContent:'space-between', alignItems:'center', gap:12, flexWrap:'wrap' }}>
                   <span>Have an account? Sign in to auto-fill your details.</span>
                   <Link href={`/login?next=/checkout`} style={{ color:'var(--gold)', fontSize:12, letterSpacing:'.06em' }}>Sign In</Link>
                 </div>
               )}
 
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:40 }}>
+              <div className="checkout-fields" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:40 }}>
                 <Field id="email" label="Email Address" type="email" autoComplete="email" value={form.email} error={errors.email} touch={touched.email} onChange={handleChange} onBlur={handleBlur} />
                 <Field id="firstName" label="First Name" half autoComplete="given-name" value={form.firstName} error={errors.firstName} touch={touched.firstName} onChange={handleChange} onBlur={handleBlur} />
                 <Field id="lastName" label="Last Name" half autoComplete="family-name" value={form.lastName} error={errors.lastName} touch={touched.lastName} onChange={handleChange} onBlur={handleBlur} />
@@ -347,7 +348,7 @@ function CheckoutContent() {
                       style={{ width:120, padding:'12px 10px', background:'var(--cream)', border:'1px solid var(--warm)', fontFamily:'var(--font-body)', fontSize:13, color:'var(--ink)', outline:'none', flexShrink:0 }}>
                       {DIAL_CODES.map(c => <option key={c.dialCode} value={c.dialCode}>{c.dialCode} {c.name}</option>)}
                     </select>
-                    <div style={{ flex:1 }}>
+                    <div style={{ flex:1, minWidth:0 }}>
                       <input id="checkout-phone" name="phone" aria-invalid={!!errors.phone} aria-describedby={errors.phone ? 'checkout-phone-error' : undefined} type="tel" value={form.phone} className="input" placeholder="e.g. 07700900123" autoComplete="tel-national"
                         onChange={e => handleChange('phone', e.target.value)} onBlur={() => handleBlur('phone')}
                         style={{ borderColor: errors.phone ? '#C0392B' : touched.phone && !errors.phone ? '#5a8a5a' : undefined }} />
@@ -407,7 +408,7 @@ function CheckoutContent() {
         </div>
 
         {/* Right: Order Summary */}
-        <div style={{ position:'sticky', top:120 }}>
+        <div id="checkout-summary" className="checkout-summary" style={{ position:'sticky', top:120 }}>
           <div style={{ background:'var(--sand)', padding:36 }}>
             <h3 style={{ fontFamily:'var(--font-display)', fontSize:22, fontWeight:300, marginBottom:28, color:'var(--ink)' }}>Order Summary</h3>
             <div style={{ display:'flex', flexDirection:'column', gap:16, marginBottom:28, paddingBottom:28, borderBottom:'1px solid var(--warm)' }}>
@@ -432,9 +433,9 @@ function CheckoutContent() {
                   onChange={e => { setCouponCode(e.target.value); setCouponError(''); setCoupon(null) }}
                   onKeyDown={e => e.key === 'Enter' && applyCoupon()}
                   placeholder="Promo code"
-                  style={{ flex:1, padding:'10px 12px', background:'var(--cream)', border:'1px solid var(--warm)', fontSize:12, fontFamily:'var(--font-body)', color:'var(--ink)', outline:'none' }} />
+                  style={{ flex:1, minWidth:0, minHeight:44, padding:'10px 12px', background:'var(--cream)', border:'1px solid var(--warm)', fontSize:12, fontFamily:'var(--font-body)', color:'var(--ink)', outline:'none' }} />
                 <button onClick={applyCoupon} disabled={couponLoading}
-                  style={{ padding:'10px 16px', background:'var(--ink)', border:'none', color:'#fff', fontSize:11, letterSpacing:'.1em', cursor:'pointer', whiteSpace:'nowrap' }}>
+                  style={{ minHeight:44, padding:'10px 16px', background:'var(--ink)', border:'none', color:'#fff', fontSize:11, letterSpacing:'.1em', cursor:'pointer', whiteSpace:'nowrap' }}>
                   {couponLoading ? '…' : 'Apply'}
                 </button>
               </div>
@@ -468,8 +469,25 @@ function CheckoutContent() {
         </div>
       </div>
       <style dangerouslySetInnerHTML={{ __html: `
-        @media(max-width:960px){ .checkout-grid{grid-template-columns:1fr !important;gap:40px !important} }
-        @media(max-width:600px){ .checkout-grid{padding:24px 20px 80px !important} }
+        .checkout-grid > *, .checkout-fields > * { min-width: 0; }
+        .checkout-summary-link { display: none; }
+        .checkout-summary { scroll-margin-top: 88px; overflow-wrap: anywhere; }
+        .checkout-summary input { overflow-wrap: normal; }
+        @media(max-width:960px){
+          .checkout-grid{grid-template-columns:minmax(0,1fr) !important;gap:40px !important}
+          .checkout-summary { position: static !important; }
+          .checkout-summary-link { display: flex; align-items: center; min-height: 44px; margin-bottom: 20px; font-size: 13px; color: var(--deep); text-decoration: underline; text-underline-offset: 4px; }
+        }
+        @media(max-width:600px){
+          .checkout-page { padding-top: 76px !important; }
+          .checkout-grid{padding:16px 20px 48px !important}
+          .checkout-fields { grid-template-columns: minmax(0,1fr) !important; gap: 20px !important; }
+          .checkout-fields > * { grid-column: 1 / -1 !important; }
+          .checkout-steps { gap: 20px !important; margin-bottom: 28px !important; }
+          .checkout-steps span { font-size: 10px !important; letter-spacing: .12em !important; }
+          .checkout-signin a { display: inline-flex; align-items: center; min-height: 44px; white-space: nowrap; }
+          .checkout-summary > div:first-child { padding: 24px 20px !important; }
+        }
         .cart-item-img { position:relative; overflow:hidden; flex-shrink:0; }
         .cart-badge { position:absolute; top:-6px; right:-6px; background:var(--deep); color:#fff; width:18px; height:18px; border-radius:50%; font-size:10px; display:flex; align-items:center; justify-content:center; z-index:1; }
       ` }} />
@@ -487,9 +505,9 @@ export default function CheckoutPage() {
 
 function SummaryRow({ label, value, bold, highlight }) {
   return (
-    <div style={{ display:'flex', justifyContent:'space-between', fontSize: bold ? 14 : 12, color: highlight ? '#2E7D32' : bold ? 'var(--ink)' : 'var(--taupe)' }}>
-      <span style={{ letterSpacing:'0.04em' }}>{label}</span>
-      <span style={{ fontFamily: bold ? 'var(--font-display)' : 'inherit', fontSize: bold ? 20 : 12 }}>{value}</span>
+    <div style={{ display:'flex', justifyContent:'space-between', gap:12, fontSize: bold ? 14 : 12, color: highlight ? '#2E7D32' : bold ? 'var(--ink)' : 'var(--taupe)' }}>
+      <span style={{ letterSpacing:'0.04em', minWidth:0 }}>{label}</span>
+      <span style={{ flexShrink:0, fontFamily: bold ? 'var(--font-display)' : 'inherit', fontSize: bold ? 20 : 12 }}>{value}</span>
     </div>
   )
 }

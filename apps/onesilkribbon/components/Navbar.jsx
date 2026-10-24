@@ -302,7 +302,7 @@ export function Navbar() {
 
       {/* 移动端菜单 */}
       {menuOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 99, background: 'var(--cream)', paddingTop: 72, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <div className="mobile-menu" style={{ position: 'fixed', inset: 0, zIndex: 99, background: 'var(--cream)', paddingTop: 72, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
           <div style={{ padding: '20px 32px 40px', display: 'flex', flexDirection: 'column' }}>
             <p style={{ fontSize: 9, letterSpacing: '.32em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid var(--sand)' }}>Shop</p>
             {mobileCollections.map(c => (
@@ -349,7 +349,7 @@ export function Navbar() {
         .search-panel { position: fixed; top: 0; left: 0; right: 0; z-index: 99; background: var(--cream); border-bottom: 1px solid var(--sand); padding-top: 72px; animation: slideDown 0.25s ease; }
         .search-inner { max-width: 640px; margin: 0 auto; padding: 20px clamp(24px, 5vw, 60px) 24px; }
         .search-input-wrap { display: flex; align-items: center; gap: 12; border-bottom: 1px solid var(--warm); padding-bottom: 14px; margin-bottom: 8px; }
-        .search-input { flex: 1; background: none; border: none; outline: none; font-family: var(--font-body); font-size: 16px; color: var(--ink); letter-spacing: 0.03em; }
+        .search-input { flex: 1; min-width: 0; background: none; border: none; outline: none; font-family: var(--font-body); font-size: 16px; color: var(--ink); letter-spacing: 0.03em; }
         .search-input::placeholder { color: var(--warm); }
         .search-results { max-height: 400px; overflow-y: auto; }
         .search-result-item { display: flex; align-items: center; gap: 14; width: 100%; padding: 12px 0; border-bottom: 1px solid var(--mist); background: none; border-left: none; border-right: none; border-top: none; cursor: pointer; transition: opacity 0.2s; }
@@ -360,7 +360,19 @@ export function Navbar() {
         @keyframes fadeInDown { from { opacity: 0; transform: translateY(-8px) } to { opacity: 1; transform: translateY(0) } }
         @media (max-width: 900px) { .nav-desktop { display: none !important; } .nav-links { position: static; transform: none; } }
         @media (min-width: 901px) { .nav-mobile { display: none !important; } }
-        @media (max-width: 480px) { .nav-brand-text { font-size: 14px; } .nav-logo { height: 32px; width: 32px; } }
+        @media (max-width: 900px) {
+          .site-nav { padding: calc(8px + env(safe-area-inset-top, 0px)) 16px 8px !important; }
+          .nav-icon-btn { width: 44px; height: 44px; justify-content: center; flex-shrink: 0; }
+          .nav-icons { gap: 2px; }
+          .nav-brand { min-width: 0; gap: 8px; }
+          .nav-brand-text { font-size: clamp(12px, 3.4vw, 15px); letter-spacing: .03em; white-space: nowrap; }
+          .nav-logo { height: 28px; width: 28px; flex-shrink: 0; }
+          .mobile-menu { overscroll-behavior: contain; padding-bottom: max(32px, env(safe-area-inset-bottom)); }
+          .mobile-menu a, .mobile-menu button { min-height: 44px; display: flex; align-items: center; }
+          .search-panel { max-height: 100vh; max-height: 100dvh; overflow-y: auto; overscroll-behavior: contain; }
+          .search-results { max-height: min(400px, 55dvh); }
+        }
+        @media (max-width: 360px) { .site-nav { padding-left: 12px !important; padding-right: 12px !important; } .nav-brand { gap: 6px; } }
       ` }} />
     </>
   )

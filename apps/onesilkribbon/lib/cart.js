@@ -41,6 +41,13 @@ export const useCart = create(
       getItemCount: () => get().items.reduce((s, i) => s + i.qty, 0),
       getSubtotal:  () => get().items.reduce((s, i) => s + i.price * i.qty, 0),
     }),
-    { name: 'osr-cart', version: 1 }
+    {
+      name: 'osr-cart', version: 1,
+      // Restore only after React's first render so saved items cannot change
+      // the server-rendered basket count during hydration.
+      skipHydration: true,
+      partialize: state => ({ items: state.items }),
+      merge: (saved, current) => ({ ...current, items: Array.isArray(saved?.items) ? saved.items : current.items }),
+    }
   )
 )

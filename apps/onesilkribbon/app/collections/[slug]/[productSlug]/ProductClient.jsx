@@ -246,7 +246,7 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
           {/* RIGHT: attributes */}
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <p style={{ fontSize: 9, letterSpacing: '.38em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 14 }}>{collectionName}</p>
-            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 36, fontWeight: 300, lineHeight: 1.12, color: 'var(--ink)', marginBottom: 28 }}>{safe(product.name)}</h1>
+            <h1 className="product-title" style={{ fontFamily: 'var(--font-display)', fontSize: 36, fontWeight: 300, lineHeight: 1.12, color: 'var(--ink)', marginBottom: 28 }}>{safe(product.name)}</h1>
 
             {/* Price — 改为含税说明 + 运费提示 */}
             <div style={{ padding: '20px 0', borderTop: '1px solid var(--sand)', borderBottom: '1px solid var(--sand)', marginBottom: 30 }}>
@@ -259,13 +259,13 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
             </div>
 
             {/* 属性下拉框 */}
-            {attributeOptions.map(attr => (
+            {attributeOptions.map((attr, attrIndex) => (
               <div key={attr.name} style={{ marginBottom: 24 }}>
-                <label style={{ display: 'block', fontSize: 9, letterSpacing: '.3em', textTransform: 'uppercase', color: 'var(--taupe)', marginBottom: 10 }}>
+                <label htmlFor={`product-option-${attrIndex}`} style={{ display: 'block', fontSize: 9, letterSpacing: '.3em', textTransform: 'uppercase', color: 'var(--taupe)', marginBottom: 10 }}>
                   {attr.name}
                 </label>
                 <div style={{ position: 'relative' }}>
-                  <select
+                  <select id={`product-option-${attrIndex}`}
                     value={selectedAttrs[attr.name] || '__placeholder__'}
                     onChange={e => handleAttrChange(attr.name, e.target.value === '__placeholder__' ? '' : e.target.value)}
                     style={{
@@ -295,11 +295,11 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
             )}
 
             {/* Qty + Add to Basket */}
-            <div style={{ display: 'flex', height: 50 }}>
+            <div className="product-buy-controls" style={{ display: 'flex', height: 50 }}>
               <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--warm)', borderRight: 'none' }}>
-                <button onClick={() => setQty(q => Math.max(1, q - 1))} style={{ width: 44, height: '100%', background: 'none', border: 'none', fontSize: 18, color: 'var(--ink)', cursor: 'pointer' }}>−</button>
+                <button aria-label="Decrease quantity" onClick={() => setQty(q => Math.max(1, q - 1))} style={{ width: 44, height: '100%', background: 'none', border: 'none', fontSize: 18, color: 'var(--ink)', cursor: 'pointer' }}>−</button>
                 <span style={{ width: 32, textAlign: 'center', fontSize: 13 }}>{qty}</span>
-                <button onClick={() => setQty(q => q + 1)} style={{ width: 44, height: '100%', background: 'none', border: 'none', fontSize: 18, color: 'var(--ink)', cursor: 'pointer' }}>+</button>
+                <button aria-label="Increase quantity" onClick={() => setQty(q => q + 1)} style={{ width: 44, height: '100%', background: 'none', border: 'none', fontSize: 18, color: 'var(--ink)', cursor: 'pointer' }}>+</button>
               </div>
               <button onClick={handleAdd} disabled={!selectedSku || !inStock} style={{
                 flex: 1, background: added ? 'var(--gold)' : 'var(--ink)', color: '#fff', border: 'none',
@@ -334,7 +334,7 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
         {/* ═══ ZONE 2: PRODUCT DETAIL ═══ */}
         <div style={{ borderTop: '1px solid var(--sand)', padding: '80px 60px 100px' }} className="zone2-pad">
           <div style={{ maxWidth: 860, margin: '0 auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'center', borderBottom: '1px solid var(--sand)', marginBottom: 56 }}>
+            <div className="product-detail-tabs" style={{ display: 'flex', justifyContent: 'center', borderBottom: '1px solid var(--sand)', marginBottom: 56 }}>
               {[['description', 'Description'], ['care', 'Care'], ['shipping', 'Delivery']].map(([id, label]) => (
                 <button key={id} onClick={() => setTab(id)} style={{
                   background: 'none', border: 'none', padding: '18px 0', margin: '0 24px',
@@ -467,6 +467,22 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
           .related-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 220px)) !important; gap: 20px !important; }
         }
         .first-section-title { margin-top: 0 !important; }
+        .zone1 > * { min-width: 0; }
+        .product-title { overflow-wrap: anywhere; }
+        @media (hover: none) { .main-wrap:hover .main-img-hover { transform: none; } }
+        @media (max-width: 600px) {
+          .zone1 { padding: 24px 20px 40px !important; gap: 28px !important; }
+          .product-title { font-size: 28px !important; line-height: 1.2 !important; margin-bottom: 20px !important; }
+          .zone1 select { min-height: 48px; }
+          .product-buy-controls { flex-wrap: wrap; height: auto !important; gap: 12px; }
+          .product-buy-controls > div { height: 48px; border-right: 1px solid var(--warm) !important; }
+          .product-buy-controls > button { flex-basis: 100% !important; min-height: 50px; font-size: 11px !important; letter-spacing: .18em !important; }
+          .product-detail-tabs { gap: 0; margin-bottom: 32px !important; }
+          .product-detail-tabs button { flex: 1; margin-left: 0 !important; margin-right: 0 !important; min-height: 48px; letter-spacing: .12em !important; }
+          .zone2-pad, .related-pad { padding: 48px 20px !important; }
+          .desc-grid { gap: 28px !important; overflow-wrap: anywhere; }
+          .related-grid { grid-template-columns: repeat(2, minmax(0,1fr)) !important; gap: 24px 12px !important; }
+        }
       ` }} />
     </>
   )

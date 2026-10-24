@@ -144,7 +144,7 @@ export default function WelcomePopup() {
         position:'fixed',
         zIndex:1001,
         background:'var(--cream)',
-        overflow:'hidden',
+        overflowX:'hidden',
         animation:'slideUp 0.4s cubic-bezier(0.25,0.46,0.45,0.94)',
       }}>
 
@@ -306,6 +306,7 @@ export default function WelcomePopup() {
           display: grid;
           grid-template-columns: ${step === 'form' ? '1fr 1fr' : '1fr'};
           max-height: 90vh;
+          max-height: 90dvh;
           overflow-y: auto;
         }
         .popup-mobile-badge { display: none; }
@@ -315,6 +316,8 @@ export default function WelcomePopup() {
             grid-template-columns: 1fr !important;
             width: calc(100vw - 32px);
             max-height: 85vh;
+            max-height: 85dvh;
+            overscroll-behavior: contain;
           }
           .popup-left { display: none !important; }
           .popup-mobile-badge {

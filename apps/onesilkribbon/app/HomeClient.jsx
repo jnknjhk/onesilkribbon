@@ -128,7 +128,7 @@ function Hero({ heroImages }) {
           Woven from nature&apos;s finest thread — each ribbon carries the quiet beauty of silk in its most natural form, carefully chosen and made to last.
         </p>
         <div className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '1.4s' }}>
-          <Link href="/collections"><button className="hero-btn"><span className="hero-btn-line" />Explore Collections<span className="hero-btn-line" /></button></Link>
+          <Link href="/collections" className="hero-btn"><span className="hero-btn-line" />Explore Collections<span className="hero-btn-line" /></Link>
         </div>
         <div className={`hero-scroll-wrap hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '1.8s' }}>
           <div className="hero-scroll-line" />
@@ -153,6 +153,16 @@ function Hero({ heroImages }) {
         .hero-scroll-line { width: 1px; height: 48px; background: linear-gradient(to bottom, var(--gold), transparent); animation: scrollPulse 2s ease-in-out infinite; }
         @keyframes scrollPulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
         @media (max-width: 768px) { .hero-btn { padding: 16px 32px; font-size: 9px; } .hero-scroll-wrap { bottom: 24px; } .hero-scroll-line { height: 32px; } }
+        @media (max-width: 600px) {
+          .hero { height: auto; min-height: 100svh; padding: 100px 0 72px; }
+          .hero-content { width: 100%; padding: 0 20px; }
+          .hero-content h1 { font-size: clamp(32px, 8.6vw, 48px) !important; margin-bottom: 24px !important; }
+          .hero-content > p:first-child { font-size: 9px !important; letter-spacing: .22em !important; margin-bottom: 24px !important; }
+          .hero-content > p { margin-bottom: 28px !important; }
+          .hero-btn { min-height: 48px; padding: 16px 20px; gap: 12px; letter-spacing: .18em; }
+          .hero-btn-line { width: 18px; }
+          .hero-scroll-wrap { display: none; }
+        }
       ` }} />
     </section>
   )

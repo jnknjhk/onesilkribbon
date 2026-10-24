@@ -142,8 +142,10 @@ export function Footer() {
             background: none; border: none; padding: 18px 0; cursor: pointer;
             border-top: 1px solid rgba(255,255,255,0.08);
           }
-          .footer-col-collapse { max-height: 0; }
-          .footer-col-collapse.is-open { max-height: 400px; }
+          .footer-col-collapse { max-height: 0; visibility: hidden; }
+          .footer-col-collapse.is-open { max-height: 400px; visibility: visible; }
+          .footer-link { display: flex; align-items: center; min-height: 44px; }
+          .footer-col-collapse-inner li { margin-bottom: 0 !important; }
           .footer-col:last-child .footer-col-collapse-inner { padding-bottom: 4px; }
         }
       ` }} />

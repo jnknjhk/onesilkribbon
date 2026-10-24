@@ -44,8 +44,21 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
   // the SKU sent to the basket disagree.
   const selectedSku = matchSku(product, skus, selectedAttrs, initialSku)
   const addedTimer = useRef(null)
+  const thumbnailStrip = useRef(null)
   useEffect(() => () => clearTimeout(addedTimer.current), [])
   const { addItem } = useCart()
+
+  // Move only the thumbnail strip; scrolling the document here would pull a
+  // mobile customer away from the photo or the selected product options.
+  useEffect(() => {
+    const strip = thumbnailStrip.current
+    const selected = strip?.querySelector('[aria-pressed="true"]')
+    if (!selected) return
+    const left = selected.offsetLeft
+    const right = left + selected.offsetWidth
+    if (left < strip.scrollLeft) strip.scrollTo({ left, behavior: 'instant' })
+    else if (right > strip.scrollLeft + strip.clientWidth) strip.scrollTo({ left: right - strip.clientWidth, behavior: 'instant' })
+  }, [imgIdx, selectedSku, selectedAttrs])
 
   // 切换到不同商品（slug 变化）时重置选择状态，不重新请求数据——SSR 已经把数据备好了
   useEffect(() => {
@@ -218,8 +231,8 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
                 <div style={{ width: '100%', height: '100%', background: 'linear-gradient(160deg,#E8DDD0,#C4A882)' }} />
               )}
               {images.length > 1 && <>
-                <button onClick={() => navImg(-1)} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 44, height: 44, background: 'rgba(247,243,238,0.88)', backdropFilter: 'blur(6px)', border: 'none', color: 'var(--ink)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>‹</button>
-                <button onClick={() => navImg(1)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 44, height: 44, background: 'rgba(247,243,238,0.88)', backdropFilter: 'blur(6px)', border: 'none', color: 'var(--ink)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>›</button>
+                <button aria-label="Previous product photo" onClick={() => navImg(-1)} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 44, height: 44, background: 'rgba(247,243,238,0.88)', backdropFilter: 'blur(6px)', border: 'none', color: 'var(--ink)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>‹</button>
+                <button aria-label="Next product photo" onClick={() => navImg(1)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 44, height: 44, background: 'rgba(247,243,238,0.88)', backdropFilter: 'blur(6px)', border: 'none', color: 'var(--ink)', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>›</button>
               </>}
               {images.length > 1 && (
                 <div style={{ position: 'absolute', bottom: 14, right: 14, background: 'rgba(247,243,238,0.88)', backdropFilter: 'blur(6px)', padding: '4px 11px', fontSize: 9, letterSpacing: '.14em', color: 'var(--taupe)' }}>
@@ -228,9 +241,9 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
               )}
             </div>
             {images.length > 1 && (
-              <div style={{ display: 'flex', gap: 8, marginTop: 12, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                {images.slice(0, 8).map((img, i) => (
-                  <button key={i} onClick={() => setImgIdx(i)} style={{
+              <div ref={thumbnailStrip} className="product-thumbnails" style={{ display: 'flex', gap: 8, marginTop: 12, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                {images.map((img, i) => (
+                  <button key={i} aria-label={`Show product photo ${i + 1}`} aria-pressed={imgIdx === i} onClick={() => setImgIdx(i)} style={{
                     width: 60, height: 60, flexShrink: 0, padding: 0, border: 'none',
                     cursor: 'pointer', overflow: 'hidden', position: 'relative',
                     opacity: imgIdx === i ? 1 : 0.38, transition: 'opacity .3s',
@@ -469,6 +482,7 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
         .first-section-title { margin-top: 0 !important; }
         .zone1 > * { min-width: 0; }
         .product-title { overflow-wrap: anywhere; }
+        .product-thumbnails { position: relative; overscroll-behavior-x: contain; }
         @media (hover: none) { .main-wrap:hover .main-img-hover { transform: none; } }
         @media (max-width: 600px) {
           .zone1 { padding: 24px 20px 40px !important; gap: 28px !important; }

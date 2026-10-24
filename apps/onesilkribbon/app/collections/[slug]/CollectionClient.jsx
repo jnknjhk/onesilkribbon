@@ -113,7 +113,7 @@ export default function CollectionClient({ initialProducts, slug: initialSlug, i
         <span style={{ fontSize: 11, color: 'var(--taupe)', letterSpacing: '0.08em' }}>
           {`${sorted.length} ${sorted.length === 1 ? 'product' : 'products'}`}
         </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div className="coll-sort" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe)' }}>Sort</span>
           <select aria-label="Sort products" value={sort} onChange={e => setSort(e.target.value)} style={{
             fontSize: 12, color: 'var(--deep)', background: 'transparent',
@@ -169,10 +169,17 @@ export default function CollectionClient({ initialProducts, slug: initialSlug, i
         @media(max-width:1100px) { .prod-grid { grid-template-columns: repeat(3,1fr); } }
         @media(max-width:768px) {
           .prod-grid { grid-template-columns: repeat(2,1fr); gap: 20px 14px; }
+          .prod-grid > a { min-width: 0; overflow-wrap: anywhere; }
           .coll-content { padding: 32px 20px 80px; }
           .coll-toolbar { padding: 16px 20px; }
+          .coll-sort { min-width: 0; max-width: 100%; }
+          .coll-sort select { min-width: 0; max-width: 100%; min-height: 44px; }
         }
-        @media(max-width:480px) { .prod-grid { gap: 16px 10px; } }
+        @media(max-width:480px) {
+          .prod-grid { gap: 16px 10px; }
+          .coll-sort { width: 100%; justify-content: space-between; }
+          .coll-sort select { flex: 1; }
+        }
       ` }} />
     </div>
   )

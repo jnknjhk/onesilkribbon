@@ -175,3 +175,91 @@ test('checkout step changes focus their heading, while initial render preserves 
   run('payment'); assert.deepEqual(calls, ['focus', 'scroll'])
   assert.equal(previousStep.current, 'payment')
 })
+
+function contactForm({ form, status = 'idle', fetch }) {
+  const h = hooks({ 0: form, 1: status })
+  const prefix = read('app/contact/page.jsx').split('\n  return (')[0].replace('export default function', 'function')
+  const render = compile(`${prefix}\nreturn { handleSubmit, handleChange }\n}`, { ...h.bindings, fetch }, 'Contact')
+  return { ...h, render() { h.begin(); return render() } }
+}
+
+test('contact rejects whitespace-only required fields and focuses them without sending mail', async () => {
+  const h = contactForm({ form: { name: '  ', email: 'test@example.test', message: 'Hello' }, fetch: () => assert.fail('must not send') })
+  let focused
+  await h.render().handleSubmit({ preventDefault() {}, currentTarget: { elements: { namedItem: name => ({ focus: () => { focused = name } }) } } })
+  assert.equal(focused, 'name')
+  assert.equal(h.states[1], 'error')
+  assert.match(h.states[2], /fill in/)
+})
+
+test('contact blocks rapid duplicate submissions, retains the draft on failure and supports retry', async () => {
+  const form = { name: ' Preview ', email: ' preview@example.test ', message: ' Help ', subject: '', website: '' }
+  let resolve, calls = 0, payload
+  const h = contactForm({ form, fetch: async (_url, options) => {
+    calls++; payload = JSON.parse(options.body)
+    if (calls === 1) return new Promise(done => { resolve = done })
+    return Response.json({ success: true })
+  } })
+  const event = { preventDefault() {} }
+  const firstRender = h.render()
+  const first = firstRender.handleSubmit(event)
+  await firstRender.handleSubmit(event)
+  assert.equal(calls, 1)
+  resolve(Response.json({ success: true }, { status: 503 }))
+  await first
+  assert.equal(h.states[1], 'error')
+  assert.deepEqual(h.states[0], form)
+  await h.render().handleSubmit(event)
+  assert.equal(calls, 2)
+  assert.equal(payload.email, 'preview@example.test')
+  assert.equal(payload.name, 'Preview')
+  assert.equal(payload.message, 'Help')
+  assert.equal(h.states[1], 'sent')
+  await h.render().handleSubmit(event)
+  assert.equal(calls, 2, 'same successful message must not send twice')
+  h.render().handleChange({ target: { name: 'message', value: 'Another question' } })
+  assert.equal(h.states[1], 'idle', 'editing enables a new enquiry')
+})
+
+test('contact unlocks after a network failure without clearing the entered enquiry', async () => {
+  const form = { name: 'Preview', email: 'preview@example.test', message: 'Hello' }
+  const h = contactForm({ form, fetch: async () => { throw new Error('Offline') } })
+  await h.render().handleSubmit({ preventDefault() {} })
+  assert.equal(h.states[1], 'error')
+  assert.equal(h.refs[0].current, false)
+  assert.deepEqual(h.states[0], form)
+})
+
+test('tracking focuses new results below the fixed header without moving the initial empty form', () => {
+  const effect = read('app/track-order/page.jsx').match(/useEffect\(\(\) => \{\n    if \(!result\) return[\s\S]*?\}, \[result\]\)/)[0]
+  const calls = []
+  const run = result => {
+    let callback
+    compile(effect, { result, resultRef: { current: { focus: () => calls.push('focus'), scrollIntoView: options => calls.push(options.block) } },
+      useEffect: fn => { callback = fn },
+    }, 'undefined')
+    callback()
+  }
+  run(null); assert.deepEqual(calls, [])
+  run({ orderNumber: 'EXAMPLE' }); assert.deepEqual(calls, ['focus', 'start'])
+})
+
+test('product photo navigation reveals thumbnails beyond eight without scrolling the mobile page', () => {
+  const source = read('app/collections/[slug]/[productSlug]/ProductClient.jsx')
+  const effect = source.match(/useEffect\(\(\) => \{\n    const strip = thumbnailStrip.current[\s\S]*?\}, \[imgIdx, selectedSku, selectedAttrs\]\)/)[0]
+  let callback, selected, left = 0
+  const moves = []
+  const strip = { offsetLeft: 20, clientWidth: 276, get scrollLeft() { return left },
+    querySelector: () => selected,
+    scrollTo: options => { moves.push(options.left); left = options.left },
+  }
+  compile(effect, { thumbnailStrip: { current: strip }, imgIdx: 8, selectedSku: {}, selectedAttrs: {}, useEffect: fn => { callback = fn } }, 'undefined')
+  selected = { offsetLeft: 544, offsetWidth: 60 }
+  callback(); assert.equal(left, 328)
+  callback(); assert.deepEqual(moves, [328], 'already visible thumbnails do not jump')
+  selected = { offsetLeft: 0, offsetWidth: 60 }
+  callback(); assert.equal(left, 0)
+  selected = null
+  callback(); assert.deepEqual(moves, [328, 0])
+  assert.ok(!source.includes('images.slice(0, 8)'), 'all product photos remain selectable')
+})

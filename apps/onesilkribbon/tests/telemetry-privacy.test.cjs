@@ -190,7 +190,8 @@ test('all runtime configs install hooks and keep browser init independent of req
     vm.runInContext(source.replace('export const telemetryPrivacyHooks', 'const telemetryPrivacyHooks'), context)
     context.Sentry = sentry
     context.process = { env: { NODE_ENV: 'production', NEXT_PUBLIC_SENTRY_DSN: 'test-only' } }
-    vm.runInContext(read(`sentry.${runtime}.config.js`).replace(/^import .*$/gm, ''), context)
+    const configFile = runtime === 'client' ? 'instrumentation-client.js' : `sentry.${runtime}.config.js`
+    vm.runInContext(read(configFile).replace(/^import .*$/gm, '').replace(/^export /gm, ''), context)
     assert.equal(options.sendDefaultPii, false)
     assert.equal(options.enabled, true)
     assert.equal(options.tracesSampleRate, runtime === 'edge' ? 0 : 0.1)

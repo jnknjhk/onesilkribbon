@@ -11,7 +11,7 @@
     "./admin/*": "./admin/*.jsx"
   },
   "peerDependencies": {
-    "next": "^15.5.28",
+    "next": "^16.4.3",
     "react": "^19.3.1",
     "@supabase/supabase-js": "^2.43.0",
     "@supabase/ssr": "^0.5.0",

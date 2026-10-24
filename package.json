@@ -2,6 +2,9 @@
   "name": "osr-monorepo",
   "private": true,
   "workspaces": ["apps/*", "packages/*"],
+  "engines": {
+    "node": "24.x"
+  },
   "overrides": {
     "react": "19.3.1",
     "react-dom": "19.3.1"

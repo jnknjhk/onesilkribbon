@@ -3,24 +3,27 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "next dev --webpack",
+    "build": "npm run lint && next build --webpack",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint --ext .js,.jsx app components lib instrumentation.js instrumentation-client.js sentry.server.config.js sentry.edge.config.js next.config.js middleware.js"
   },
   "dependencies": {
-    "@next/third-parties": "^15.5.28",
+    "@next/third-parties": "^16.4.3",
     "@osr/core": "*",
     "@sentry/nextjs": "^10.76.2",
     "@supabase/ssr": "^0.5.0",
     "@supabase/supabase-js": "^2.43.0",
     "clsx": "^2.1.1",
-    "next": "^15.5.28",
+    "next": "^16.4.3",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "sanitize-html": "^2.18.1",
     "stripe": "^15.7.0",
     "zustand": "^4.5.2"
+  },
+  "engines": {
+    "node": "24.x"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.9",

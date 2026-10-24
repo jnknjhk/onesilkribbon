@@ -27,10 +27,26 @@
 
 ## 尚未完成／后续建议
 
-1. `npm audit --omit=dev` 从 37 条降到 3 条：PostCSS 高风险告警及通过 Next、third-parties 产生的两个关联告警；它们是一条依赖链，不是三个独立业务漏洞。不能宣称依赖漏洞已经清零。继续跨到 Next 16 的尝试被自动安全审核拦截，要求先修复构建并验证兼容性；当前 Next 15 已完成该验证，后续应单独评估、测试升级，而不是强行推送未经测试的版本。
+1. 原剩余 3 条依赖告警：已在用户明确确认后的 Next 16 专项升级中处理，详见下文；扫描清零不代表业务逻辑绝对无漏洞。
 2. 商品及其多个 SKU 的保存仍是多次数据库写入；本轮改为报告失败并阻止危险后续步骤，但还不是整个商品编辑的单个原子事务。若要实现全成全败，需单独设计数据库 RPC 和迁移。
 3. 构建仍有既有的 Hook 依赖、普通 img 元素及 Sentry 客户端配置文件弃用提示，非构建错误；可继续分批收敛。
 
 本记录是本轮确认的问题和验证证据，不构成“全站绝对无漏洞”的保证。未提交或清理用户的 `.claude/` 目录。
 
 参考：[Next 15 迁移](https://nextjs.org/docs/app/guides/upgrading/version-15)、[AVIF 安全公告](https://github.com/vercel/next.js/security/advisories/GHSA-2xp9-vwfh-vxw4)、[SVG 安全公告](https://github.com/vercel/next.js/security/advisories/GHSA-2464-fhr4-w9xw)。
+
+## Next 16 专项升级
+
+- 用户明确确认后，先在 `codex/next16-security-upgrade` 独立分支验证。
+- Next 与 third-parties 升至 16.4.3；React 19.3.1、支付 SDK、数据库 schema 和权限设计未改。
+- 根目录与丝带应用都固定使用 Node 24.x，与本机实际验证环境一致，也满足 Next 16 的最低 Node 20.9 要求；不使用不受支持的 Node 20 作为部署目标。
+- 保留既有 Webpack 构建，未同时切换到 Turbopack、React Compiler 或 Cache Components，减少运行行为变化。
+- `next lint` 已替换为独立 ESLint CLI，且构建前自动执行 lint，避免 Next 16 不再自动 lint 导致检查遗漏。保留兼容的 ESLint 8/Next lint 配置 15，不为此次安全升级额外引入 lint 规则大迁移。
+- Sentry 浏览器初始化迁入 `instrumentation-client.js`，保留所有隐私过滤，增加官方路由切换入口；服务端、Edge 初始化与鉴权中间件运行环境不变。
+- 全部 121 项自动测试通过；新增 8 项框架回归覆盖伪造管理员身份头、鉴权 Cookie 刷新、权限拒绝、异步请求头、登录回调及旧付款链接跳转。
+- 本地生产版本 30 项只读 HTTP 检查通过，包括商品/系列/文章、登录/结账页、商品 Feed、网站地图、后台拒绝未授权请求、付款参数校验与实际图片优化请求；未调用创建支付、扣款、退款或发信接口。
+- `npm audit`（包括开发依赖）与 `npm audit --omit=dev` 均为 0 条告警；已实际执行 `npm ci` 从锁文件重新安装，再运行 121 项测试与构建，不只检查现有 node_modules。
+- Lint 无错误，仍有 11 条既有的 Hook/img 建议；构建保留 middleware 弃用提示及 Sentry Edge 引用 Next 的 `process.features` 静态警告。已核对该代码使用可选链，并实测相关中间件请求正常；没有为消除警告关闭鉴权或隐私过滤。后续迁移 proxy/runtime 应单独验证。
+- 没有修改生产数据库，没有删除或迁移业务记录，玻璃站未改动。
+
+依据：[Next 16 升级与兼容检查](https://nextjs.org/docs/app/guides/upgrading/version-16)、[Vercel 支持的 Node 版本与固定版本方式](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions)。

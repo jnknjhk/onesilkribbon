@@ -41,6 +41,7 @@
 - Next 与 third-parties 升至 16.4.3；React 19.3.1、支付 SDK、数据库 schema 和权限设计未改。
 - 根目录与丝带应用都固定使用 Node 24.x，与本机实际验证环境一致，也满足 Next 16 的最低 Node 20.9 要求；不使用不受支持的 Node 20 作为部署目标。
 - 保留既有 Webpack 构建，未同时切换到 Turbopack、React Compiler 或 Cache Components，减少运行行为变化。
+- 根 html 增加 `data-scroll-behavior="smooth"`，保持全局平滑滚动 CSS 下原有的即时路由跳转行为，不更改站内锚点滚动样式。
 - `next lint` 已替换为独立 ESLint CLI，且构建前自动执行 lint，避免 Next 16 不再自动 lint 导致检查遗漏。保留兼容的 ESLint 8/Next lint 配置 15，不为此次安全升级额外引入 lint 规则大迁移。
 - Sentry 浏览器初始化迁入 `instrumentation-client.js`，保留所有隐私过滤，增加官方路由切换入口；服务端、Edge 初始化与鉴权中间件运行环境不变。
 - 全部 121 项自动测试通过；新增 8 项框架回归覆盖伪造管理员身份头、鉴权 Cookie 刷新、权限拒绝、异步请求头、登录回调及旧付款链接跳转。

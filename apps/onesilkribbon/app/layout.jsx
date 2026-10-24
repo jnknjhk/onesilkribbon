@@ -100,7 +100,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en-GB" className={`${playfairDisplay.variable} ${lora.variable} ${jost.variable}`}>
+    <html lang="en-GB" data-scroll-behavior="smooth" className={`${playfairDisplay.variable} ${lora.variable} ${jost.variable}`}>
       <body>
         <script
           type="application/ld+json"

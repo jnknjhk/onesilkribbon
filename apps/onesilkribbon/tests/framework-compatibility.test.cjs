@@ -37,6 +37,7 @@ test('Next 16 is installed and scripts keep Webpack while running lint separatel
   assert.equal(JSON.parse(fs.readFileSync(path.resolve(root, '../../package.json'), 'utf8')).engines.node, '24.x')
   assert.ok(!fs.existsSync(path.join(root, 'sentry.client.config.js')))
   assert.match(read('instrumentation-client.js'), /onRouterTransitionStart = Sentry.captureRouterTransitionStart/)
+  assert.match(read('app/layout.jsx'), /<html[^>]*data-scroll-behavior="smooth"/)
 })
 
 test('Next 16 middleware removes spoofed admin headers on every public route without auth calls', async () => {

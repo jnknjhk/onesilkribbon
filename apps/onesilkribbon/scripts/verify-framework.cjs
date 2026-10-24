@@ -51,11 +51,15 @@ async function main() {
   assert.equal(new URL(callback.headers.get('location'), base).pathname, '/login')
   const legacy = await get('/order-confirmed?order=OSR-FRAMEWORK-CHECK&proof=test-only-proof', 307)
   assert.equal(new URL(legacy.headers.get('location'), base).pathname, '/api/payment-confirmation')
-  const imageMatch = home.match(/src="([^"\s]*\/_next\/image\?[^"\s]+)"/)
-  assert.ok(imageMatch, 'Expected an optimized homepage image')
-  const image = await get(imageMatch[1].replace(/&amp;/g, '&'), 200, { accept: 'image/avif,image/webp,image/*' })
-  assert.match(image.headers.get('content-type'), /^image\/(avif|webp|png|jpeg)/)
-  assert.ok((await image.arrayBuffer()).byteLength > 0)
+  const imagePaths = [...home.matchAll(/src="([^"\s]*\/_next\/image\?[^"\s]+)"/g)].map(match => match[1].replace(/&amp;/g, '&'))
+  assert.ok(imagePaths.length, 'Expected an optimized homepage image')
+  const remoteImage = imagePaths.find(value => /^https:\/\//.test(new URL(value, base).searchParams.get('url') || ''))
+  assert.ok(remoteImage, 'Expected an optimized remote catalog image as well as the logo')
+  for (const value of new Set([imagePaths[0], remoteImage])) {
+    const image = await get(value, 200, { accept: 'image/avif,image/webp,image/*' })
+    assert.match(image.headers.get('content-type'), /^image\/(avif|webp|png|jpeg)/)
+    assert.ok((await image.arrayBuffer()).byteLength > 0)
+  }
   console.log(JSON.stringify({ origin: base.origin, passed: results.length, checks: results }, null, 2))
 }
 main().catch(error => { console.error(error.message); process.exitCode = 1 })

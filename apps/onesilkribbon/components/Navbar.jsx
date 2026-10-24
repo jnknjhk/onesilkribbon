@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { useCart } from '@/lib/cart'
 import { useAuth } from '@osr/core/lib/auth'
@@ -148,7 +149,7 @@ export function Navbar() {
         transition: 'all 0.4s ease',
       }}>
         <Link href="/" onClick={() => { setMenuOpen(false); setSearchOpen(false) }} className="nav-brand">
-          <img src={logoSrc} alt="One Silk Ribbon" className="nav-logo" style={{ transition: 'opacity 0.3s' }} />
+          <Image src={logoSrc} alt="One Silk Ribbon" width={34} height={34} loading="eager" className="nav-logo" style={{ transition: 'opacity 0.3s' }} />
           <span className="nav-brand-text" style={{
             color: isLight ? '#fff' : 'var(--ink)',
             textShadow: shadow,
@@ -189,7 +190,7 @@ export function Navbar() {
               {user ? (
                 <button onClick={() => setAccountOpen(!accountOpen)} className="nav-icon-btn" aria-label="My account" style={{ padding: 4 }}>
                   {user.avatar ? (
-                    <img src={user.avatar} alt={user.name || user.email} style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', display: 'block', border: '1.5px solid var(--gold)' }} />
+                    <img src={user.avatar} alt={user.name || user.email} width={28} height={28} decoding="async" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', display: 'block', border: '1.5px solid var(--gold)' }} />
                   ) : (
                     <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--gold)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 400 }}>
                       {getInitial()}
@@ -284,7 +285,7 @@ export function Navbar() {
                   return (
                     <button key={p.id} onClick={() => handleSearchClick(p.collection, p.slug)} className="search-result-item">
                       <div className="search-result-img">
-                        {img ? <img src={img} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : null}
+                        {img ? <img src={img} alt={p.name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : null}
                       </div>
                       <div>
                         <p style={{ fontSize: 13, color: 'var(--ink)', marginBottom: 3, textAlign: 'left' }}>{p.name}</p>

@@ -1,7 +1,8 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { subscribeEmail, isValidEmail } from '@osr/core/lib/client/subscribe'
+import { useBodyScrollLock } from '@/lib/use-body-scroll-lock'
 
 const STORAGE_KEY = 'osr_popup'
 
@@ -14,6 +15,15 @@ export default function WelcomePopup() {
   const [couponCode, setCouponCode] = useState('')
   const pathname                  = usePathname()
   const searchParams              = useSearchParams()
+  const dialogRef = useRef(null)
+  const submitting = useRef(false)
+  useBodyScrollLock(show)
+
+  const handleClose = useCallback(() => {
+    setShow(false)
+    const expires = Date.now() + 7 * 24 * 60 * 60 * 1000
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ dismissed: true, expires })) } catch {}
+  }, [])
 
   useEffect(() => {
     const verified = searchParams.get('verified')
@@ -42,7 +52,8 @@ export default function WelcomePopup() {
     if (pathname !== '/') return
     const verified = searchParams.get('verified')
     if (verified) return
-    const stored = localStorage.getItem(STORAGE_KEY)
+    let stored
+    try { stored = localStorage.getItem(STORAGE_KEY) } catch { return }
     if (stored) {
       try {
         const data = JSON.parse(stored)
@@ -53,55 +64,71 @@ export default function WelcomePopup() {
         if (stored === 'purchased') return
       }
     }
-    const fromInternal = sessionStorage.getItem('osr_internal')
+    let fromInternal
+    try { fromInternal = sessionStorage.getItem('osr_internal') } catch { return }
     if (fromInternal) return
     const timer = setTimeout(() => setShow(true), 3000)
     return () => clearTimeout(timer)
-  }, [pathname])
+  }, [pathname, searchParams])
 
   useEffect(() => {
-    sessionStorage.setItem('osr_internal', '1')
+    try { sessionStorage.setItem('osr_internal', '1') } catch {}
   }, [pathname])
 
   useEffect(() => {
     const nav = performance.getEntriesByType('navigation')[0]
     if (nav && (nav.type === 'navigate' || nav.type === 'reload')) {
       const ref = document.referrer
-      const isExternal = !ref || !ref.includes('onesilkribbon.com')
-      if (isExternal) sessionStorage.removeItem('osr_internal')
+      try {
+        const isExternal = !ref || new URL(ref).origin !== window.location.origin
+        if (isExternal) sessionStorage.removeItem('osr_internal')
+      } catch {}
     }
   }, [])
 
-  // 锁定 body 滚动
+  // Keep keyboard focus inside the visible offer; shared locking preserves
+  // the basket/menu lock when this dialog closes.
   useEffect(() => {
-    if (show) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
+    if (!show) return
+    const previous = document.activeElement
+    const controls = () => [...(dialogRef.current?.querySelectorAll('button:not([disabled]), input:not([disabled]), a[href]') || [])]
+    controls()[0]?.focus({ preventScroll: true })
+    const onKeyDown = event => {
+      if (event.key === 'Escape') { event.stopImmediatePropagation(); handleClose() }
+      if (event.key !== 'Tab') return
+      // The basket also traps Tab. As the top dialog, do not let its lower
+      // listener take focus back after this handler has selected our control.
+      event.stopImmediatePropagation()
+      const elements = controls()
+      const first = elements[0], last = elements[elements.length - 1]
+      if (!first) return
+      if (event.shiftKey && (document.activeElement === first || !dialogRef.current?.contains(document.activeElement))) {
+        event.preventDefault(); last.focus()
+      } else if (!event.shiftKey && (document.activeElement === last || !dialogRef.current?.contains(document.activeElement))) {
+        event.preventDefault(); first.focus()
+      }
     }
-    return () => { document.body.style.overflow = '' }
-  }, [show])
-
-  const handleClose = () => {
-    setShow(false)
-    // Remember dismissed for 7 days
-    const expires = Date.now() + 7 * 24 * 60 * 60 * 1000
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ dismissed: true, expires }))
-  }
+    document.addEventListener('keydown', onKeyDown, true)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, true)
+      if (previous?.isConnected) previous.focus({ preventScroll: true })
+    }
+  }, [show, step, handleClose])
 
   const handleSubmit = async () => {
+    if (submitting.current) return
     if (!isValidEmail(email)) {
       setError('Please enter a valid email address')
       return
     }
+    submitting.current = true
     setLoading(true); setError('')
-    const result = await subscribeEmail(email, 'welcome_popup')
-    if (result.ok) {
-      setStep(result.already ? 'already' : 'sent')
-    } else {
-      setError(result.error)
-    }
-    setLoading(false)
+    try {
+      const result = await subscribeEmail(email, 'welcome_popup')
+      if (result.ok) setStep(result.already ? 'already' : 'sent')
+      else setError(result.error)
+    } catch { setError('We could not subscribe right now. Please try again.') }
+    finally { submitting.current = false; setLoading(false) }
   }
 
   if (!show) return null
@@ -113,7 +140,7 @@ export default function WelcomePopup() {
         zIndex:1000,backdropFilter:'blur(4px)',animation:'fadeIn 0.3s ease',
       }}/>
 
-      <div className="welcome-popup" style={{
+      <div ref={dialogRef} className="welcome-popup" role="dialog" aria-modal="true" aria-label="One Silk Ribbon welcome offer" style={{
         position:'fixed',
         zIndex:1001,
         background:'var(--cream)',
@@ -137,7 +164,7 @@ export default function WelcomePopup() {
 
         {/* Right / Main panel */}
         <div style={{padding:'40px 28px',position:'relative',textAlign: step !== 'form' ? 'center' : 'left', display:'flex', flexDirection:'column', justifyContent:'center'}}>
-          <button onClick={handleClose} style={{
+          <button aria-label="Close welcome offer" onClick={handleClose} style={{
             position:'absolute',top:12,right:12,
             background:'none',border:'none',color:'var(--taupe)',
             fontSize:20,cursor:'pointer',lineHeight:1,
@@ -157,14 +184,14 @@ export default function WelcomePopup() {
               Join our community and receive an exclusive discount on your first order.
             </p>
             <div style={{marginBottom:12}}>
-              <label style={{fontSize:10,letterSpacing:'0.15em',textTransform:'uppercase',color:'var(--taupe)',display:'block',marginBottom:8}}>Email Address</label>
-              <input type="email" value={email}
+              <label htmlFor="welcome-email" style={{fontSize:10,letterSpacing:'0.15em',textTransform:'uppercase',color:'var(--taupe)',display:'block',marginBottom:8}}>Email Address</label>
+              <input id="welcome-email" name="email" autoComplete="email" aria-invalid={!!error} aria-describedby={error ? 'welcome-email-error' : undefined} type="email" value={email}
                 onChange={e => { setEmail(e.target.value); setError('') }}
                 onKeyDown={e => e.key === 'Enter' && handleSubmit()}
                 placeholder="your@email.com"
                 style={{width:'100%',padding:'14px',boxSizing:'border-box',background:'#fff',border:'1px solid var(--warm)',fontFamily:'var(--font-body)',fontSize:16,color:'var(--ink)',outline:'none',borderRadius:0,WebkitAppearance:'none'}}
               />
-              {error && <p style={{fontSize:11,color:'#C0392B',marginTop:6}}>{error}</p>}
+              {error && <p id="welcome-email-error" role="alert" style={{fontSize:11,color:'#C0392B',marginTop:6}}>{error}</p>}
             </div>
             <button onClick={handleSubmit} disabled={loading} style={{
               width:'100%',padding:'16px',background:'var(--ink)',border:'none',

@@ -1,48 +1,59 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import AccountLayout from '@osr/core/components/AccountLayout'
 import { useAuth } from '@osr/core/lib/auth'
+import { accountRequest } from '@/lib/account-request'
 
 export default function ProfilePage() {
-  const { user, refreshUser } = useAuth()
+  const { user } = useAuth()
   const [form, setForm] = useState({ first_name: '', last_name: '', phone: '' })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
+  const [loaded, setLoaded] = useState(false)
+  const [retry, setRetry] = useState(0)
+  const loadedUser = useRef(null)
+  const savingRef = useRef(false)
+  const successTimer = useRef(null)
+  useEffect(() => () => clearTimeout(successTimer.current), [])
 
   useEffect(() => {
     if (!user) return
-    fetch('/api/user/profile', { headers: { Authorization: `Bearer ${user.accessToken || ''}` } })
-      .then(r => r.json())
+    if (loadedUser.current === user.id) return
+    const controller = new AbortController()
+    setLoading(true); setError(''); setLoaded(false)
+    accountRequest('/api/user/profile', user, { signal: controller.signal })
       .then(data => {
-        if (data.profile) setForm({ first_name: data.profile.first_name || '', last_name: data.profile.last_name || '', phone: data.profile.phone || '' })
-        setLoading(false)
+        if (!data.profile) throw new Error('Unable to load profile. Please try again.')
+        if (controller.signal.aborted) return
+        setForm({ first_name: data.profile.first_name || '', last_name: data.profile.last_name || '', phone: data.profile.phone || '' })
+        loadedUser.current = user.id
+        setLoaded(true)
       })
-      .catch(() => setLoading(false))
-  }, [user])
+      .catch(err => { if (!controller.signal.aborted) setError(err.message || 'Unable to load profile. Please try again.') })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    return () => controller.abort()
+  }, [user, retry])
 
   const save = async () => {
+    if (!user || !loaded || savingRef.current) return
+    savingRef.current = true
     setSaving(true); setError(''); setSuccess(false)
     try {
-      const res = await fetch('/api/user/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.accessToken}` },
-        body: JSON.stringify(form),
-      })
-      if (!res.ok) throw new Error()
+      await accountRequest('/api/user/profile', user, { method: 'PATCH', body: form })
       setSuccess(true)
-      await refreshUser()
-      setTimeout(() => setSuccess(false), 3000)
-    } catch { setError('Failed to save. Please try again.') }
-    setSaving(false)
+      clearTimeout(successTimer.current)
+      successTimer.current = setTimeout(() => setSuccess(false), 3000)
+    } catch (err) { setError(err.message || 'Failed to save. Please try again.') }
+    finally { savingRef.current = false; setSaving(false) }
   }
 
   const inp = (field, label, type = 'text') => (
     <div>
-      <label style={{ fontSize: 10, letterSpacing: '.22em', textTransform: 'uppercase', color: 'var(--deep)', display: 'block', marginBottom: 8 }}>{label}</label>
+      <label htmlFor={`profile-${field}`} style={{ fontSize: 10, letterSpacing: '.22em', textTransform: 'uppercase', color: 'var(--deep)', display: 'block', marginBottom: 8 }}>{label}</label>
       <input
-        type={type} value={form[field]}
+        id={`profile-${field}`} name={field} type={type} value={form[field]} disabled={!loaded}
         onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))}
         style={{ width: '100%', padding: '12px 14px', border: '1px solid var(--sand)', background: '#fff', fontSize: 13, color: 'var(--ink)', fontFamily: 'var(--font-body)', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
         onFocus={e => e.target.style.borderColor = 'var(--gold)'}
@@ -60,12 +71,12 @@ export default function ProfilePage() {
         {/* Google 账户显示 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 0 20px', borderBottom: '1px solid var(--mist)', marginBottom: 24 }}>
           {user?.avatar
-            ? <img src={user.avatar} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
+            ? <img src={user.avatar} alt="" width={40} height={40} loading="lazy" decoding="async" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
             : <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--gold)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>{(user?.name || user?.email || '?')[0].toUpperCase()}</div>
           }
           <div>
             <p style={{ fontSize: 12, color: 'var(--ink)', marginBottom: 2 }}>{user?.email}</p>
-            <p style={{ fontSize: 10, color: 'var(--taupe)', letterSpacing: '.06em' }}>Signed in with Google</p>
+            <p style={{ fontSize: 10, color: 'var(--taupe)', letterSpacing: '.06em' }}>Signed in to your account</p>
           </div>
         </div>
 
@@ -79,10 +90,11 @@ export default function ProfilePage() {
             {inp('last_name', 'Last Name')}
             {inp('phone', 'Phone Number', 'tel')}
 
-            {error && <p style={{ fontSize: 12, color: '#B91C1C' }}>{error}</p>}
-            {success && <p style={{ fontSize: 12, color: '#15803D' }}>✓ Profile saved successfully.</p>}
+            {error && <p role="alert" style={{ fontSize: 12, color: '#B91C1C' }}>{error}</p>}
+            {!loaded && <button onClick={() => setRetry(value => value + 1)} className="btn-text">Retry loading profile</button>}
+            {success && <p role="status" style={{ fontSize: 12, color: '#15803D' }}>✓ Profile saved successfully.</p>}
 
-            <button onClick={save} disabled={saving} style={{
+            <button onClick={save} disabled={saving || !loaded} style={{
               padding: '12px 28px', background: saving ? 'var(--warm)' : 'var(--gold)',
               border: 'none', color: '#fff', fontSize: 10, letterSpacing: '.22em',
               textTransform: 'uppercase', cursor: saving ? 'default' : 'pointer',

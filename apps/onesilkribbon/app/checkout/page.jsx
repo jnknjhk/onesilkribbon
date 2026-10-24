@@ -1,11 +1,13 @@
 'use client'
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useCart } from '@/lib/cart'
 import { useAuth } from '@osr/core/lib/auth'
 import { formatGBP, calculateTotals, shippingSettingsFromApi } from '@/lib/pricing'
+import { accountRequest } from '@/lib/account-request'
+import { mergeCheckoutAutofill } from '@/lib/checkout-autofill'
 
 const PAYMENT_ERROR_MESSAGES = {
   not_completed: 'Your PayPal payment was not completed. You have not been charged — please try again.',
@@ -88,7 +90,8 @@ function CheckoutContent() {
   const [shippingSettings, setShippingSettings] = useState(null)
   const [shippingError, setShippingError] = useState('')
   const [paymentRequestError, setPaymentRequestError] = useState('')
-  const [addressPrefilled, setAddressPrefilled] = useState(false)
+  const prefilledUser = useRef(null)
+  const editedFields = useRef(new Set())
   const [continuing, setContinuing] = useState(false)
   const [stockError, setStockError] = useState('')
 
@@ -107,40 +110,25 @@ function CheckoutContent() {
 
   // ── 登录用户自动预填默认地址 ──────────────────────────────────────────────
   useEffect(() => {
-    if (!user || addressPrefilled) return
-    const token = user.accessToken
-    if (!token) {
-      // 至少预填邮箱
-      setForm(prev => ({ ...prev, email: user.email || prev.email }))
-      return
-    }
-    fetch('/api/user/addresses', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
+    if (!user || prefilledUser.current === user.id) return
+    const controller = new AbortController()
+    setForm(prev => mergeCheckoutAutofill(prev, { email: user.email }, editedFields.current))
+    accountRequest('/api/user/addresses', user, { signal: controller.signal })
       .then(data => {
+        if (controller.signal.aborted) return
         const addrs = data.addresses || []
         const def = addrs.find(a => a.is_default) || addrs[0]
-        const country = def?.country || 'GB'
-        const countryData = getCountry(country)
-        setForm(prev => ({
-          ...prev,
-          email:     user.email        || prev.email,
-          firstName: def?.first_name   || prev.firstName,
-          lastName:  def?.last_name    || prev.lastName,
-          line1:     def?.line1        || prev.line1,
-          line2:     def?.line2        || prev.line2,
-          city:      def?.city         || prev.city,
-          postcode:  def?.postcode     || prev.postcode,
-          country:   country,
-          dialCode:  countryData.dialCode,
-          phone:     def?.phone        || prev.phone,
-        }))
-        setAddressPrefilled(true)
+        setForm(prev => mergeCheckoutAutofill(prev, {
+          email: user.email, firstName: def?.first_name, lastName: def?.last_name,
+          line1: def?.line1, line2: def?.line2, city: def?.city,
+          postcode: def?.postcode, country: def?.country,
+          dialCode: def?.country ? getCountry(def.country).dialCode : undefined,
+          phone: def?.phone,
+        }, editedFields.current))
       })
-      .catch(() => {
-        // 没有地址也预填邮箱
-        setForm(prev => ({ ...prev, email: user.email || prev.email }))
-        setAddressPrefilled(true)
-      })
+      .catch(() => {}) // Email is already filled; manual details remain usable.
+      .finally(() => { if (!controller.signal.aborted) prefilledUser.current = user.id })
+    return () => controller.abort()
   }, [user])
 
   if (items.length === 0) {
@@ -155,12 +143,14 @@ function CheckoutContent() {
   }
 
   const handleCountryChange = code => {
+    for (const field of ['country', 'dialCode', 'postcode']) editedFields.current.add(field)
     const c = getCountry(code)
     setForm(p => ({ ...p, country:code, dialCode:c.dialCode, postcode:'' }))
     setErrors(p => ({ ...p, postcode:'', phone:'' }))
   }
 
   const handleChange = (field, value) => {
+    editedFields.current.add(field)
     let v = value
     if (field === 'postcode') { const c = getCountry(form.country); if (['GB','IE'].includes(c.code)) v = value.toUpperCase() }
     setForm(p => ({ ...p, [field]: v }))
@@ -331,17 +321,17 @@ function CheckoutContent() {
                 <Field id="city" label="City / Town" half autoComplete="address-level2" value={form.city} error={errors.city} touch={touched.city} onChange={handleChange} onBlur={handleBlur} />
 
                 <div style={{ gridColumn:'span 1' }}>
-                  <label className="input-label">{country.noPostcode ? 'Postcode (not required)' : `Postcode — e.g. ${country.postcodeTip}`}</label>
-                  <input type="text" value={form.postcode} className="input" disabled={country.noPostcode}
+                  <label htmlFor="checkout-postcode" className="input-label">{country.noPostcode ? 'Postcode (not required)' : `Postcode — e.g. ${country.postcodeTip}`}</label>
+                  <input id="checkout-postcode" name="postcode" autoComplete="postal-code" aria-invalid={!!errors.postcode} aria-describedby={errors.postcode ? 'checkout-postcode-error' : undefined} type="text" value={form.postcode} className="input" disabled={country.noPostcode}
                     placeholder={country.noPostcode ? 'N/A' : country.postcodeTip}
                     onChange={e => handleChange('postcode', e.target.value)} onBlur={() => handleBlur('postcode')}
                     style={{ borderColor: errors.postcode ? '#C0392B' : touched.postcode && !errors.postcode ? '#5a8a5a' : undefined, opacity: country.noPostcode ? 0.5 : 1 }} />
-                  {errors.postcode && <p style={{ fontSize:11, color:'#C0392B', marginTop:4 }}>{errors.postcode}</p>}
+                  {errors.postcode && <p id="checkout-postcode-error" role="alert" style={{ fontSize:11, color:'#C0392B', marginTop:4 }}>{errors.postcode}</p>}
                 </div>
 
                 <div style={{ gridColumn:'span 2' }}>
-                  <label className="input-label">Country</label>
-                  <select className="input" value={form.country} onChange={e => handleCountryChange(e.target.value)}>
+                  <label htmlFor="checkout-country" className="input-label">Country</label>
+                  <select id="checkout-country" name="country" autoComplete="country" className="input" value={form.country} onChange={e => handleCountryChange(e.target.value)}>
                     {CONTINENTS.map(cont => (
                       <optgroup key={cont} label={cont}>
                         {COUNTRIES.filter(c => c.continent === cont).map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
@@ -351,17 +341,17 @@ function CheckoutContent() {
                 </div>
 
                 <div style={{ gridColumn:'span 2' }}>
-                  <label className="input-label">Phone Number</label>
+                  <label htmlFor="checkout-phone" className="input-label">Phone Number</label>
                   <div style={{ display:'flex', gap:8 }}>
-                    <select value={form.dialCode} onChange={e => setForm(p => ({ ...p, dialCode:e.target.value }))}
+                    <select aria-label="Telephone country calling code" name="dialCode" autoComplete="tel-country-code" value={form.dialCode} onChange={e => handleChange('dialCode', e.target.value)}
                       style={{ width:120, padding:'12px 10px', background:'var(--cream)', border:'1px solid var(--warm)', fontFamily:'var(--font-body)', fontSize:13, color:'var(--ink)', outline:'none', flexShrink:0 }}>
                       {DIAL_CODES.map(c => <option key={c.dialCode} value={c.dialCode}>{c.dialCode} {c.name}</option>)}
                     </select>
                     <div style={{ flex:1 }}>
-                      <input type="tel" value={form.phone} className="input" placeholder="e.g. 07700900123" autoComplete="tel-national"
+                      <input id="checkout-phone" name="phone" aria-invalid={!!errors.phone} aria-describedby={errors.phone ? 'checkout-phone-error' : undefined} type="tel" value={form.phone} className="input" placeholder="e.g. 07700900123" autoComplete="tel-national"
                         onChange={e => handleChange('phone', e.target.value)} onBlur={() => handleBlur('phone')}
                         style={{ borderColor: errors.phone ? '#C0392B' : touched.phone && !errors.phone ? '#5a8a5a' : undefined }} />
-                      {errors.phone && <p style={{ fontSize:11, color:'#C0392B', marginTop:4 }}>{errors.phone}</p>}
+                      {errors.phone && <p id="checkout-phone-error" role="alert" style={{ fontSize:11, color:'#C0392B', marginTop:4 }}>{errors.phone}</p>}
                     </div>
                   </div>
                 </div>
@@ -438,7 +428,7 @@ function CheckoutContent() {
 
             <div style={{ marginBottom:20 }}>
               <div style={{ display:'flex', gap:8 }}>
-                <input value={couponCode}
+                <input aria-label="Promo code" name="coupon" value={couponCode}
                   onChange={e => { setCouponCode(e.target.value); setCouponError(''); setCoupon(null) }}
                   onKeyDown={e => e.key === 'Enter' && applyCoupon()}
                   placeholder="Promo code"

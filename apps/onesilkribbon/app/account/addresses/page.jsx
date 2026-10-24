@@ -1,7 +1,8 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import AccountLayout from '@osr/core/components/AccountLayout'
 import { useAuth } from '@osr/core/lib/auth'
+import { accountRequest } from '@/lib/account-request'
 
 const COUNTRIES = [
   { code: 'GB', name: 'United Kingdom' }, { code: 'US', name: 'United States' },
@@ -17,10 +18,10 @@ const COUNTRIES = [
 
 const EMPTY_FORM = { label: 'Home', first_name: '', last_name: '', line1: '', line2: '', city: '', postcode: '', country: 'GB', phone: '', is_default: false }
 
-function Field({ label, children }) {
+function Field({ label, id, children }) {
   return (
     <div>
-      <label style={{ fontSize: 10, letterSpacing: '.22em', textTransform: 'uppercase', color: 'var(--deep)', display: 'block', marginBottom: 7 }}>{label}</label>
+      <label htmlFor={id} style={{ fontSize: 10, letterSpacing: '.22em', textTransform: 'uppercase', color: 'var(--deep)', display: 'block', marginBottom: 7 }}>{label}</label>
       {children}
     </div>
   )
@@ -37,8 +38,8 @@ function AddressForm({ initial, onSave, onCancel, saving }) {
   const [form, setForm] = useState(initial || EMPTY_FORM)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const inp = (k, label, opts = {}) => (
-    <Field label={label}>
-      <input {...opts} value={form[k]} onChange={e => set(k, e.target.value)}
+    <Field label={label} id={`address-${k}`}>
+      <input {...opts} id={`address-${k}`} name={k} value={form[k]} onChange={e => set(k, e.target.value)}
         style={inputStyle}
         onFocus={e => e.target.style.borderColor = 'var(--gold)'}
         onBlur={e => e.target.style.borderColor = 'var(--sand)'}
@@ -48,8 +49,8 @@ function AddressForm({ initial, onSave, onCancel, saving }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <Field label="Label">
-        <select value={form.label} onChange={e => set('label', e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+      <Field label="Label" id="address-label">
+        <select id="address-label" value={form.label} onChange={e => set('label', e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
           {['Home', 'Work', 'Other'].map(l => <option key={l} value={l}>{l}</option>)}
         </select>
       </Field>
@@ -63,8 +64,8 @@ function AddressForm({ initial, onSave, onCancel, saving }) {
         {inp('city', 'City')}
         {inp('postcode', 'Postcode')}
       </div>
-      <Field label="Country">
-        <select value={form.country} onChange={e => set('country', e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+      <Field label="Country" id="address-country">
+        <select id="address-country" value={form.country} onChange={e => set('country', e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
           {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
         </select>
       </Field>
@@ -81,7 +82,7 @@ function AddressForm({ initial, onSave, onCancel, saving }) {
         }}>
           {saving ? 'Saving…' : 'Save Address'}
         </button>
-        <button onClick={onCancel} style={{
+        <button onClick={onCancel} disabled={saving} style={{
           padding: '11px 20px', background: 'none', border: '1px solid var(--sand)',
           fontSize: 10, letterSpacing: '.2em', textTransform: 'uppercase',
           cursor: 'pointer', fontFamily: 'var(--font-body)', color: 'var(--taupe)',
@@ -100,34 +101,54 @@ export default function AddressesPage() {
   const [saving, setSaving] = useState(false)
   const [mode, setMode] = useState(null) // null | 'add' | { edit: address }
   const [deleteId, setDeleteId] = useState(null)
+  const [error, setError] = useState('')
+  const operation = useRef(false)
 
-  const headers = { Authorization: `Bearer ${user?.accessToken}`, 'Content-Type': 'application/json' }
-
-  useEffect(() => { load() }, [user])
-
-  const load = async () => {
+  const load = useCallback(async (signal) => {
     if (!user) return
-    const res = await fetch('/api/user/addresses', { headers })
-    const data = await res.json()
-    setAddresses(data.addresses || [])
-    setLoading(false)
-  }
+    setLoading(true)
+    setError('')
+    try {
+      const data = await accountRequest('/api/user/addresses', user, { signal })
+      if (!Array.isArray(data.addresses)) throw new Error('Unable to load saved addresses. Please try again.')
+      if (!signal?.aborted) setAddresses(data.addresses)
+    } catch (err) {
+      if (!signal?.aborted) setError(err.message || 'Unable to load saved addresses. Please try again.')
+    } finally { if (!signal?.aborted) setLoading(false) }
+  }, [user])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    load(controller.signal)
+    return () => controller.abort()
+  }, [load])
 
   const saveAddress = async (form) => {
+    if (!user || operation.current) return
+    operation.current = true
     setSaving(true)
-    if (mode === 'add') {
-      await fetch('/api/user/addresses', { method: 'POST', headers, body: JSON.stringify(form) })
-    } else {
-      await fetch('/api/user/addresses', { method: 'PATCH', headers, body: JSON.stringify({ id: mode.edit.id, ...form }) })
-    }
-    await load(); setMode(null); setSaving(false)
+    setError('')
+    try {
+      await accountRequest('/api/user/addresses', user, {
+        method: mode === 'add' ? 'POST' : 'PATCH',
+        body: mode === 'add' ? form : { ...form, id: mode.edit.id },
+      })
+      setMode(null)
+      await load()
+    } catch (err) { setError(err.message || 'Address was not saved. Please try again.') }
+    finally { operation.current = false; setSaving(false) }
   }
 
   const remove = async (id) => {
+    if (!user || operation.current || !window.confirm('Remove this saved address?')) return
+    operation.current = true
     setDeleteId(id)
-    await fetch('/api/user/addresses', { method: 'DELETE', headers, body: JSON.stringify({ id }) })
-    setAddresses(prev => prev.filter(a => a.id !== id))
-    setDeleteId(null)
+    setError('')
+    try {
+      await accountRequest('/api/user/addresses', user, { method: 'DELETE', body: { id } })
+      setAddresses(prev => prev.filter(a => a.id !== id))
+    } catch (err) { setError(err.message || 'Address was not removed. Please try again.') }
+    finally { operation.current = false; setDeleteId(null) }
   }
 
   return (
@@ -146,6 +167,10 @@ export default function AddressesPage() {
         )}
       </div>
 
+      {error && <div role="alert" style={{ color: '#B91C1C', fontSize: 13, marginBottom: 20 }}>
+        {error} <button onClick={() => load()} disabled={saving || !!deleteId} className="btn-text">Retry loading</button>
+      </div>}
+
       {/* 新增表单 */}
       {mode === 'add' && (
         <div style={{ background: '#fff', border: '1px solid var(--sand)', padding: '24px', marginBottom: 20 }}>
@@ -158,7 +183,7 @@ export default function AddressesPage() {
         <div style={{ padding: '60px 0', textAlign: 'center' }}>
           <div style={{ width: 20, height: 20, border: '2px solid var(--sand)', borderTopColor: 'var(--gold)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto' }} />
         </div>
-      ) : addresses.length === 0 && mode !== 'add' ? (
+      ) : !error && addresses.length === 0 && mode !== 'add' ? (
         <div style={{ background: '#fff', border: '1px solid var(--sand)', padding: '48px 24px', textAlign: 'center' }}>
           <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--warm)" strokeWidth="1" style={{ margin: '0 auto 14px' }}>
             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>

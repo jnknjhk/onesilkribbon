@@ -1,8 +1,7 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { supabase } from '@osr/core/lib/supabase'
 
 const COLLECTION_META = {
   'fine-silk-ribbons':        { name: 'Fine Silk Ribbons',        desc: 'Our signature ultra-fine 100% mulberry silk ribbons, in widths from 2mm to 10mm and 30 hand-selected colourways.', bg: 'linear-gradient(135deg,#D4C5B0,#9A8878)' },
@@ -25,59 +24,12 @@ function safeNum(val) {
 }
 
 export default function CollectionClient({ initialProducts, slug: initialSlug, initialHeroImage = null }) {
-  const [slug, setSlug] = useState(initialSlug || '')
-  const [products, setProducts] = useState(initialProducts || [])
-  const [loading, setLoading] = useState(initialProducts === undefined)
+  // The server always supplies the catalog. Read props directly so switching
+  // collections cannot retain the previous collection's state or refetch it.
+  const slug = initialSlug || ''
+  const products = initialProducts || []
   const [sort, setSort] = useState('default')
-  const [heroVisible, setHeroVisible] = useState(false)
-  const [heroImg, setHeroImg] = useState(initialHeroImage)
-
-// Hero image loaded server-side via initialHeroImage prop
-
-  useEffect(() => {
-    if (!slug) return
-    // Skip client fetch if SSR already provided products — checking the prop was passed at all,
-    // not its length, so a genuinely empty collection doesn't trigger a pointless refetch
-    if (initialProducts !== undefined) {
-      setLoading(false)
-      return
-    }
-    async function load() {
-      setLoading(true)
-      try {
-        const { data: prods, error } = await supabase
-          .from('products')
-          .select('id, name, slug, images, is_featured, collection')
-          .eq('collection', slug)
-          .eq('is_active', true)
-
-        if (error) throw error
-
-        const enriched = await Promise.all((prods || []).map(async (p) => {
-          try {
-            const { data: skus } = await supabase
-              .from('product_skus')
-              .select('price_gbp, colour, colour_hex, id, stock_qty')
-              .eq('product_id', p.id)
-              .order('price_gbp', { ascending: true })
-
-            const skuList = skus || []
-            const lowestPrice = safeNum(skuList[0]?.price_gbp)
-            const firstSku = skuList[0] || null
-            return { ...p, lowestPrice, firstSku }
-          } catch {
-            return { ...p, lowestPrice: 0, firstSku: null }
-          }
-        }))
-
-        setProducts(enriched)
-      } catch (e) {
-        console.error(e)
-      }
-      setLoading(false)
-    }
-    load()
-  }, [slug])
+  const heroImg = initialHeroImage
 
   const meta = COLLECTION_META[slug] || { name: slug, desc: '', bg: 'var(--sand)', hero: null }
 
@@ -109,8 +61,8 @@ export default function CollectionClient({ initialProducts, slug: initialSlug, i
           position: 'relative', zIndex: 1,
           textAlign: 'center', padding: '0 24px',
           maxWidth: 640, margin: '0 auto',
-          opacity: heroVisible ? 1 : 0,
-          transform: heroVisible ? 'translateY(0)' : 'translateY(24px)',
+          opacity: 1,
+          transform: 'translateY(0)',
           transition: 'opacity 0.9s ease, transform 0.9s ease',
         }}>
           <p style={{ fontSize: 10, letterSpacing: '0.28em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.55)', marginBottom: 20 }}>
@@ -134,7 +86,7 @@ export default function CollectionClient({ initialProducts, slug: initialSlug, i
           </h1>
 
           <div style={{
-            width: heroVisible ? 56 : 0, height: 1,
+            width: 56, height: 1,
             background: 'var(--gold)', margin: '0 auto 24px',
             transition: 'width 1.1s ease 0.4s',
           }} />
@@ -142,7 +94,7 @@ export default function CollectionClient({ initialProducts, slug: initialSlug, i
           <p style={{
             fontSize: 14, color: 'rgba(255,255,255,0.72)',
             lineHeight: 1.9, maxWidth: 460, margin: '0 auto',
-            opacity: heroVisible ? 1 : 0,
+            opacity: 1,
             transition: 'opacity 0.9s ease 0.3s',
           }}>
             {meta.desc}
@@ -159,11 +111,11 @@ export default function CollectionClient({ initialProducts, slug: initialSlug, i
       {/* Toolbar */}
       <div className="coll-toolbar">
         <span style={{ fontSize: 11, color: 'var(--taupe)', letterSpacing: '0.08em' }}>
-          {loading ? '' : `${sorted.length} ${sorted.length === 1 ? 'product' : 'products'}`}
+          {`${sorted.length} ${sorted.length === 1 ? 'product' : 'products'}`}
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe)' }}>Sort</span>
-          <select value={sort} onChange={e => setSort(e.target.value)} style={{
+          <select aria-label="Sort products" value={sort} onChange={e => setSort(e.target.value)} style={{
             fontSize: 12, color: 'var(--deep)', background: 'transparent',
             border: '1px solid var(--warm)', padding: '8px 14px',
             cursor: 'pointer', outline: 'none',
@@ -178,11 +130,7 @@ export default function CollectionClient({ initialProducts, slug: initialSlug, i
 
       {/* Grid */}
       <div className="coll-content">
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '100px 0' }}>
-            <p style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontStyle: 'italic', color: 'var(--taupe)' }}>Loading collection…</p>
-          </div>
-        ) : sorted.length === 0 ? (
+        {sorted.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '100px 0' }}>
             <p style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontStyle: 'italic', color: 'var(--taupe)' }}>No products found</p>
           </div>

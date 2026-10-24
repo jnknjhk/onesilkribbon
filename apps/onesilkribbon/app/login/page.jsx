@@ -3,8 +3,10 @@ import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@osr/core/lib/auth'
 import Link from 'next/link'
+import Image from 'next/image'
 import { safeNextPath } from '@osr/core/lib/safe-next'
 import { createSupabaseBrowserClient } from '@osr/core/lib/supabase'
+import { useBodyScrollLock } from '@/lib/use-body-scroll-lock'
 
 function LoginContent() {
   const { user, loading, signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth()
@@ -25,24 +27,29 @@ function LoginContent() {
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotLoading, setForgotLoading] = useState(false)
   const [forgotMsg, setForgotMsg] = useState('')
+  useBodyScrollLock(showForgot)
 
   useEffect(() => {
     if (!loading && user) router.replace(next)
-  }, [user, loading])
+  }, [user, loading, next, router])
 
   const handleForgotPassword = async () => {
+    if (forgotLoading) return
     if (!forgotEmail.trim()) { setForgotMsg('Please enter your email'); return }
     setForgotLoading(true)
-    const supabase = createSupabaseBrowserClient()
-    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
-      redirectTo: `${window.location.origin}/account/reset-password`,
-    })
-    if (error) setForgotMsg('Something went wrong. Please try again.')
-    else setForgotMsg('Password reset email sent. Please check your inbox.')
-    setForgotLoading(false)
+    try {
+      const supabase = createSupabaseBrowserClient()
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+        redirectTo: `${window.location.origin}/account/reset-password`,
+      })
+      if (error) throw error
+      setForgotMsg('Password reset email sent. Please check your inbox.')
+    } catch { setForgotMsg('Something went wrong. Please try again.') }
+    finally { setForgotLoading(false) }
   }
 
   const handleEmailSubmit = async () => {
+    if (submitting) return
     if (!email || !password) { setError('Please fill in all fields'); return }
     setSubmitting(true); setError('')
     try {
@@ -62,14 +69,14 @@ function LoginContent() {
 
   if (loading || user) return null
 
-  const C = { gold: 'var(--gold)', ink: 'var(--ink)', taupe: 'var(--taupe)', cream: 'var(--cream)', warm: 'var(--warm)', sand: 'var(--sand)' }
+  const C = { gold: 'var(--gold)', ink: 'var(--ink)', taupe: 'var(--taupe)', muted: 'var(--taupe)', cream: 'var(--cream)', warm: 'var(--warm)', sand: 'var(--sand)' }
 
   return (
     <div style={{ minHeight: '100vh', background: C.cream, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px 40px' }}>
       <div style={{ width: '100%', maxWidth: 400 }}>
 
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
-          <Link href="/"><img src="/images/logo.png" alt="One Silk Ribbon" style={{ width: 52, height: 52, borderRadius: '50%', objectFit: 'cover', margin: '0 auto 16px', display: 'block' }} /></Link>
+          <Link href="/"><Image src="/images/logo.png" alt="One Silk Ribbon" width={52} height={52} style={{ borderRadius: '50%', objectFit: 'cover', margin: '0 auto 16px', display: 'block' }} /></Link>
           <p style={{ fontSize: 9, letterSpacing: '.42em', textTransform: 'uppercase', color: C.gold, marginBottom: 8 }}>One Silk Ribbon</p>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 300, color: C.ink }}>
             {mode === 'login' ? 'Sign in to your account' : 'Create an account'}
@@ -83,17 +90,17 @@ function LoginContent() {
           <div style={{ background: '#fff', border: '1px solid var(--warm)', padding: '32px 28px', marginBottom: 16 }}>
             {mode === 'signup' && (
               <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: C.taupe, display: 'block', marginBottom: 6 }}>Full Name</label>
-                <input value={name} onChange={e => setName(e.target.value)} placeholder="Jane Smith" className="input" style={{ width: '100%', boxSizing: 'border-box' }} />
+                <label htmlFor="login-name" style={{ fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: C.taupe, display: 'block', marginBottom: 6 }}>Full Name</label>
+                <input id="login-name" name="name" autoComplete="name" value={name} onChange={e => setName(e.target.value)} placeholder="Jane Smith" className="input" style={{ width: '100%', boxSizing: 'border-box' }} />
               </div>
             )}
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: C.taupe, display: 'block', marginBottom: 6 }}>Email Address</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleEmailSubmit()} placeholder="you@example.com" className="input" style={{ width: '100%', boxSizing: 'border-box' }} />
+              <label htmlFor="login-email" style={{ fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: C.taupe, display: 'block', marginBottom: 6 }}>Email Address</label>
+              <input id="login-email" name="email" autoComplete="email" type="email" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleEmailSubmit()} placeholder="you@example.com" className="input" style={{ width: '100%', boxSizing: 'border-box' }} />
             </div>
             <div style={{ marginBottom: 24 }}>
-              <label style={{ fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: C.taupe, display: 'block', marginBottom: 6 }}>Password</label>
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleEmailSubmit()} placeholder="••••••••" className="input" style={{ width: '100%', boxSizing: 'border-box' }} />
+              <label htmlFor="login-password" style={{ fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: C.taupe, display: 'block', marginBottom: 6 }}>Password</label>
+              <input id="login-password" name="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} type="password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleEmailSubmit()} placeholder="••••••••" className="input" style={{ width: '100%', boxSizing: 'border-box' }} />
             </div>
 
             {mode === 'login' && (
@@ -143,7 +150,7 @@ function LoginContent() {
                 <p style={{ fontSize: 13, color: forgotMsg.includes('sent') ? '#166534' : '#991b1b', lineHeight: 1.7 }}>{forgotMsg}</p>
               ) : (
                 <>
-                  <input type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)}
+                  <input aria-label="Email for password reset" autoComplete="email" type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleForgotPassword()}
                     placeholder="your@email.com" className="input" style={{ width: '100%', boxSizing: 'border-box', marginBottom: 16 }} />
                   <button onClick={handleForgotPassword} disabled={forgotLoading} className="btn-primary" style={{ width: '100%' }}>

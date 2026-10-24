@@ -13,7 +13,7 @@ function ConfirmContent() {
     // next 来自 URL，必须过滤成站内路径再拿来跳转（见 safe-next.js）
     const next = safeNextPath(searchParams.get('next'))
     router.replace(next)
-  }, [])
+  }, [router, searchParams])
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--cream)' }}>

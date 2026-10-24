@@ -471,7 +471,7 @@ function CheckoutContent() {
             )}
           </div>
           <div style={{ display:'flex', justifyContent:'center', gap:32, marginTop:20 }}>
-            {['🔒 Secure','↩ 30-day returns'].map(t => (
+            {['🔒 Secure','↩ Returns policy applies'].map(t => (
               <span key={t} style={{ fontSize:10, color:'var(--taupe)', letterSpacing:'0.08em' }}>{t}</span>
             ))}
           </div>

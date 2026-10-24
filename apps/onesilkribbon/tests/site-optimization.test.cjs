@@ -133,5 +133,6 @@ test('checkout cannot show a payable fallback total before delivery settings loa
   assert.match(checkout, /disabled=\{loading \|\| !shippingSettings\}/)
   assert.match(checkout, /setShippingError\(/)
   assert.match(checkout, /paymentRequestError && <p role="alert"/)
+  assert.doesNotMatch(checkout, /30-day returns/)
   assert.match(read('components/CartDrawer.jsx'), /label="Total" value=\{!shippingSettings \? 'Calculating…'/)
 })

@@ -127,7 +127,7 @@ export default async function About() {
               Colour is one of the ways we tell stories.
             </p>
             <p style={{ fontSize: 15, fontWeight: 400, lineHeight: 2.2, color: 'var(--taupe)', marginBottom: 28 }}>
-              From quiet neutrals and soft, faded tones to deeper, more expressive shades, our collections are designed to offer colour for every kind of making. With over 200 colourways across our collections, there is always another shade to discover.
+              From quiet neutrals and soft, faded tones to deeper, more expressive shades, our collections offer colour for many kinds of making. Explore the available shades on each product page and choose the combination that suits your project.
             </p>
             <Link href="/collections" style={{ fontSize: 10, letterSpacing: '.2em', textTransform: 'uppercase', color: 'var(--gold)', textDecoration: 'none' }}>
               Explore All Ribbons →

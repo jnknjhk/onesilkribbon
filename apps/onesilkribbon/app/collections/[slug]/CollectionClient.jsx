@@ -2,15 +2,9 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { COLLECTION_META } from '@/lib/collection-content'
 
-const COLLECTION_META = {
-  'fine-silk-ribbons':        { name: 'Fine Silk Ribbons',        desc: 'Our signature ultra-fine 100% mulberry silk ribbons, in widths from 2mm to 10mm and 30 hand-selected colourways.', bg: 'linear-gradient(135deg,#D4C5B0,#9A8878)' },
-  'hand-frayed-silk-ribbons': { name: 'Hand-Frayed Silk Ribbons', desc: 'Each edge carefully frayed by hand for an ethereal, organic finish. Perfect for bouquets, invitations and fine craft.', bg: 'linear-gradient(135deg,#E8C9B8,#9A7A66)' },
-  'handcrafted-adornments':   { name: 'Handcrafted Adornments',   desc: 'Silk scrunchies, bows and decorative pieces — each made by hand from pure mulberry silk.', bg: 'linear-gradient(135deg,#B8A898,#4A3A30)' },
-  'patterned-ribbons':        { name: 'Patterned Ribbons',        desc: 'Botanical, geometric and heritage-inspired patterns printed on pure silk.', bg: 'linear-gradient(135deg,#C8D4C0,#5A7050)' },
-  'studio-tools':             { name: 'Studio Tools',             desc: 'Everything you need for a well-appointed ribbon and craft studio.', bg: 'linear-gradient(135deg,#D0D0C8,#5A5A54)' },
-  'vintage-inspired-ribbons': { name: 'Vintage-Inspired Ribbons', desc: 'Heritage tones and antique-inspired textures, evoking the romance of a bygone era.', bg: 'linear-gradient(135deg,#D4B8C0,#5A3A44)' },
-}
+
 
 function safe(val) {
   if (val === null || val === undefined) return ''
@@ -143,7 +137,25 @@ export default function CollectionClient({ initialProducts, slug: initialSlug, i
         )}
       </div>
 
+      {products.length > 0 && meta.guidance?.length > 0 && (
+        <section className="collection-guide" aria-labelledby="collection-guide-title">
+          <h2 id="collection-guide-title">{meta.guideTitle}</h2>
+          <div>{meta.guidance.map(paragraph => <p key={paragraph}>{paragraph}</p>)}</div>
+          <p className="collection-guide-links">
+            <Link href="/ribbon-guide">Help choosing ribbon</Link>
+            <Link href="/care-guide">Silk care guide</Link>
+            <Link href="/shipping-returns">Delivery &amp; returns</Link>
+          </p>
+        </section>
+      )}
+
       <style dangerouslySetInnerHTML={{ __html: `
+        .collection-guide { max-width: 1040px; margin: 0 auto; padding: 0 var(--page-padding) 80px; }
+        .collection-guide h2 { font-size: clamp(26px, 3vw, 36px); margin-bottom: 24px; }
+        .collection-guide > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; }
+        .collection-guide p { font-size: 15px; color: var(--deep); line-height: 1.9; }
+        .collection-guide-links { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 24px; }
+        .collection-guide-links a { display: inline-flex; align-items: center; min-height: 44px; color: var(--deep); text-decoration: underline; text-underline-offset: 4px; }
         .coll-hero {
           position: relative;
           height: clamp(380px, 48vw, 520px);
@@ -168,6 +180,7 @@ export default function CollectionClient({ initialProducts, slug: initialSlug, i
         }
         @media(max-width:1100px) { .prod-grid { grid-template-columns: repeat(3,1fr); } }
         @media(max-width:768px) {
+          .collection-guide > div { grid-template-columns: minmax(0, 1fr); gap: 16px; }
           .prod-grid { grid-template-columns: repeat(2,1fr); gap: 20px 14px; }
           .prod-grid > a { min-width: 0; overflow-wrap: anywhere; }
           .coll-content { padding: 32px 20px 80px; }

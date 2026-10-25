@@ -14,7 +14,7 @@ export async function generateMetadata() {
 
   return {
     title: 'Journal',
-    description: 'Wedding styling ideas, ribbon craft guides and behind-the-scenes stories from the One Silk Ribbon atelier in the UK.',
+    description: 'Wedding styling ideas, silk ribbon craft guides and behind-the-scenes stories from One Silk Ribbon.',
     alternates: { canonical: '/journal' },
     ...((count || 0) === 0 ? { robots: { index: false, follow: true } } : {}),
   }

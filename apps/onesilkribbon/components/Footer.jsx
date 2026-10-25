@@ -68,6 +68,7 @@ export function Footer() {
           { label: 'Shipping & Returns', href: '/shipping-returns' },
           { label: 'Track Your Order',   href: '/track-order' },
           { label: 'Silk Care Guide',    href: '/care-guide' },
+          { label: 'Choosing Silk Ribbon', href: '/ribbon-guide' },
           { label: 'Contact Us',         href: '/contact' },
           { label: 'FAQ',                href: '/faq' },
         ]} />

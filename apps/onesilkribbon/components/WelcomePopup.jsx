@@ -67,6 +67,9 @@ export default function WelcomePopup() {
     let fromInternal
     try { fromInternal = sessionStorage.getItem('osr_internal') } catch { return }
     if (fromInternal) return
+    // Let phone and tablet visitors reach the page without a promotional
+    // interstitial. The homepage offer button still opens this dialog by choice.
+    if (window.matchMedia('(max-width: 900px), (pointer: coarse)').matches) return
     const timer = setTimeout(() => setShow(true), 3000)
     return () => clearTimeout(timer)
   }, [pathname, searchParams])
@@ -114,6 +117,12 @@ export default function WelcomePopup() {
       if (previous?.isConnected) previous.focus({ preventScroll: true })
     }
   }, [show, step, handleClose])
+
+  useEffect(() => {
+    const openOffer = () => { setStep('form'); setError(''); setShow(true) }
+    window.addEventListener('osr:welcome-open', openOffer)
+    return () => window.removeEventListener('osr:welcome-open', openOffer)
+  }, [])
 
   const handleSubmit = async () => {
     if (submitting.current) return

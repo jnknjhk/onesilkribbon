@@ -22,7 +22,7 @@ async function page(path) {
 async function main() {
   const home = await page('/')
   assert.match(home, /data-scroll-behavior="smooth"/, 'Retain instant route navigation with global smooth scrolling')
-  for (const path of ['/collections', '/login', '/admin-login', '/account/reset-password', '/checkout', '/order-confirmed', '/track-order']) await page(path)
+  for (const path of ['/collections', '/ribbon-guide', '/contact', '/login', '/admin-login', '/account/reset-password', '/checkout', '/order-confirmed', '/track-order']) await page(path)
   const sitemap = await (await get('/sitemap.xml')).text()
   const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => new URL(match[1]))
   const product = locations.find(url => /^\/collections\/[^/]+\/[^/]+$/.test(url.pathname))

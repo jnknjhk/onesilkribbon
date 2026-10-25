@@ -54,7 +54,7 @@ test('feed advertises matching variant URLs, sizes and prices', async () => {
   try {
     const source = read('app/api/google-feed/route.js')
       .replace("import { supabaseAdmin } from '@osr/core/lib/supabase'", 'const supabaseAdmin = globalThis.__seoDb')
-      .replace("import { variantUrl } from '@/lib/product-variants'", 'const { variantUrl } = globalThis.__seoVariants')
+      .replace("import { variantUrl, variantImage } from '@/lib/product-variants'", 'const { variantUrl, variantImage } = globalThis.__seoVariants')
     const { GET } = await load(source)
     const response = await GET()
     const xml = await response.text()
@@ -75,4 +75,41 @@ test('utility routes have noindex and remain crawlable to expose that directive'
   const { default: robots } = await load(read('app/robots.js'))
   assert.deepEqual(robots().rules[0].disallow, ['/api/'])
   assert.doesNotMatch(read('app/collections/[slug]/[productSlug]/page.jsx'), /AggregateOffer/)
+})
+
+test('large variant groups keep all offers but avoid duplicating the full photo gallery in every variant', async () => {
+  const { productGroupSchema } = await helper
+  const images = Array.from({ length: 30 }, (_, i) => `https://example.org/catalog/fine-silk-ribbon/high-resolution-studio-photograph-${i}.jpg`)
+  const variants = Array.from({ length: 145 }, (_, i) => ({ ...skus[0], id: `sku-${i}`, price_gbp: 5.9 + i, images: i === 0 ? ['https://example.org/variant.jpg', 'https://example.org/variant-detail.jpg'] : [] }))
+  const group = productGroupSchema({ ...product, images }, variants, 'https://example.org/ribbon')
+  assert.equal(group.hasVariant.length, 145)
+  assert.deepEqual(group.image, images, 'the group still exposes the full gallery')
+  assert.deepEqual(group.hasVariant[0].image, ['https://example.org/variant.jpg'])
+  assert.deepEqual(group.hasVariant[1].image, [images[0]])
+  assert.deepEqual(group.hasVariant.map(v => v.offers.price), variants.map(v => Number(v.price_gbp).toFixed(2)))
+  const repeated = { ...group, hasVariant: group.hasVariant.map(v => ({ ...v, image: images })) }
+  assert.ok(Buffer.byteLength(JSON.stringify(group)) < Buffer.byteLength(JSON.stringify(repeated)) * 0.5)
+})
+
+test('a product query failure is an error, while a genuinely absent product remains not found', async () => {
+  const source = read('app/collections/[slug]/[productSlug]/page.jsx').replace(/\r\n/g, '\n')
+  const query = source.slice(source.indexOf('const getProduct = cache'), source.indexOf('\n})', source.indexOf('const getProduct = cache')) + 3)
+  const run = result => new Function('cache', 'supabaseServer', query + '; return getProduct')(
+    fn => fn,
+    { from: () => ({ select() { return this }, eq() { return this }, maybeSingle: async () => result }) },
+  )('ribbon')
+  await assert.rejects(run({ data: null, error: { message: 'Network unavailable' } }), /Unable to load product/)
+  assert.equal(await run({ data: null, error: null }), null)
+  assert.deepEqual(await run({ data: product, error: null }), product)
+})
+
+test('representative variant images match the selected colour before falling back to the general gallery', async () => {
+  const { variantImage, productGroupSchema } = await helper
+  const custom = { ...product, attribute_config: [{ name: 'Colour', options: [{ value: 'Blue', image: 'https://example.org/blue.jpg' }, { value: 'Red', image: 'https://example.org/red.jpg' }] }] }
+  const blue = { ...skus[0], attributes: { Colour: 'Blue' }, images: [] }
+  assert.equal(variantImage(custom, blue), 'https://example.org/blue.jpg')
+  assert.equal(variantImage(custom, { ...blue, images: ['https://example.org/sku.jpg'] }), 'https://example.org/sku.jpg')
+  assert.equal(variantImage(custom, { ...blue, attributes: { Colour: 'Unknown' } }), product.images[0])
+  assert.equal(variantImage({ images: [] }, { images: [] }), null)
+  assert.deepEqual(productGroupSchema(custom, [blue], 'https://example.org/ribbon').hasVariant[0].image, ['https://example.org/blue.jpg'])
 })

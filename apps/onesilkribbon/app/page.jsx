@@ -26,24 +26,21 @@ export default async function HomePage() {
   const storyImage = imgMap['home_story'] || null
 
   // ── Collection images: 没有 site_image 就从商品图取（一次查询）──────────────
-  const missingCollections = COLLECTION_SLUGS.filter(s => !imgMap[`home_col_${s}`])
-
-  let fallbackImgMap = {}
-  if (missingCollections.length > 0) {
-    const { data: colProds } = await supabaseServer
+  const fallbackImgMap = {}
+  const { data: colProds } = await supabaseServer
       .from('products')
       .select('collection, images')
-      .in('collection', missingCollections)
+      .in('collection', COLLECTION_SLUGS)
       .eq('is_active', true)
 
-    if (colProds) {
-      for (const p of colProds) {
-        if (fallbackImgMap[p.collection]) continue
-        const imgs = Array.isArray(p.images) ? p.images : []
-        if (imgs.length > 0) fallbackImgMap[p.collection] = imgs[0]
-      }
+  if (colProds) {
+    for (const p of colProds) {
+      if (fallbackImgMap[p.collection]) continue
+      const imgs = Array.isArray(p.images) ? p.images : []
+      if (imgs.length > 0) fallbackImgMap[p.collection] = imgs[0]
     }
   }
+  const activeCollectionSlugs = colProds ? [...new Set(colProds.map(p => p.collection))] : COLLECTION_SLUGS
 
   const collectionImages = {}
   for (const slug of COLLECTION_SLUGS) {
@@ -112,6 +109,7 @@ export default async function HomePage() {
       heroImages={heroImages}
       storyImage={storyImage}
       collectionImages={collectionImages}
+      activeCollectionSlugs={activeCollectionSlugs}
       featuredProducts={featuredProducts}
       journalPosts={journalPosts || []}
       freeThreshold={freeThreshold}

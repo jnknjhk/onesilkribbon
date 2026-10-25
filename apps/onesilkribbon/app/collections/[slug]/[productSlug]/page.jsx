@@ -26,11 +26,12 @@ const getSettings = cache(async () => {
 // 还会带着完整的价格和结构化数据给搜索引擎收录。结账时服务端会拦住不让真的买到，
 // 但客户已经点进来选好规格了才被拒，体验很差。
 const getProduct = cache(async (productSlug) => {
-  const { data } = await supabaseServer
+  const { data, error } = await supabaseServer
     .from('products').select('*')
     .eq('slug', productSlug)
     .eq('is_active', true)
     .maybeSingle()
+  if (error) throw new Error('Unable to load product. Please try again.')
   return data
 })
 
@@ -54,7 +55,7 @@ export async function generateMetadata({ params }) {
   // 归一化换行，并在句子或词边界收尾。
   const description = buildMetaDescription(product.description, {
     productName: product.name,
-    fallback: `Handmade ${product.name.toLowerCase()} in 100% pure mulberry silk, hand-dyed and hand-finished in the UK. Perfect for weddings, bouquets and gift wrapping.`,
+    fallback: `Explore ${product.name} from One Silk Ribbon. Check available options, prices and delivery information on the product page.`,
   })
   const image = Array.isArray(product.images) ? product.images[0] : null
 
@@ -109,12 +110,13 @@ export default async function ProductPage({ params, searchParams }) {
 
   // 同样要过滤 is_active，否则已停用的规格会出现在规格选择器和页面的结构化数据里，
   // 客户能选中、能加进购物车，一路到结账才被服务端拒绝
-  const { data: skus } = product
+  const { data: skus, error: skuError } = product
     ? await supabaseServer.from('product_skus').select('*')
         .eq('product_id', product.id)
         .eq('is_active', true)
         .order('price_gbp', { ascending: true })
     : { data: [] }
+  if (skuError) throw new Error('Unable to load product options. Please try again.')
   const purchasableSkus = validSkus(skus)
   const initialSku = selectInitialSku(purchasableSkus, typeof query?.sku === 'string' ? query.sku : '')
 

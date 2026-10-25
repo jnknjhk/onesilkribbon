@@ -25,6 +25,7 @@ export default async function sitemap() {
     { url: `${baseUrl}/shipping-returns`, changeFrequency: 'monthly', priority: 0.5 },
     { url: `${baseUrl}/bespoke`, changeFrequency: 'monthly', priority: 0.6 },
     { url: `${baseUrl}/care-guide`, changeFrequency: 'monthly', priority: 0.5 },
+    { url: `${baseUrl}/ribbon-guide`, changeFrequency: 'monthly', priority: 0.6 },
   ]
 
   // Product pages

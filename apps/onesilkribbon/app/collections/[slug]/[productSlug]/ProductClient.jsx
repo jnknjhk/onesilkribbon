@@ -417,7 +417,7 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
         </div>
 
         {/* Story */}
-        <div style={{ borderTop: '1px solid var(--sand)', background: 'var(--sand)' }}>
+        {collectionSlug === 'hand-frayed-silk-ribbons' && <div style={{ borderTop: '1px solid var(--sand)', background: 'var(--sand)' }}>
           <div style={{ padding: '100px 60px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 100, maxWidth: 1360, margin: '0 auto', alignItems: 'center' }} className="story-grid">
             <div>
               <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 38, fontWeight: 300, lineHeight: 1.2, color: 'var(--ink)', marginBottom: 28 }}>
@@ -440,6 +440,7 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
           </div>
         </div>
 
+        }
         {/* More from this collection — 只在同系列真的还有别的商品时才渲染，避免空占位 */}
         {relatedProducts.length > 0 && (
           <div style={{ borderTop: '1px solid var(--sand)', padding: '80px 60px 100px' }} className="related-pad">

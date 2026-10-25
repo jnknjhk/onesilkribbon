@@ -4,6 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { formatGBP } from '@/lib/pricing'
 import { subscribeEmail, isValidEmail } from '@osr/core/lib/client/subscribe'
+import { COLLECTION_META } from '@/lib/collection-content'
 
 const COLLECTIONS = [
   { name: 'Fine Silk Ribbons',  slug: 'fine-silk-ribbons',        count: 'Ultra-Fine Silk',      desc: 'Our signature collection. Ultra-fine 100% mulberry silk ribbons in hand-selected colourways, from 2mm to 10mm.' },
@@ -12,7 +13,7 @@ const COLLECTIONS = [
   { name: 'Patterned',          slug: 'patterned-ribbons',        count: 'Botanical & Geometric', desc: 'Botanical, geometric and heritage-inspired motifs printed on pure silk. Each design tells a story.' },
   { name: 'Studio Tools',       slug: 'studio-tools',             count: "Maker's Essentials",   desc: 'Curated essentials for the ribbon-maker and florist — scissors, spools, and everything for a well-appointed studio.' },
   { name: 'Vintage-Inspired',   slug: 'vintage-inspired-ribbons', count: 'Antique-Inspired',     desc: 'Heritage tones and antique-inspired textures, evoking the romance of a bygone era.' },
-]
+].map(collection => ({ ...collection, desc: COLLECTION_META[collection.slug].desc }))
 
 const COLLECTION_FALLBACK_BG = {
   'fine-silk-ribbons':        'linear-gradient(160deg,#D4C5B0,#9A8878,#C4A882)',
@@ -23,7 +24,7 @@ const COLLECTION_FALLBACK_BG = {
   'vintage-inspired-ribbons': 'linear-gradient(160deg,#D4B8C0,#9A7A84,#5A3A44)',
 }
 
-export default function HomeClient({ heroImages, storyImage, collectionImages, featuredProducts, journalPosts, freeThreshold = '45', freeEnabled = true }) {
+export default function HomeClient({ heroImages, storyImage, collectionImages, activeCollectionSlugs, featuredProducts, journalPosts, freeThreshold = '45', freeEnabled = true }) {
   useEffect(() => {
     if (!('IntersectionObserver' in window) || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
     const els = document.querySelectorAll('.reveal')
@@ -38,9 +39,13 @@ export default function HomeClient({ heroImages, storyImage, collectionImages, f
     <>
       <Hero heroImages={heroImages} />
       <Marquee freeThreshold={freeThreshold} freeEnabled={freeEnabled} />
-      <Collections collectionImages={collectionImages} />
-      <StorySection storyImage={storyImage} />
+      <div className="mobile-welcome-invite">
+        <p>10% off your first order</p>
+        <button type="button" aria-haspopup="dialog" onClick={() => window.dispatchEvent(new Event('osr:welcome-open'))}>View welcome offer</button>
+      </div>
       <FeaturedProducts products={featuredProducts} />
+      <Collections collectionImages={collectionImages} activeCollectionSlugs={activeCollectionSlugs} />
+      <StorySection storyImage={storyImage} />
       <JournalSection posts={journalPosts} />
       <SilkNotes />
       <NewsletterSection />
@@ -54,6 +59,12 @@ export default function HomeClient({ heroImages, storyImage, collectionImages, f
           .hero-slide-active, .hero-scroll-line { animation: none !important; }
         }
         .prod-card:hover .prod-img-inner { transform: scale(1.04); }
+        .mobile-welcome-invite { display: none; }
+        @media (max-width: 900px) {
+          .mobile-welcome-invite { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px 16px; padding: 12px var(--page-padding); border-bottom: 1px solid var(--sand); }
+          .mobile-welcome-invite p { font-size: 14px; color: var(--deep); }
+          .mobile-welcome-invite button { min-height: 44px; border: 0; background: none; color: var(--deep); font-size: 13px; text-decoration: underline; text-underline-offset: 4px; }
+        }
       ` }} />
     </>
   )
@@ -69,17 +80,13 @@ function heroAlt(i) {
 }
 
 function Hero({ heroImages }) {
-  const [loaded, setLoaded] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoaded(true), 200)
-    return () => clearTimeout(timer)
-  }, [])
-
-  useEffect(() => {
     if (heroImages.length <= 1) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
     const interval = setInterval(() => {
+      if (document.hidden) return
       setCurrentIndex(prev => (prev + 1) % heroImages.length)
     }, 6000)
     return () => clearInterval(interval)
@@ -117,20 +124,20 @@ function Hero({ heroImages }) {
       <div className="hero-gradient" />
 
       <div className="hero-content">
-        <p className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.1s', fontSize: 10, letterSpacing: '0.4em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 32 }}>
+        <p className="hero-anim" style={{ transitionDelay: '0.1s', fontSize: 10, letterSpacing: '0.4em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 32 }}>
           100% Pure Mulberry Silk · Handcrafted
         </p>
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(44px, 7.5vw, 88px)', fontWeight: 600, lineHeight: 1.08, color: '#fff', marginBottom: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', letterSpacing: '-0.02em' }}>
-          <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.3s', display: 'block', fontWeight: 500 }}>Handmade Mulberry</span>
-          <span className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '0.55s', display: 'block', fontStyle: 'italic', color: 'var(--gold)', fontWeight: 600 }}>Silk Ribbon</span>
+          <span className="hero-anim" style={{ transitionDelay: '0.3s', display: 'block', fontWeight: 500 }}>Handmade Mulberry</span>
+          <span className="hero-anim" style={{ transitionDelay: '0.55s', display: 'block', fontStyle: 'italic', color: 'var(--gold)', fontWeight: 600 }}>Silk Ribbon</span>
         </h1>
-        <p className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '1.1s', fontSize: 15, lineHeight: 1.75, color: 'rgba(255,255,255,0.72)', maxWidth: 460, marginBottom: 52, textAlign: 'center', fontFamily: 'var(--font-serif-alt)', fontWeight: 400, letterSpacing: '0.01em' }}>
+        <p className="hero-anim" style={{ transitionDelay: '1.1s', fontSize: 15, lineHeight: 1.75, color: 'rgba(255,255,255,0.72)', maxWidth: 460, marginBottom: 52, textAlign: 'center', fontFamily: 'var(--font-serif-alt)', fontWeight: 400, letterSpacing: '0.01em' }}>
           Woven from nature&apos;s finest thread — each ribbon carries the quiet beauty of silk in its most natural form, carefully chosen and made to last.
         </p>
-        <div className={`hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '1.4s' }}>
+        <div className="hero-anim" style={{ transitionDelay: '1.4s' }}>
           <Link href="/collections" className="hero-btn"><span className="hero-btn-line" />Explore Collections<span className="hero-btn-line" /></Link>
         </div>
-        <div className={`hero-scroll-wrap hero-anim ${loaded ? 'hero-in' : ''}`} style={{ transitionDelay: '1.8s' }}>
+        <div className="hero-scroll-wrap hero-anim" style={{ transitionDelay: '1.8s' }}>
           <div className="hero-scroll-line" />
         </div>
       </div>
@@ -143,7 +150,7 @@ function Hero({ heroImages }) {
         .hero-overlay { position: absolute; inset: 0; z-index: 1; background: rgba(28,23,20,0.45); }
         .hero-gradient { position: absolute; bottom: 0; left: 0; right: 0; z-index: 1; height: 40%; background: linear-gradient(to top, rgba(28,23,20,0.6), transparent); }
         .hero-content { position: relative; z-index: 2; text-align: center; padding: 0 24px; max-width: 800px; display: flex; flex-direction: column; align-items: center; }
-        .hero-anim { opacity: 0; transform: translateY(28px); transition: opacity 0.9s cubic-bezier(0.25,0.46,0.45,0.94), transform 0.9s cubic-bezier(0.25,0.46,0.45,0.94); }
+        .hero-anim { opacity: 1; transform: none; }
         .hero-in { opacity: 1 !important; transform: translateY(0) !important; }
         .hero-btn { background: none; border: 1px solid rgba(255,255,255,0.3); color: #fff; font-family: var(--font-body); font-size: 10px; letter-spacing: 0.32em; text-transform: uppercase; padding: 18px 48px; display: inline-flex; align-items: center; gap: 20px; cursor: pointer; transition: all 0.4s ease; }
         .hero-btn:hover { background: rgba(255,255,255,0.08); border-color: var(--gold); color: var(--gold); }
@@ -183,18 +190,19 @@ function Marquee({ freeThreshold = '45', freeEnabled = true }) {
 }
 
 /* ═══ COLLECTIONS ═══ */
-function Collections({ collectionImages }) {
+function Collections({ collectionImages, activeCollectionSlugs }) {
+  const collections = COLLECTIONS.filter(c => !activeCollectionSlugs || activeCollectionSlugs.includes(c.slug))
   return (
     <section style={{ padding: 'var(--section-padding-y, 100px) 0' }}>
       <div style={{ textAlign: 'center', marginBottom: 'clamp(48px, 6vw, 80px)', padding: '0 var(--page-padding, 60px)' }} className="reveal">
         <span className="eyebrow">Our Collections</span>
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 300, marginTop: 20 }}>
-          Six expressions of <em style={{ fontStyle: 'italic', color: 'var(--taupe)' }}>pure silk</em>
+          Explore ribbons &amp; <em style={{ fontStyle: 'italic', color: 'var(--taupe)' }}>handcrafted details</em>
         </h2>
       </div>
 
       <div style={{ maxWidth: 1360, margin: '0 auto', padding: '0 var(--page-padding, 60px)' }}>
-        {COLLECTIONS.map((c, i) => {
+        {collections.map((c, i) => {
           const img = collectionImages[c.slug]
           const fallback = COLLECTION_FALLBACK_BG[c.slug]
           const isEven = i % 2 === 1
@@ -267,7 +275,7 @@ function StorySection({ storyImage }) {
             One Silk Ribbon began with a simple frustration: the impossibility of finding a ribbon that felt truly beautiful. We started with a single bolt of Grade 6A mulberry silk and a pair of hands.
           </p>
           <p style={{ fontSize: 14, color: 'var(--taupe)', lineHeight: 2, marginBottom: 40 }}>
-            Today we offer over 200 colourways across six collections — all made with the same quiet care as that very first yard.
+            Today our collections bring together silk ribbons and handcrafted details, with colour, texture and care at the heart of each piece.
           </p>
           <Link href="/about" className="btn-text"><span className="line" />Read Our Story</Link>
         </div>
@@ -323,6 +331,7 @@ function FeaturedProducts({ products }) {
         .featured-section { padding: var(--section-padding-y, 100px) var(--page-padding, 60px); background: var(--cream); }
         .featured-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 48px; flex-wrap: wrap; gap: 16px; }
         .featured-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; }
+        .featured-grid > a { min-width: 0; overflow-wrap: anywhere; }
         @media (max-width: 1024px) { .featured-grid { grid-template-columns: repeat(3, 1fr); } }
         @media (max-width: 768px) { .featured-grid { grid-template-columns: repeat(2, 1fr); gap: 20px; } .featured-header { margin-bottom: 32px; } }
       ` }} />
@@ -421,39 +430,39 @@ function SilkNotes() {
       <div className="silk-notes-inner reveal">
         <span className="eyebrow" style={{ marginBottom: 16 }}>About Our Silk</span>
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(26px, 3.2vw, 38px)', fontWeight: 300, lineHeight: 1.25, marginBottom: 'clamp(28px, 4vw, 44px)' }}>
-          Mulberry silk ribbon, <em style={{ fontStyle: 'italic', color: 'var(--gold)' }}>made by hand in the UK</em>
+          Mulberry silk ribbon, <em style={{ fontStyle: 'italic', color: 'var(--gold)' }}>chosen for what you make</em>
         </h2>
 
         <div className="silk-notes-cols">
           <div>
             <p>
-              Every ribbon here begins as Grade 6A mulberry silk — the top grade, reeled as one
-              continuous filament rather than spun from short fibres. That is the difference you
-              can feel: silk holds a bow without wire, drapes instead of creasing, and still looks
-              right on a bouquet photographed ten hours later.
+              A fine ribbon for embroidery or miniature clothing serves a different purpose
+              from a wider ribbon tied around a bouquet. Our fine mulberry silk ribbon has
+              width and colour options on the product page, so you can choose for the scale
+              of the detail you want to make.
             </p>
             <p>
-              We dye in small batches by hand, so no two yards are quite identical. Colour is built
-              up in layers rather than printed onto the surface, which gives a depth flat-dyed
-              ribbon cannot match — and means the reverse side is as presentable as the front.
+              Compare colours alongside the paper, flowers or fabric in your project. Product
+              photographs are a useful starting point, but lighting and screen settings can
+              change the way a shade appears. Check the selected option before ordering.
             </p>
           </div>
           <div>
             <p>
-              Our edges are torn, not cut. Each length is measured along the grain and frayed by
-              hand to produce the soft, slightly irregular edge that florists ask for by name.
+              For a softly textured edge, explore the hand-frayed collection. For a crinkled
+              finish on a wooden spool, look at the vintage-inspired ribbon. The product
+              description explains the material, finish and available lengths of each style.
             </p>
             <p>
-              Widths run from 2mm for invitation suites and hair ties, through 10mm for place
-              settings and favour boxes, up to 60mm for bouquet stems and larger gift wrapping.
-              Unsure which to choose? The <Link href="/care-guide">silk care guide</Link> covers
-              widths, lengths and washing.
+              Unsure which to choose? Our <Link href="/ribbon-guide">ribbon selection guide</Link>
+              {' '}explains how to compare widths and measure a sample for your project. For
+              washing, handling and storage, see the <Link href="/care-guide">silk care guide</Link>.
             </p>
           </div>
         </div>
 
         <ul className="silk-notes-links">
-          <li><Link href="/collections/fine-silk-ribbons">Fine silk ribbon, 2mm–10mm</Link></li>
+          <li><Link href="/collections/fine-silk-ribbons">Fine silk ribbon, 2mm–13mm</Link></li>
           <li><Link href="/collections/hand-frayed-silk-ribbons">Hand-frayed silk ribbon</Link></li>
           <li><Link href="/collections/vintage-inspired-ribbons">Vintage-inspired ribbon</Link></li>
           <li><Link href="/collections/handcrafted-adornments">Handcrafted adornments</Link></li>
@@ -506,7 +515,7 @@ function NewsletterSection() {
         ) : (
           <>
             <div className="newsletter-form">
-              <input type="email" value={email} onChange={e => { setEmail(e.target.value); setStatus(''); setMsg('') }}
+              <input aria-label="Email address for newsletter" name="email" autoComplete="email" type="email" value={email} onChange={e => { setEmail(e.target.value); setStatus(''); setMsg('') }}
                 onKeyDown={e => e.key === 'Enter' && handleSubscribe()}
                 placeholder="Email Address" style={{ background: 'none', border: 'none', color: '#fff', flex: 1, outline: 'none', fontSize: 16, minWidth: 0 }} />
               <button onClick={handleSubscribe} disabled={status === 'loading'}

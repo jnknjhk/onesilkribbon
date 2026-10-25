@@ -1,50 +1,60 @@
 import Link from 'next/link'
+import Image from 'next/image'
+import { supabaseAdmin } from '@osr/core/lib/supabase'
+import { COLLECTION_META } from '@/lib/collection-content'
+
+export const revalidate = 60
 
 export const metadata = {
   title: 'All Collections',
-  description: 'Explore all six One Silk Ribbon collections — Fine Silk, Hand-Frayed, Adornments, Patterned, Studio Tools and Vintage-Inspired. Handmade from 100% mulberry silk.',
+  description: 'Shop fine and hand-frayed silk ribbons, vintage crinkle ribbon, handcrafted mini bows, brooches and wooden spools. Compare materials and available options.',
   alternates: { canonical: '/collections' },
 }
 
-const COLLECTIONS = [
-  { name: 'Fine Silk Ribbons', slug: 'fine-silk-ribbons', desc: 'Our signature collection. Ultra-fine 100% mulberry silk ribbons in 30 hand-selected colourways, available in widths from 2mm to 10mm.', count: 'Ultra-Fine Silk', bg: 'linear-gradient(160deg,#D4C5B0,#9A8878,#C4A882)' },
-  { name: 'Hand-Frayed Silk Ribbons', slug: 'hand-frayed-silk-ribbons', desc: 'Each ribbon is carefully hand-frayed to create an ethereal, softly textured edge — perfect for bouquets, invitations and fine craft.', count: 'Hand-Torn & Textured', bg: 'linear-gradient(160deg,#E8C9B8,#C9A48A,#9A7A66)' },
-  { name: 'Handcrafted Adornments', slug: 'handcrafted-adornments', desc: 'Silk scrunchies, bow ties, and decorative pieces — each made by hand from the same pure mulberry silk as our ribbons.', count: 'Handmade Accessories', bg: 'linear-gradient(160deg,#B8A898,#7A6A5A,#4A3A30)' },
-  { name: 'Patterned Ribbons', slug: 'patterned-ribbons', desc: 'Woven and printed motifs inspired by botanical forms, geometric patterns and heritage textiles. Each design printed on pure silk.', count: 'Botanical & Geometric', bg: 'linear-gradient(160deg,#C8D4C0,#8A9A80,#5A7050)' },
-  { name: 'Studio Tools', slug: 'studio-tools', desc: 'Curated essentials for the ribbon-maker and florist — scissors, wire, needles and everything you need for a well-appointed studio.', count: "Maker's Essentials", bg: 'linear-gradient(160deg,#D0D0C8,#9A9A90,#5A5A54)' },
-  { name: 'Vintage-Inspired Ribbons', slug: 'vintage-inspired-ribbons', desc: 'Heritage tones and antique-inspired textures, evoking the romance of a bygone era. Ideal for weddings, gifts and botanical styling.', count: 'Antique-Inspired', bg: 'linear-gradient(160deg,#D4B8C0,#9A7A84,#5A3A44)' },
-]
+const COLLECTIONS = Object.entries(COLLECTION_META).map(([slug, meta]) => ({ slug, ...meta }))
 
-export default function CollectionsPage() {
+export default async function CollectionsPage() {
+  const [catalog, pictures] = await Promise.all([
+    supabaseAdmin.from('products').select('collection, images').eq('is_active', true),
+    supabaseAdmin.from('site_images').select('key, url').in('key', COLLECTIONS.map(c => `home_col_${c.slug}`)),
+  ])
+  if (catalog.error) throw new Error('Unable to load collections')
+  const products = catalog.data || []
+  const imageMap = Object.fromEntries((pictures.data || []).map(row => [row.key, row.url]))
+  const available = COLLECTIONS.map(collection => {
+    const items = products.filter(product => product.collection === collection.slug)
+    return { ...collection, count: items.length, image: imageMap[`home_col_${collection.slug}`] || items.find(p => Array.isArray(p.images) && p.images[0])?.images[0] }
+  }).filter(collection => collection.count > 0)
   return (
-    <div style={{ paddingTop: 100, background: 'var(--cream)', minHeight: '100vh' }}>
+    <div className="collections-page" style={{ paddingTop: 100, background: 'var(--cream)', minHeight: '100vh' }}>
       {/* Header */}
       <div className="section-header" style={{ paddingBottom: 80 }}>
         <span className="eyebrow" style={{ marginBottom: 20 }}>One Silk Ribbon</span>
         <h1 className="display-title">All <em>Collections</em></h1>
         <div className="rule" />
         <p style={{ fontSize: 14, color: 'var(--taupe)', lineHeight: 1.9, maxWidth: 480, margin: '28px auto 0' }}>
-          Six expressions of pure mulberry silk — each collection a different facet of the same quiet beauty.
+          Compare ribbon finishes, find a colour for your next project, or explore handcrafted details and wooden spools.
         </p>
+        <Link href="/ribbon-guide" className="collections-guide-link">Not sure which ribbon to choose? Read the guide →</Link>
       </div>
 
       {/* Grid */}
       <div style={{ padding: '0 60px 120px' }} className="coll-page-pad">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 40 }} className="coll-page-grid">
-          {COLLECTIONS.map((c) => (
+          {available.map((c) => (
             <Link key={c.slug} href={`/collections/${c.slug}`} style={{ display: 'block' }}>
               <div style={{ overflow: 'hidden' }} className="coll-page-card">
                 {/* Image */}
-                <div style={{ aspectRatio: '16/9', background: c.bg, marginBottom: 28, overflow: 'hidden' }}>
-                  <div className="coll-page-img" style={{ width: '100%', height: '100%', background: c.bg, transition: 'transform 0.8s cubic-bezier(0.25,0.46,0.45,0.94)' }} />
+                <div style={{ aspectRatio: '16/9', background: c.bg, marginBottom: 28, overflow: 'hidden', position: 'relative' }}>
+                  {c.image && <Image className="coll-page-img" src={c.image} alt={c.name} fill sizes="(max-width: 900px) 100vw, 50vw" style={{ objectFit: 'cover', transition: 'transform 0.8s cubic-bezier(0.25,0.46,0.45,0.94)' }} />}
                 </div>
                 {/* Info */}
                 <div style={{ paddingBottom: 40, borderBottom: '1px solid var(--sand)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                  <div className="coll-page-card-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                     <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 300, color: 'var(--ink)', lineHeight: 1.2 }}>
                       {c.name}
                     </h2>
-                    <span className="eyebrow" style={{ flexShrink: 0, marginLeft: 24, marginTop: 4 }}>{c.count}</span>
+                    <span className="eyebrow" style={{ flexShrink: 0, marginLeft: 24, marginTop: 4 }}>{c.count} {c.count === 1 ? 'product' : 'products'}</span>
                   </div>
                   <p style={{ fontSize: 13, color: 'var(--taupe)', lineHeight: 1.9, marginBottom: 24 }}>{c.desc}</p>
                   <span style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--deep)', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -59,10 +69,20 @@ export default function CollectionsPage() {
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
+        .collections-guide-link { display: inline-flex; align-items: center; min-height: 44px; margin-top: 20px; color: var(--deep); text-decoration: underline; text-underline-offset: 4px; }
+        .coll-page-grid > a { min-width: 0; overflow-wrap: anywhere; }
         .coll-page-card:hover .coll-page-img { transform: scale(1.04); }
         .coll-page-card:hover .coll-line { width: 52px !important; }
         @media(max-width:900px) { .coll-page-grid{grid-template-columns:1fr !important} }
-        @media(max-width:600px) { .coll-page-pad{padding:0 24px 80px !important} }
+        @media(max-width:600px) {
+          .collections-page { padding-top: 68px !important; }
+          .collections-page > .section-header { padding: 40px 20px 36px !important; }
+          .coll-page-pad { padding: 0 20px 64px !important; }
+          .coll-page-grid { gap: 32px !important; }
+          .coll-page-card-heading { flex-direction: column; gap: 12px; }
+          .coll-page-card-heading .eyebrow { margin-left: 0 !important; }
+          .coll-page-card-heading h2 { font-size: 26px !important; }
+        }
       ` }} />
     </div>
   )

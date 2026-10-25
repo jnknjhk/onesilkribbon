@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '@osr/core/lib/supabase'
-import { variantUrl } from '@/lib/product-variants'
+import { variantUrl, variantImage } from '@/lib/product-variants'
 
 // Google Merchant Center 商品数据源（RSS 2.0 / Google Shopping XML）。
 // Google 每天会来抓取这个接口一次左右，不需要每次请求都是全新数据，
@@ -44,7 +44,7 @@ function skuVariantSuffix(sku) {
 
 function buildItemXml({ product, sku }) {
   if (!Number.isFinite(Number(sku.price_gbp)) || Number(sku.price_gbp) <= 0) return ''
-  const image = (sku.images && sku.images[0]) || (product.images && product.images[0])
+  const image = variantImage(product, sku)
   if (!image) return '' // 没有图片的变体，Google 一定会拒收，不如干脆不提交这一条
 
   const link = variantUrl(`${SITE_URL}/collections/${product.collection}/${product.slug}`, sku)
@@ -81,7 +81,7 @@ export async function GET() {
   try {
     const { data: products, error } = await supabaseAdmin
       .from('products')
-      .select('id, name, slug, description, collection, images')
+      .select('id, name, slug, description, collection, images, attribute_config')
       .eq('is_active', true)
 
     if (error) throw error
@@ -91,7 +91,7 @@ export async function GET() {
     if (productIds.length > 0) {
       const { data: skuRows, error: skuError } = await supabaseAdmin
         .from('product_skus')
-        .select('id, product_id, sku_code, colour, width_mm, length_m, price_gbp, stock_qty, images')
+        .select('id, product_id, sku_code, colour, width_mm, length_m, price_gbp, stock_qty, images, attributes')
         .in('product_id', productIds)
         .eq('is_active', true)
       if (skuError) throw skuError

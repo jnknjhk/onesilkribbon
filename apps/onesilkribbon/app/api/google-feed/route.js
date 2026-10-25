@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '@osr/core/lib/supabase'
-import { variantUrl, variantImage } from '@/lib/product-variants'
+import { variantUrl, variantImage, merchantVariantAttributes, skuLabel } from '@/lib/product-variants'
 
 // Google Merchant Center 商品数据源（RSS 2.0 / Google Shopping XML）。
 // Google 每天会来抓取这个接口一次左右，不需要每次请求都是全新数据，
@@ -29,26 +29,14 @@ function stripHtml(html) {
   return String(html ?? '').replace(/<[^>]+>/g, '').trim()
 }
 
-// SKU 的可读描述后缀（如 " - Champagne Gold, 7mm, 10m"）。
-// 只用 colour / width_mm / length_m 这几个干净的结构化字段拼——
-// SKU 上还有一个自由格式的 attributes JSON（后台批量导入时随手填的，
-// 比如 { SISE: '1.5CM', COLOR: '2##' }），这些内部编码/拼音缩写不适合直接
-// 展示给 Google Shopping 的公开买家，所以不采用。
-function skuVariantSuffix(sku) {
-  const parts = []
-  if (sku.colour && sku.colour !== '默认') parts.push(sku.colour)
-  if (sku.width_mm) parts.push(`${sku.width_mm}mm`)
-  if (sku.length_m) parts.push(`${sku.length_m}m`)
-  return parts.length > 0 ? ` - ${parts.join(', ')}` : ''
-}
-
 function buildItemXml({ product, sku }) {
   if (!Number.isFinite(Number(sku.price_gbp)) || Number(sku.price_gbp) <= 0) return ''
   const image = variantImage(product, sku)
   if (!image) return '' // 没有图片的变体，Google 一定会拒收，不如干脆不提交这一条
 
   const link = variantUrl(`${SITE_URL}/collections/${product.collection}/${product.slug}`, sku)
-  const title = `${product.name}${skuVariantSuffix(sku)}`
+  const label = skuLabel(sku, product)
+  const title = [product.name, label].filter(Boolean).join(' - ')
   const description = stripHtml(product.description).slice(0, 5000)
   const availability = (sku.stock_qty || 0) > 0 ? 'in_stock' : 'out_of_stock'
   const price = `${Number(sku.price_gbp || 0).toFixed(2)} ${CURRENCY}`
@@ -66,8 +54,8 @@ function buildItemXml({ product, sku }) {
     ['g:condition', 'new'],
     ...(sku.sku_code ? [['g:mpn', sku.sku_code]] : []),
   ]
-  if (sku.colour && sku.colour !== '默认') fields.push(['g:color', sku.colour])
-  const size = [sku.width_mm ? `${sku.width_mm}mm` : '', sku.length_m ? `${sku.length_m}m` : ''].filter(Boolean).join(' × ')
+  const { color, size } = merchantVariantAttributes(product, sku)
+  if (color) fields.push(['g:color', color])
   if (size) fields.push(['g:size', size])
 
   const fieldsXml = fields

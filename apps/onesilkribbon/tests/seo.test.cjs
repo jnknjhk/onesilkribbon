@@ -44,26 +44,65 @@ test('ProductGroup offers preserve per-SKU prices, images and stock without fabr
   assert.doesNotMatch(JSON.stringify(schema), /merchantReturnDays|priceValidUntil|Mulberry Silk|AggregateOffer/)
 })
 
-test('feed advertises matching variant URLs, sizes and prices', async () => {
+let feedModuleVersion = 0
+async function feedXml(feedProduct, feedSkus) {
   const variants = await helper
   globalThis.__seoVariants = variants
   globalThis.__seoDb = { from: table => ({ select: () => ({
-    eq: async () => ({ data: [product] }),
-    in: () => ({ eq: async () => ({ data: skus.map(s => ({ ...s, product_id: product.id })) }) }),
+    eq: async () => ({ data: [feedProduct] }),
+    in: () => ({ eq: async () => ({ data: feedSkus.map(s => ({ ...s, product_id: feedProduct.id })) }) }),
   }) }) }
   try {
     const source = read('app/api/google-feed/route.js')
       .replace("import { supabaseAdmin } from '@osr/core/lib/supabase'", 'const supabaseAdmin = globalThis.__seoDb')
-      .replace("import { variantUrl, variantImage } from '@/lib/product-variants'", 'const { variantUrl, variantImage } = globalThis.__seoVariants')
-    const { GET } = await load(source)
+      .replace("import { variantUrl, variantImage, merchantVariantAttributes, skuLabel } from '@/lib/product-variants'", 'const { variantUrl, variantImage, merchantVariantAttributes, skuLabel } = globalThis.__seoVariants')
+    const { GET } = await load(`${source}\n// isolated fixture ${++feedModuleVersion}`)
     const response = await GET()
-    const xml = await response.text()
     assert.equal(response.status, 200)
-    assert.match(xml, /\?sku=sku-1<\/link>/)
-    assert.match(xml, /\?sku=sku-2<\/link>/)
-    assert.match(xml, /<g:price>25.00 GBP<\/g:price>/)
-    assert.match(xml, /<g:size>5mm × 10m<\/g:size>/)
+    return await response.text()
   } finally { delete globalThis.__seoDb; delete globalThis.__seoVariants }
+}
+
+test('feed advertises matching variant URLs, sizes and prices', async () => {
+  const xml = await feedXml(product, skus)
+  assert.match(xml, /\?sku=sku-1<\/link>/)
+  assert.match(xml, /\?sku=sku-2<\/link>/)
+  assert.match(xml, /<g:price>25.00 GBP<\/g:price>/)
+  assert.match(xml, /<g:size>5mm × 10m<\/g:size>/)
+})
+
+test('custom COLOR and WIDTH variants expose the missing merchant fields in both JSON-LD and feed', async () => {
+  const { productGroupSchema } = await helper
+  const customProduct = { ...product, description: '<p>Pure silk ribbon for embroidery.</p>', attribute_config: [{ name: 'COLOR' }, { name: 'WIDTH' }] }
+  const variants = [
+    { ...skus[0], colour: '默认', width_mm: null, length_m: null, attributes: { COLOR: 'Peach Sorbet', WIDTH: '2mm' } },
+    { ...skus[1], colour: '默认', width_mm: null, length_m: null, attributes: { COLOR: 'Berry Red', WIDTH: '13mm' } },
+  ]
+  const group = productGroupSchema(customProduct, variants, 'https://example.org/ribbon')
+  assert.deepEqual(group.variesBy, ['https://schema.org/color', 'https://schema.org/size'])
+  assert.deepEqual(group.hasVariant.map(v => [v.color, v.size]), [['Peach Sorbet', '2mm'], ['Berry Red', '13mm']])
+  assert.match(group.hasVariant[0].name, /Peach Sorbet, 2mm/)
+  assert.match(group.hasVariant[1].description, /Berry Red, 13mm.*Pure silk ribbon for embroidery\./)
+  assert.equal(group.hasVariant[1].offers.price, '25.00')
+  assert.equal(group.hasVariant[1].offers.availability, 'https://schema.org/OutOfStock')
+  const xml = await feedXml(customProduct, variants)
+  assert.match(xml, /<g:color>Peach Sorbet<\/g:color>/)
+  assert.match(xml, /<g:size>13mm<\/g:size>/)
+  assert.match(xml, /<title>Ribbon - Berry Red, 13mm<\/title>/)
+})
+
+test('merchant attributes prefer displayed custom values, support Chinese names and omit unknown dimensions', async () => {
+  const { merchantVariantAttributes, productGroupSchema } = await helper
+  const custom = { ...product, attribute_config: [{ name: 'Colour' }] }
+  assert.deepEqual(merchantVariantAttributes(custom, { ...skus[0], attributes: { Colour: 'Blue', WIDTH: '7mm', LENGTH: '1.5m' } }), { color: 'Blue', size: '7mm × 1.5m' })
+  assert.deepEqual(merchantVariantAttributes(custom, { colour: '默认', attributes: { 颜色: 'Red', 尺寸: 'Small & narrow' } }), { color: 'Red', size: 'Small & narrow' })
+  assert.deepEqual(merchantVariantAttributes(custom, { colour: '默认', attributes: { Finish: 'Satin' } }), {})
+  const incomplete = productGroupSchema(custom, [
+    { ...skus[0], width_mm: null, length_m: null, attributes: { Colour: 'Blue' } },
+    { ...skus[1], attributes: { Colour: 'Red', Size: 'Small' } },
+  ], 'https://example.org/ribbon')
+  assert.deepEqual(incomplete.variesBy, ['https://schema.org/color'], 'do not require a missing or invented size')
+  assert.equal(incomplete.hasVariant[0].size, undefined)
 })
 
 test('utility routes have noindex and remain crawlable to expose that directive', async () => {

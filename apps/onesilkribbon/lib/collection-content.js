@@ -13,6 +13,7 @@ export const COLLECTION_META = {
   },
   'hand-frayed-silk-ribbons': {
     name: 'Hand-Frayed Silk Ribbons', seoTitle: 'Hand-Frayed Mulberry Silk Ribbon for Bouquets',
+    journalSlug: 'silk-ribbon-for-bridal-bouquets-styling-guide',
     desc: 'Shop hand-frayed mulberry silk ribbons for bridal bouquets, invitations and gift wrapping. Compare colours, widths and lengths on each product page.',
     bg: 'linear-gradient(135deg,#E8C9B8,#9A7A66)',
     guideTitle: 'Choosing ribbon for bouquets and invitations',

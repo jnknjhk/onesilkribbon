@@ -142,6 +142,19 @@ test('a product query failure is an error, while a genuinely absent product rema
   assert.deepEqual(await run({ data: product, error: null }), product)
 })
 
+test('a journal query outage cannot turn a published article into a false 404', async () => {
+  const source = read('app/journal/[slug]/page.jsx').replace(/\r\n/g, '\n')
+  const start = source.indexOf('const getPost = cache')
+  const query = source.slice(start, source.indexOf('\n})', start) + 3)
+  const run = result => new Function('cache', 'supabaseServer', query + '; return getPost')(
+    fn => fn,
+    { from: () => ({ select() { return this }, eq() { return this }, maybeSingle: async () => result }) },
+  )('bridal-guide')
+  await assert.rejects(run({ data: null, error: { message: 'Network unavailable' } }), /Unable to load journal article/)
+  assert.equal(await run({ data: null, error: null }), null)
+  assert.deepEqual(await run({ data: { title: 'Published guide' }, error: null }), { title: 'Published guide' })
+})
+
 test('representative variant images match the selected colour before falling back to the general gallery', async () => {
   const { variantImage, productGroupSchema } = await helper
   const custom = { ...product, attribute_config: [{ name: 'Colour', options: [{ value: 'Blue', image: 'https://example.org/blue.jpg' }, { value: 'Red', image: 'https://example.org/red.jpg' }] }] }

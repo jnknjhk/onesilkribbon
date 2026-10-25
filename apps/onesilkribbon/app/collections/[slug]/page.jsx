@@ -79,6 +79,10 @@ export default async function CollectionPage({ params }) {
 
   const heroImage = await getHeroImage(slug)
 
+  const { data: relatedArticle } = meta.journalSlug
+    ? await supabaseServer.from('journal_posts').select('slug, title').eq('slug', meta.journalSlug).eq('is_published', true).maybeSingle()
+    : { data: null }
+
   const { data: rawProducts } = await supabaseServer
     .from('products')
     .select('id, name, slug, images, collection, description')
@@ -147,7 +151,7 @@ export default async function CollectionPage({ params }) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
       />
-      <CollectionClient initialProducts={products || []} slug={slug} initialHeroImage={heroImage} />
+      <CollectionClient initialProducts={products || []} slug={slug} initialHeroImage={heroImage} relatedArticle={relatedArticle} />
     </>
   )
 }

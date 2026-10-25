@@ -4,6 +4,7 @@ import { supabaseAdmin as supabaseServer } from '@osr/core/lib/supabase'
 import Link from 'next/link'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
+import { COLLECTION_META } from '@/lib/collection-content'
 
 export const revalidate = 300
 
@@ -19,8 +20,9 @@ const DEFAULT_OG_IMAGE = '/og-image.jpg'
 
 // generateMetadata 和页面组件共用同一条查询（也顺便让未发布的文章不会在 metadata 里提前泄露标题）
 const getPost = cache(async (slug) => {
-  const { data } = await supabaseServer
-    .from('journal_posts').select('*').eq('slug', slug).eq('is_published', true).single()
+  const { data, error } = await supabaseServer
+    .from('journal_posts').select('*').eq('slug', slug).eq('is_published', true).maybeSingle()
+  if (error) throw new Error('Unable to load journal article')
   return data
 })
 
@@ -61,6 +63,12 @@ export default async function JournalPost({ params }) {
   if (!post) notFound()
 
   const sections = Array.isArray(post.sections) ? post.sections : []
+  const relatedCollection = Object.entries(COLLECTION_META).find(([, meta]) => meta.journalSlug === slug)
+  const { data: relatedProducts } = relatedCollection
+    ? await supabaseServer.from('products').select('id, name, slug, collection')
+      .eq('collection', relatedCollection[0]).eq('is_active', true)
+      .order('sort_order', { ascending: true, nullsFirst: false }).order('created_at', { ascending: true }).limit(3)
+    : { data: [] }
 
   // 文章页之前完全没有结构化数据（商品页有，这里一直漏着）。
   // BlogPosting 是 Google 识别"这是一篇文章"的依据，没有它就拿不到搜索结果里的
@@ -182,6 +190,24 @@ export default async function JournalPost({ params }) {
             </div>
           )}
 
+          {relatedCollection && relatedProducts?.length > 0 && (
+            <section className="post-shopping" aria-labelledby="post-shopping-title">
+              <h2 id="post-shopping-title">Find ribbon for your project</h2>
+              <p>Compare colours and available sizes in our {relatedCollection[1].name.toLowerCase()} collection. Check the selected option and delivery information before ordering.</p>
+              <Link href={`/collections/${relatedCollection[0]}`}>Browse {relatedCollection[1].name.toLowerCase()} →</Link>
+              <ul>
+                {relatedProducts.map(product => (
+                  <li key={product.id}>
+                    <Link href={`/collections/${product.collection}/${product.slug}`}>
+                      <span>{product.name}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              <Link href="/ribbon-guide">How to choose ribbon width and length →</Link>
+            </section>
+          )}
+
           {/* Back link */}
           <div style={{ marginTop: 72 }}>
             <Link href="/journal" style={{ fontSize: 9, letterSpacing: '.28em', textTransform: 'uppercase', color: 'var(--taupe)', textDecoration: 'none', borderBottom: '1px solid var(--warm)', paddingBottom: 4 }} className="back-link">
@@ -193,6 +219,14 @@ export default async function JournalPost({ params }) {
 
       <style dangerouslySetInnerHTML={{ __html: `
         .back-link:hover { color: var(--gold) !important; border-bottom-color: var(--gold) !important; }
+        .post-shopping { border-top: 1px solid var(--sand); margin-top: 56px; padding-top: 40px; }
+        .post-shopping h2 { font-size: 28px; line-height: 1.2; margin-bottom: 20px; scroll-margin-top: 100px; }
+        .post-shopping p { font-size: 15px; line-height: 1.9; color: var(--deep); margin-bottom: 12px; }
+        .post-shopping a { display: inline-flex; align-items: center; min-height: 44px; color: var(--deep); text-decoration: underline; text-underline-offset: 4px; overflow-wrap: anywhere; }
+        .post-shopping ul { list-style: none; padding: 0; margin: 24px 0; }
+        .post-shopping li { border-top: 1px solid var(--sand); }
+        .post-shopping li a { display: flex; gap: 20px; padding: 16px 0; line-height: 1.6; }
+        .post-shopping li span { min-width: 0; }
         @media(max-width: 768px) {
           .post-header-pad { padding: 48px 24px 40px !important; }
           .post-cover-pad { padding: 0 24px !important; }

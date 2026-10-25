@@ -441,6 +441,15 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
         </div>
 
         }
+        <nav className="product-guide-links" aria-label="Product guides">
+          {['fine-silk-ribbons', 'hand-frayed-silk-ribbons', 'vintage-inspired-ribbons'].includes(collectionSlug) && <>
+            <Link href="/ribbon-guide">Choosing ribbon width and length</Link>
+            <Link href="/care-guide">Caring for silk ribbon</Link>
+          </>}
+          <Link href={`/collections/${collectionSlug}`}>Browse {collectionName}</Link>
+          <Link href="/shipping-returns">Delivery &amp; returns</Link>
+        </nav>
+
         {/* More from this collection — 只在同系列真的还有别的商品时才渲染，避免空占位 */}
         {relatedProducts.length > 0 && (
           <div style={{ borderTop: '1px solid var(--sand)', padding: '80px 60px 100px' }} className="related-pad">
@@ -471,6 +480,8 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
 
       <style dangerouslySetInnerHTML={{ __html: `
         .main-wrap:hover .main-img-hover { transform: scale(1.04); }
+        .product-guide-links { max-width: 980px; margin: 0 auto; padding: 32px var(--page-padding); display: flex; flex-wrap: wrap; gap: 8px 28px; }
+        .product-guide-links a { display: inline-flex; align-items: center; min-height: 44px; color: var(--deep); font-size: 14px; line-height: 1.6; text-decoration: underline; text-underline-offset: 4px; overflow-wrap: anywhere; }
         @media(max-width: 960px) {
           .zone1 { grid-template-columns: 1fr !important; gap: 40px !important; padding: 32px 24px !important; }
           .desc-grid { grid-template-columns: 1fr !important; }

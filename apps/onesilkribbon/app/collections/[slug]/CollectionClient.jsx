@@ -17,7 +17,7 @@ function safeNum(val) {
   return isNaN(n) ? 0 : n
 }
 
-export default function CollectionClient({ initialProducts, slug: initialSlug, initialHeroImage = null }) {
+export default function CollectionClient({ initialProducts, slug: initialSlug, initialHeroImage = null, relatedArticle = null }) {
   // The server always supplies the catalog. Read props directly so switching
   // collections cannot retain the previous collection's state or refetch it.
   const slug = initialSlug || ''
@@ -143,6 +143,7 @@ export default function CollectionClient({ initialProducts, slug: initialSlug, i
           <div>{meta.guidance.map(paragraph => <p key={paragraph}>{paragraph}</p>)}</div>
           <p className="collection-guide-links">
             <Link href="/ribbon-guide">Help choosing ribbon</Link>
+            {relatedArticle && <Link href={`/journal/${relatedArticle.slug}`}>{relatedArticle.title}</Link>}
             <Link href="/care-guide">Silk care guide</Link>
             <Link href="/shipping-returns">Delivery &amp; returns</Link>
           </p>

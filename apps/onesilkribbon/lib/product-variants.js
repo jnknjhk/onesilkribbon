@@ -5,12 +5,53 @@ export function selectInitialSku(skus, requested) {
 }
 export function skuAttributes(product, sku) {
   if (!sku) return {}
-  if (Array.isArray(product?.attribute_config) && product.attribute_config.length) return { ...(sku.attributes || {}) }
+  if (Array.isArray(product?.attribute_config) && product.attribute_config.length) {
+    return configuredAttributes(product, sku)
+  }
   return {
     ...(sku.colour ? { Colour: String(sku.colour) } : {}),
     ...(sku.width_mm ? { Width: `${sku.width_mm}mm` } : {}),
     ...(sku.length_m ? { Length: `${sku.length_m}m` } : {}),
   }
+}
+
+function configuredAttributes(product, sku) {
+  const saved = { ...(sku.attributes || {}) }
+  const hasValue = value => ['string', 'number'].includes(typeof value) && String(value).trim() !== ''
+  if (product.attribute_config.every(attribute => hasValue(saved[attribute.name]))) return saved
+  // Older imports encoded configured values in the SKU code but omitted the
+  // attributes object. Recover only a unique configured combination, allowing
+  // whitespace differences such as the imported "5Yard" versus "5 Yard".
+  if (!product.slug || typeof sku.sku_code !== 'string' || !sku.sku_code.startsWith(product.slug + '-')) return saved
+  const code = sku.sku_code.replace(/\s+/g, '')
+  let combinations = 1
+  const groups = product.attribute_config.map(attribute => ({
+    name: attribute.name,
+    values: [...new Set((attribute.options || []).map(option =>
+      option && typeof option === 'object' ? option.value : option,
+    ).filter(hasValue).map(String))],
+  }))
+  for (const group of groups) {
+    combinations *= group.values.length
+    if (!group.values.length || combinations > 1000) return saved
+  }
+  const matches = []
+  const find = (index, entries, values) => {
+    if (matches.length > 1) return
+    if (index === groups.length) {
+      if (code === `${product.slug}-${values.join('-')}`.replace(/\s+/g, '')) matches.push(entries)
+      return
+    }
+    const group = groups[index]
+    for (const value of group.values) {
+      if (hasValue(saved[group.name]) && String(saved[group.name]) !== value) continue
+      find(index + 1, [...entries, [group.name, value]], [...values, value])
+    }
+  }
+  find(0, [], [])
+  return matches.length === 1
+    ? { ...saved, ...Object.fromEntries(matches[0].filter(([name]) => !hasValue(saved[name]))) }
+    : saved
 }
 export function matchSku(product, skus, attrs, current) {
   const matches = skus.filter(s => {
@@ -28,7 +69,11 @@ export function merchantVariantAttributes(product, sku) {
   const valueFor = names => clean(attributes.find(([name, value]) => names.includes(name.trim().toLowerCase()) && clean(value))?.[1])
   // Custom attributes are what customers select on the product page. Older
   // imported SKUs can have COLOR/WIDTH there while the legacy columns are empty.
-  const color = valueFor(['color', 'colour', '颜色']) || clean(sku.colour)
+  const legacyColour = clean(sku.colour)
+  const legacyColourIsDimension = attributes.some(([name, value]) =>
+    ['width', 'length', 'size', '宽度', '长度', '尺寸'].includes(name.trim().toLowerCase()) && clean(value) === legacyColour,
+  )
+  const color = valueFor(['color', 'colour', '颜色']) || (legacyColourIsDimension ? '' : legacyColour)
   const width = valueFor(['width', '宽度']) || (Number(sku.width_mm) > 0 ? `${sku.width_mm}mm` : '')
   const length = valueFor(['length', '长度']) || (Number(sku.length_m) > 0 ? `${sku.length_m}m` : '')
   const size = valueFor(['size', '尺寸', '尺码']) || [width, length].filter(Boolean).join(' × ')

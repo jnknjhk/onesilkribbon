@@ -43,6 +43,33 @@ test('legacy options require only the selectable groups and retain known length 
   assert.equal(selection.selectionIsComplete([], {}), true)
 })
 
+test('missing imported attributes recover only an exact configured SKU code, including quoted widths', () => {
+  const legacyProduct = { ...product, slug: 'cinnamon-rose', attribute_config: [
+    { name: 'Width', options: ['0.5"', '1"'] }, { name: 'Length', options: ['1 Yard', '3 Yard'] },
+  ] }
+  const legacySku = { ...sku, sku_code: 'cinnamon-rose-0.5"-1 Yard', colour: '0.5"', width_mm: 7, length_m: 10, attributes: {} }
+  const attributes = variants.skuAttributes(legacyProduct, legacySku)
+  assert.deepEqual(attributes, { Width: '0.5"', Length: '1 Yard' })
+  assert.equal(selection.selectionIsComplete(selection.productOptionGroups(legacyProduct, [legacySku]), attributes), true)
+  assert.equal(variants.matchSku(legacyProduct, [legacySku], attributes, legacySku), legacySku)
+  assert.deepEqual(variants.merchantVariantAttributes(legacyProduct, legacySku), { size: '0.5" × 1 Yard' })
+  assert.deepEqual(legacySku.attributes, {}, 'recovery does not mutate database records')
+  assert.equal(legacySku.price_gbp, '5.90')
+  assert.deepEqual(variants.skuAttributes(legacyProduct, { ...legacySku, sku_code: 'cinnamon-rose-0.5"-3Yard' }), { Width: '0.5"', Length: '3 Yard' })
+})
+
+test('missing attributes are not guessed from unknown, conflicting, ambiguous or unbounded codes', () => {
+  const configured = { ...product, slug: 'ribbon' }
+  assert.deepEqual(variants.skuAttributes(configured, { ...sku, attributes: {}, sku_code: 'ribbon-unknown' }), {})
+  assert.deepEqual(variants.skuAttributes(configured, { ...sku, attributes: { COLOR: 'Red' }, sku_code: 'ribbon-Blue-7mm' }), { COLOR: 'Red' })
+  const ambiguous = { slug: 'ribbon', attribute_config: [{ name: 'A', options: ['a-b', 'a'] }, { name: 'B', options: ['c', 'b-c'] }] }
+  assert.deepEqual(variants.skuAttributes(ambiguous, { ...sku, attributes: {}, sku_code: 'ribbon-a-b-c' }), {})
+  const spaced = { slug: 'ribbon', attribute_config: [{ name: 'Colour', options: ['Light Blue', 'LightBlue'] }] }
+  assert.deepEqual(variants.skuAttributes(spaced, { ...sku, attributes: {}, sku_code: 'ribbon-LightBlue' }), {})
+  const large = { slug: 'ribbon', attribute_config: [{ name: 'A', options: Array.from({ length: 1001 }, (_, i) => String(i)) }] }
+  assert.deepEqual(variants.skuAttributes(large, { ...sku, attributes: {}, sku_code: 'ribbon-1' }), {})
+})
+
 function analytics({ consent = true, ready = true, pathname = '/collections/fine-silk-ribbons/ribbon', origin = 'https://onesilkribbon.com' } = {}) {
   const sent = []
   const state = { consent }

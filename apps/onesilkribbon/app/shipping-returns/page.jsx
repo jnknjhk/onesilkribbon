@@ -1,6 +1,8 @@
 import { supabaseAdmin as supabaseServer } from '@osr/core/lib/supabase'
+import { shippingSettingsFromApi, shippingDescription } from '@/lib/pricing'
 
-export const revalidate = 3600
+export const dynamic = 'force-dynamic'
+export const fetchCache = 'force-no-store'
 
 export const metadata = {
   title: 'Shipping & Returns',
@@ -9,19 +11,14 @@ export const metadata = {
 }
 
 export default async function ShippingReturns() {
-  const { data: settings } = await supabaseServer
+  const { data: settings, error } = await supabaseServer
     .from('settings')
     .select('key, value')
     .in('key', ['shipping_rate', 'free_shipping_threshold', 'free_shipping_enabled'])
+  if (error) throw new Error('Unable to load delivery charges. Please try again.')
 
   const map = Object.fromEntries((settings || []).map(r => [r.key, r.value]))
-  const shippingRate      = parseFloat(map.shipping_rate || '3.95').toFixed(2)
-  const freeThreshold     = parseFloat(map.free_shipping_threshold || '45').toFixed(0)
-  const freeEnabled       = map.free_shipping_enabled !== 'false'
-
-  const shippingDesc = freeEnabled
-    ? `free on orders over £${freeThreshold}, otherwise £${shippingRate} per order`
-    : `£${shippingRate} per order`
+  const shippingDesc = shippingDescription(shippingSettingsFromApi(map))
 
   return (
     <>

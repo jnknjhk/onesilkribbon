@@ -7,6 +7,7 @@ import { safeProductHtml } from '@/lib/product-content'
 import { selectInitialSku, validSkus, productGroupSchema } from '@/lib/product-variants'
 import { safeJsonLd } from '@/lib/safe-json-ld'
 import { buildMetaDescription } from '@/lib/seo-meta'
+import { shippingSettingsFromApi } from '@/lib/pricing'
 
 export const revalidate = 60
 
@@ -16,8 +17,12 @@ const SITE_ORIGIN = 'https://onesilkribbon.com'
 // 永远跟实际收的一致——搜索结果写免邮、结账却要付钱是最糟的情况。
 // cache() 让 generateMetadata 和页面组件共用同一次查询。
 const getSettings = cache(async () => {
-  const { data } = await supabaseServer.from('settings').select('key, value')
-  return Object.fromEntries((data || []).map(r => [r.key, r.value]))
+  try {
+    const { data, error } = await supabaseServer.from('settings').select('key, value')
+      .in('key', ['shipping_rate', 'free_shipping_threshold', 'free_shipping_enabled'])
+    if (error) return null
+    return shippingSettingsFromApi(Object.fromEntries((data || []).map(r => [r.key, r.value])))
+  } catch { return null }
 })
 
 // generateMetadata 和页面组件是两次独立执行，用 React cache() 包一层——
@@ -161,17 +166,14 @@ export default async function ProductPage({ params, searchParams }) {
 
   // ── 配送与退货的结构化数据 ────────────────────────────────────────────────
   // 运费取后台 settings 的真实值（和结账时算的是同一份数据），不是写死的。
-  const freeShippingEnabled = settings.free_shipping_enabled === 'true'
-  const freeThreshold = parseFloat(settings.free_shipping_threshold || '0') || 0
-  const shippingRate = parseFloat(settings.shipping_rate || '0') || 0
   // 满额免邮时，一件商品是否免邮取决于整车金额，单品页面无法确定，
   // 所以这里申报的是「不满额时的标准运费」——宁可报高不报低，免得客户看到
   // 搜索结果写免邮、到结账却要付钱。
-  const shippingDetails = {
+  const shippingDetails = settings ? {
     '@type': 'OfferShippingDetails',
     shippingRate: {
       '@type': 'MonetaryAmount',
-      value: shippingRate.toFixed(2),
+      value: settings.freeShippingEnabled && Number(settings.freeShippingThreshold) === 0 ? '0.00' : settings.shippingRate,
       currency: 'GBP',
     },
     shippingDestination: { '@type': 'DefinedRegion', addressCountry: 'GB' },
@@ -182,11 +184,11 @@ export default async function ProductPage({ params, searchParams }) {
       // /shipping-returns：空运，发出后通常 5–14 天送达
       transitTime: { '@type': 'QuantitativeValue', minValue: 5, maxValue: 14, unitCode: 'DAY' },
     },
-    ...(freeShippingEnabled && freeThreshold > 0 ? {
+    ...(settings.freeShippingEnabled && Number(settings.freeShippingThreshold) > 0 ? {
       // 满 £49 免邮，写成"订单满额免运费"这条单独的规则
       shippingSettingsLink: `${SITE_ORIGIN}/shipping-returns`,
     } : {}),
-  }
+  } : undefined
 
   // Do not invent a return period or price-expiry date. The published policy has
   // product-specific exclusions and no universal numerical return window.
@@ -224,7 +226,7 @@ export default async function ProductPage({ params, searchParams }) {
           ]) }}
         />
       )}
-      <ProductClient key={`${product.id}:${initialSku?.id || ''}`} initialProduct={{ ...product, descriptionHtml: safeProductHtml(product.description) }} initialSkus={purchasableSkus} initialSku={initialSku} slug={productSlug} related={related} />
+      <ProductClient key={`${product.id}:${initialSku?.id || ''}`} initialProduct={{ ...product, descriptionHtml: safeProductHtml(product.description) }} initialSkus={purchasableSkus} initialSku={initialSku} initialShippingSettings={settings} slug={productSlug} related={related} />
     </>
   )
 }

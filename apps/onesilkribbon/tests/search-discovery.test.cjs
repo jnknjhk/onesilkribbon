@@ -77,9 +77,10 @@ test('temporary availability errors cannot mark a populated collection noindex',
   const run = error => compile(prefix, {
     cache: fn => fn, COLLECTION_META: { fine: { name: 'Fine', desc: 'Fine ribbon' } },
     supabaseServer: { from: table => ({ select: () => ({ eq() { return this },
-      single: async () => ({ data: null }), then(resolve) { return Promise.resolve({ count: error ? null : 0, error }).then(resolve) },
+      order() { return this }, single: async () => ({ data: null }),
+      then(resolve) { return Promise.resolve({ data: error ? null : [], error }).then(resolve) },
     }) }) },
   }, 'generateMetadata')({ params: { slug: 'fine' } })
-  await assert.rejects(run({ message: 'Unavailable' }), /Unable to check collection/)
+  await assert.rejects(run({ message: 'Unavailable' }), /Unable to load collection/)
   assert.equal((await run(null)).robots.index, false, 'a genuinely empty collection remains noindex')
 })

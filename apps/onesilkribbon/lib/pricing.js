@@ -16,6 +16,16 @@ export function shippingSettingsFromApi(data = {}) {
   }
 }
 
+// Display the same zero values and inclusive threshold used by calculateTotals.
+export function shippingDescription(settings) {
+  const { shippingRate, freeShippingThreshold, freeShippingEnabled } = settings
+  if (gbpToPence(shippingRate) === 0 || (freeShippingEnabled && gbpToPence(freeShippingThreshold) === 0)) return 'free'
+  const standard = `${formatGBP(shippingRate)} per order`
+  return freeShippingEnabled
+    ? `free on orders of ${formatGBP(freeShippingThreshold)} or more, otherwise ${standard}`
+    : standard
+}
+
 /**
  * 计算订单总额
  * 商品标价已含税（VAT included in price），结算时只加运费

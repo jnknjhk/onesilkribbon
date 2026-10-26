@@ -5,7 +5,8 @@ import NextImage from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useCart } from '@/lib/cart'
 import { skuAttributes, matchSku } from '@/lib/product-variants'
-import { shippingSettingsFromApi } from '@/lib/pricing'
+import { shippingDescription } from '@/lib/pricing'
+import { useShippingSettings } from '@/lib/use-shipping-settings'
 
 const EMPTY_LIST = []
 
@@ -28,12 +29,12 @@ function imageAlt(product, i = 0, total = 1) {
 }
 function fmt(amount) { return '£' + safeNum(amount).toFixed(2) }
 
-export default function ProductClient({ initialProduct, initialSkus, initialSku, slug, related }) {
+export default function ProductClient({ initialProduct, initialSkus, initialSku, initialShippingSettings, slug, related }) {
   const router = useRouter()
   const product = initialProduct || null
   const skus = initialSkus || EMPTY_LIST
   const relatedProducts = related || []
-  const [shippingInfo, setShippingInfo] = useState({ rate: '3.95', threshold: '45', freeEnabled: true })
+  const { settings: shippingSettings, error: shippingError, retry: retryShipping } = useShippingSettings(initialShippingSettings)
   const [imgIdx, setImgIdx] = useState(0)
   const [qty, setQty] = useState(1)
   const [added, setAdded] = useState(false)
@@ -85,22 +86,6 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
     if (widths.length > 1) init['Width'] = `${widths[0]}mm`
     if (Object.keys(init).length > 0) setSelectedAttrs(init)
   }, [product, skus, selectedAttrs])
-
-  useEffect(() => {
-    const controller = new AbortController()
-    fetch('/api/settings', { signal: controller.signal, cache: 'no-store' })
-      .then(r => { if (!r.ok) throw new Error('Settings unavailable'); return r.json() })
-      .then(data => {
-        const settings = shippingSettingsFromApi(data)
-        if (!controller.signal.aborted) setShippingInfo({
-          rate: Number(settings.shippingRate).toFixed(2),
-          threshold: String(Number(settings.freeShippingThreshold)),
-          freeEnabled: settings.freeShippingEnabled,
-        })
-      })
-      .catch(() => {})
-    return () => controller.abort()
-  }, [])
 
   if (!product) return (
     <div style={{ minHeight: '100vh', background: 'var(--cream)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 32 }}>
@@ -402,8 +387,12 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
 
             {tab === 'shipping' && (
               <div style={{ maxWidth: 560, margin: '0 auto' }}>
+                {shippingError && <div role="alert" style={{ marginTop: 24 }}>
+                  <p style={{ fontSize: 14, lineHeight: 1.8 }}>We could not load delivery charges. Please try again.</p>
+                  <button type="button" onClick={retryShipping} style={{ minHeight: 44, padding: '10px 16px', marginTop: 8, cursor: 'pointer' }}>Retry delivery charges</button>
+                </div>}
                 {[
-                  { title: 'Delivery', items: [shippingInfo.freeEnabled ? `Free on orders over £${shippingInfo.threshold}, otherwise £${shippingInfo.rate} per order` : `£${shippingInfo.rate} per order`, 'Shipped by air, typically arriving within 5–14 days of dispatch'] },
+                  { title: 'Delivery', items: [shippingSettings ? `Shipping is ${shippingDescription(shippingSettings)}.` : shippingError ? 'Delivery charges are currently unavailable.' : 'Loading delivery charges…', 'Shipped by air, typically arriving within 5–14 days of dispatch'] },
                   { title: 'Packaging & Dispatch', items: ['All orders are carefully wrapped in tissue paper and sealed with our wax stamp. Dispatched within 2 business days of payment being received.'] },
                 ].map(({ title, items }) => (
                   <div key={title}>

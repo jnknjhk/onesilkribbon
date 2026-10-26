@@ -1,22 +1,28 @@
+import { cache } from 'react'
 import { supabaseAdmin as supabaseServer } from '@osr/core/lib/supabase'
 import Link from 'next/link'
 import Image from 'next/image'
 
 export const revalidate = 60
 
-// 还没有任何文章时，这一页只有一句 "No articles yet."——提交给 Google 就是个软 404。
-// 所以先 noindex，发布第一篇文章后自动恢复收录，不需要回来改代码。
-export async function generateMetadata() {
-  const { count } = await supabaseServer
+// Share one successful snapshot between the page and its indexability decision.
+const getPublishedPosts = cache(async () => {
+  const { data, error } = await supabaseServer
     .from('journal_posts')
-    .select('*', { count: 'exact', head: true })
+    .select('slug, title, category, excerpt, cover_image, read_time, published_at')
     .eq('is_published', true)
+    .order('published_at', { ascending: false })
+  if (error) throw new Error('Unable to load journal articles. Please try again.')
+  return data || []
+})
 
+export async function generateMetadata() {
+  const posts = await getPublishedPosts()
   return {
     title: 'Journal',
     description: 'Wedding styling ideas, silk ribbon craft guides and behind-the-scenes stories from One Silk Ribbon.',
     alternates: { canonical: '/journal' },
-    ...((count || 0) === 0 ? { robots: { index: false, follow: true } } : {}),
+    ...(posts.length === 0 ? { robots: { index: false, follow: true } } : {}),
   }
 }
 
@@ -26,11 +32,7 @@ function formatDate(iso) {
 }
 
 export default async function JournalPage() {
-  const { data: posts } = await supabaseServer
-    .from('journal_posts')
-    .select('slug, title, category, excerpt, cover_image, read_time, published_at')
-    .eq('is_published', true)
-    .order('published_at', { ascending: false })
+  const posts = await getPublishedPosts()
 
   return (
     <>

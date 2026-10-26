@@ -20,16 +20,17 @@ const getHeroImage = cache(async (slug) => {
   return data?.url || null
 })
 
-// 这个系列现在有几个上架商品。用来决定要不要让搜索引擎收录——
-// 空系列页返回 200 但页面上没有任何商品，Google 会判成"软 404"。
-const getActiveProductCount = cache(async (slug) => {
-  const { count, error } = await supabaseServer
+// Metadata and the visible catalog must use the same successful snapshot.
+const getActiveProducts = cache(async (slug) => {
+  const { data, error } = await supabaseServer
     .from('products')
-    .select('*', { count: 'exact', head: true })
+    .select('id, name, slug, images, collection, description')
     .eq('collection', slug)
     .eq('is_active', true)
-  if (error) throw new Error('Unable to check collection availability')
-  return count || 0
+    .order('sort_order', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: true })
+  if (error) throw new Error('Unable to load collection products. Please try again.')
+  return data || []
 })
 
 export async function generateMetadata({ params }) {
@@ -41,7 +42,7 @@ export async function generateMetadata({ params }) {
   // 系列还没上架商品时先别让它进索引（比如 patterned-ribbons 是特意留空等新品的）。
   // follow 保持开启，页面上的导航链接权重照常传递；上架第一个商品后会自动恢复收录，
   // 不需要回来改代码。
-  const productCount = await getActiveProductCount(slug)
+  const products = await getActiveProducts(slug)
   // 根布局的 title.template 会自动拼上 "| One Silk Ribbon"，<title> 用短标题；
   // openGraph/twitter 不走 template，单独给带完整品牌的版本
   const title = meta.seoTitle || meta.name
@@ -51,7 +52,7 @@ export async function generateMetadata({ params }) {
     title,
     description: meta.desc,
     alternates: { canonical: `/collections/${slug}` },
-    ...(productCount === 0 ? { robots: { index: false, follow: true } } : {}),
+    ...(products.length === 0 ? { robots: { index: false, follow: true } } : {}),
     openGraph: {
       title: socialTitle,
       description: meta.desc,
@@ -83,24 +84,19 @@ export default async function CollectionPage({ params }) {
     ? await supabaseServer.from('journal_posts').select('slug, title').eq('slug', meta.journalSlug).eq('is_published', true).maybeSingle()
     : { data: null }
 
-  const { data: rawProducts } = await supabaseServer
-    .from('products')
-    .select('id, name, slug, images, collection, description')
-    .eq('collection', slug)
-    .eq('is_active', true)
-    .order('sort_order', { ascending: true, nullsFirst: false })
-    .order('created_at', { ascending: true })
+  const rawProducts = await getActiveProducts(slug)
 
   // Fetch SKU prices server-side to avoid N+1 on client
   let products = rawProducts || []
   if (products.length > 0) {
     const productIds = products.map(p => p.id)
-    const { data: allSkus } = await supabaseServer
+    const { data: allSkus, error: skuError } = await supabaseServer
       .from('product_skus')
       .select('product_id, price_gbp, colour_hex, id, stock_qty')
       .in('product_id', productIds)
       .eq('is_active', true)
       .order('price_gbp', { ascending: true })
+    if (skuError) throw new Error('Unable to load collection prices. Please try again.')
 
     const skuMap = {}
     if (allSkus) {

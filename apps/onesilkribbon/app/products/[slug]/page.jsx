@@ -5,18 +5,30 @@ import { findRenamedProduct } from '@osr/core/lib/product-redirects'
 // 跳转目标会变（商品换系列、改网址），不能按构建时的结果永久缓存
 export const revalidate = 60
 
-// 旧的商品 URL 结构（/products/[slug]）——现在商品详情页挪到了
-// /collections/[collectionSlug]/[productSlug]，这里只做 301，保住任何已经存在的外部链接/收藏/SEO 权重。
+// These Shopify width-specific products were consolidated into the current
+// 2–13mm product. Only map confirmed aliases; unknown products must remain 404.
+const LEGACY_PRODUCT_SLUGS = {
+  '4mm-mulberry-silk-ribbon': '2mm-mulberry-silk-ribbon',
+  '7mm-mulberry-silk-ribbon': '2mm-mulberry-silk-ribbon',
+}
+
+// Resolve the current product instead of keeping a hard-coded collection URL.
+// Shopify variant/country/currency parameters are not current SKU identifiers.
 export default async function LegacyProductRedirect({ params }) {
   const { slug } = await params
-  const { data: product } = await supabaseServer
-    .from('products').select('collection').eq('slug', slug).maybeSingle()
+  const alias = Object.hasOwn(LEGACY_PRODUCT_SLUGS, slug) ? LEGACY_PRODUCT_SLUGS[slug] : null
+  // Prefer an exact active product if a legacy slug is ever reused.
+  for (const candidateSlug of [slug, alias].filter(Boolean)) {
+    const { data: product, error } = await supabaseServer
+      .from('products').select('slug, collection')
+      .eq('slug', candidateSlug).eq('is_active', true).maybeSingle()
+    if (error) throw new Error('Unable to resolve product redirect. Please try again.')
 
-  if (!product) {
-    const moved = await findRenamedProduct(supabaseServer, slug)
+    if (product) permanentRedirect(`/collections/${product.collection}/${product.slug}`)
+
+    const moved = await findRenamedProduct(supabaseServer, candidateSlug)
     if (moved) permanentRedirect(`/collections/${moved.collection}/${moved.slug}`)
-    notFound()
   }
 
-  permanentRedirect(`/collections/${product.collection}/${slug}`)
+  notFound()
 }

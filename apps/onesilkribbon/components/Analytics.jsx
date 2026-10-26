@@ -3,8 +3,7 @@ import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { GoogleAnalytics } from '@next/third-parties/google'
 import { CONSENT_EVENT, hasConsented } from '@/lib/consent'
-
-const GA_ID = 'G-D48ERTWLOR'
+import { GA_ID, flushProductEvents, isPrivateAnalyticsPath } from '@/lib/storefront-analytics'
 
 // 同意门控的 GA4：只有访客在 Cookie 横幅上点过 "Accept" 之后才加载 gtag。
 // 站点面向英国/欧洲，PECR + UK GDPR 要求分析类 cookie 必须先取得同意，
@@ -12,16 +11,28 @@ const GA_ID = 'G-D48ERTWLOR'
 export default function Analytics() {
   const [consented, setConsented] = useState(false)
   const pathname = usePathname() || ''
-  const privatePage = ['/admin','/admin-login','/account','/auth','/login','/checkout','/order-confirmed','/track-order']
-    .some(path=>pathname===path || pathname.startsWith(path+'/'))
+  const privatePage = isPrivateAnalyticsPath(pathname)
 
   useEffect(() => {
     // Also disable an already-loaded tag when navigating into a private flow.
     window[`ga-disable-${GA_ID}`] = !consented || privatePage
-  },[consented,privatePage])
+    flushProductEvents()
+    if (!consented || privatePage) return
+    // The consent-gated inline Google tag may initialize after product effects.
+    // Keep only a bounded, in-memory queue of events accepted after consent.
+    let attempts = 0
+    const timer = setInterval(() => {
+      flushProductEvents()
+      if (typeof window.gtag === 'function' || ++attempts >= 60) clearInterval(timer)
+    }, 250)
+    return () => clearInterval(timer)
+  },[consented,privatePage,pathname])
 
   useEffect(() => {
-    const read = () => setConsented(hasConsented())
+    const read = () => {
+      flushProductEvents()
+      setConsented(hasConsented())
+    }
     read()
 
     window.addEventListener(CONSENT_EVENT, read)   // 本页点击 Accept/Decline

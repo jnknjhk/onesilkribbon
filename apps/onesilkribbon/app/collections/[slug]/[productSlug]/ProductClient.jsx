@@ -7,6 +7,9 @@ import { useCart } from '@/lib/cart'
 import { skuAttributes, matchSku } from '@/lib/product-variants'
 import { shippingDescription } from '@/lib/pricing'
 import { useShippingSettings } from '@/lib/use-shipping-settings'
+import { productOptionGroups, selectionIsComplete, selectedOptionRows } from '@/lib/product-selection'
+import { useProductAnalytics } from '@/lib/use-product-analytics'
+import { trackProductEvent } from '@/lib/storefront-analytics'
 
 const EMPTY_LIST = []
 
@@ -44,6 +47,9 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
   // Derive immediately: an effect leaves a render where the chosen option and
   // the SKU sent to the basket disagree.
   const selectedSku = matchSku(product, skus, selectedAttrs, initialSku)
+  const attributeOptions = productOptionGroups(product, skus)
+  const selectionComplete = selectionIsComplete(attributeOptions, selectedAttrs)
+  useProductAnalytics(product, selectionComplete ? selectedSku : null)
   const addedTimer = useRef(null)
   const thumbnailStrip = useRef(null)
   useEffect(() => () => clearTimeout(addedTimer.current), [])
@@ -127,18 +133,9 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
   const inStock = selectedSku ? safeNum(selectedSku.stock_qty) > 0 : false
   const hasSelected = !!selectedSku
 
-  let attributeOptions = []
-
-  if (attrConfig.length > 0) {
-    attributeOptions = attrConfig.map(a => ({ name: a.name, options: a.options || [] }))
-  } else {
-    const colours = [...new Set(skus.map(s => safe(s.colour)).filter(Boolean))]
-    const widths = [...new Set(skus.map(s => s.width_mm).filter(Boolean))]
-    const lengths = [...new Set(skus.map(s => s.length_m).filter(Boolean))]
-    if (colours.length > 1) attributeOptions.push({ name: 'Colour', options: colours })
-    if (widths.length > 1) attributeOptions.push({ name: 'Width', options: widths.map(w => `${w}mm`) })
-    if (lengths.length > 1) attributeOptions.push({ name: 'Length', options: lengths.map(l => `${l}m`) })
-  }
+  const optionRows = selectedOptionRows(product, selectedSku)
+  const canPurchase = hasSelected && selectionComplete && inStock
+  const ribbonProduct = ['fine-silk-ribbons', 'hand-frayed-silk-ribbons', 'vintage-inspired-ribbons'].includes(collectionSlug)
 
   const handleAttrChange = (attrName, value) => {
     setSelectedAttrs(prev => ({ ...prev, [attrName]: value }))
@@ -146,7 +143,7 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
   }
 
   const buildCartItem = () => {
-    if (!selectedSku) return null
+    if (!canPurchase || !Number.isSafeInteger(qty) || qty < 1) return null
     const attrDesc = Object.values(selectedAttrs).filter(Boolean).join(' · ')
     return {
       skuId: safe(selectedSku.id),
@@ -165,6 +162,7 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
     const item = buildCartItem()
     if (!item) return
     addItem(item)
+    trackProductEvent('add_to_cart', product, selectedSku, item.qty)
     setAdded(true)
     clearTimeout(addedTimer.current)
     addedTimer.current = setTimeout(() => setAdded(false), 2000)
@@ -172,10 +170,12 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
 
   // Buy Now — 加入购物车后直接跳转结账
   const handleBuyNow = () => {
+    if (buyingNow) return
     const item = buildCartItem()
     if (!item) return
     setBuyingNow(true)
     addItem(item)
+    trackProductEvent('add_to_cart', product, selectedSku, item.qty)
     router.push('/checkout')
   }
 
@@ -285,6 +285,22 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
               </div>
             ))}
 
+            <section className="selection-summary" aria-label="Selected product option" aria-live="polite" aria-atomic="true">
+              <p className="selection-summary-title">Your selection</p>
+              {hasSelected && selectionComplete ? <>
+                <dl>
+                  {optionRows.map(row => <div key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}
+                  <div><dt>Quantity</dt><dd>{qty}</dd></div>
+                  <div><dt>Items total</dt><dd>{fmt(price * qty)}</dd></div>
+                </dl>
+                <p className="selection-summary-note">{ribbonProduct ? 'Check the listed length for your selected option; width and length are different measurements.' : 'Check the dimensions and what is included in the product description.'}</p>
+              </> : <p className="selection-summary-note">Choose each option above to confirm your selection.</p>}
+              {ribbonProduct && <nav className="buying-help-links" aria-label="Ribbon selection help">
+                <Link href="/ribbon-guide#guide-project">Help choosing a width</Link>
+                <Link href="/ribbon-guide#guide-length">Estimate your ribbon length</Link>
+              </nav>}
+            </section>
+
             {/* 库存提示 */}
             {selectedSku && safeNum(selectedSku.stock_qty) > 0 && safeNum(selectedSku.stock_qty) <= 5 && (
               <p style={{ fontSize: 11, color: '#C0392B', marginBottom: 16, letterSpacing: '.03em' }}>
@@ -299,30 +315,39 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
                 <span style={{ width: 32, textAlign: 'center', fontSize: 13 }}>{qty}</span>
                 <button aria-label="Increase quantity" onClick={() => setQty(q => q + 1)} style={{ width: 44, height: '100%', background: 'none', border: 'none', fontSize: 18, color: 'var(--ink)', cursor: 'pointer' }}>+</button>
               </div>
-              <button onClick={handleAdd} disabled={!selectedSku || !inStock} style={{
+              <button onClick={handleAdd} disabled={!canPurchase} style={{
                 flex: 1, background: added ? 'var(--gold)' : 'var(--ink)', color: '#fff', border: 'none',
                 fontFamily: 'var(--font-body)', fontSize: 9, letterSpacing: '.3em', textTransform: 'uppercase',
-                cursor: selectedSku && inStock ? 'pointer' : 'not-allowed',
-                opacity: !selectedSku || !inStock ? 0.5 : 1, transition: 'background .28s',
+                cursor: canPurchase ? 'pointer' : 'not-allowed',
+                opacity: !canPurchase ? 0.5 : 1, transition: 'background .28s',
               }}>
-                {added ? '✓  Added to Basket' : !hasSelected ? 'Please Select Options' : !inStock ? 'Sold Out' : 'Add to Basket'}
+                {added ? '✓  Added to Basket' : !hasSelected || !selectionComplete ? 'Please Select Options' : !inStock ? 'Sold Out' : 'Add to Basket'}
               </button>
             </div>
 
             {/* Buy Now 按钮 */}
-            <button onClick={handleBuyNow} disabled={!selectedSku || !inStock || buyingNow} style={{
+            <button onClick={handleBuyNow} disabled={!canPurchase || buyingNow} style={{
               width: '100%', height: 50, marginTop: 10,
               background: 'var(--gold)', color: '#fff', border: 'none',
               fontFamily: 'var(--font-body)', fontSize: 9, letterSpacing: '.3em', textTransform: 'uppercase',
-              cursor: selectedSku && inStock && !buyingNow ? 'pointer' : 'not-allowed',
-              opacity: !selectedSku || !inStock ? 0.5 : 1, transition: 'background .28s',
+              cursor: canPurchase && !buyingNow ? 'pointer' : 'not-allowed',
+              opacity: !canPurchase ? 0.5 : 1, transition: 'background .28s',
             }}>
-              {buyingNow ? 'Redirecting…' : !hasSelected ? 'Please Select Options' : 'Buy Now'}
+              {buyingNow ? 'Redirecting…' : !hasSelected || !selectionComplete ? 'Please Select Options' : 'Buy Now'}
             </button>
+
+            <section className="purchase-delivery" aria-labelledby="purchase-delivery-title">
+              <h2 id="purchase-delivery-title">Delivery before you order</h2>
+              <p>Ships from our workshop in China. Usually dispatched within 2 business days after payment.</p>
+              <p>Estimated transit: 5–14 days after dispatch. Delivery times are estimates.</p>
+              <p>{shippingSettings ? `Shipping is ${shippingDescription(shippingSettings)}.` : shippingError ? 'Delivery charges are currently unavailable.' : 'Loading delivery charges…'}</p>
+              {shippingError && <button type="button" onClick={retryShipping}>Retry delivery charges</button>}
+              <Link href="/shipping-returns">Delivery, customs &amp; returns details</Link>
+            </section>
 
             {/* Trust badges */}
             <div style={{ display: 'flex', justifyContent: 'center', gap: 28, marginTop: 24, flexWrap: 'wrap' }}>
-              {['🔒 Secure Checkout', '↩ Easy Returns', '📦 Dispatched in 2 Days'].map(t => (
+              {['🔒 Secure Checkout', '📦 Tracked Delivery'].map(t => (
                 <span key={t} style={{ fontSize: 10, color: 'var(--taupe)', letterSpacing: '0.06em' }}>{t}</span>
               ))}
             </div>
@@ -468,6 +493,19 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
+        .selection-summary { padding: 20px; margin: 0 0 24px; border: 1px solid var(--sand); background: rgba(255,255,255,.35); overflow-wrap: anywhere; }
+        .selection-summary-title { font-size: 11px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; margin-bottom: 14px; color: var(--ink); }
+        .selection-summary dl { margin: 0; }
+        .selection-summary dl > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: 16px; margin-top: 8px; font-size: 14px; line-height: 1.6; }
+        .selection-summary dt { color: var(--deep); }
+        .selection-summary dd { margin: 0; text-align: right; color: var(--ink); font-weight: 400; }
+        .selection-summary-note { font-size: 12px; font-weight: 400; line-height: 1.8; color: var(--deep); margin-top: 14px; }
+        .buying-help-links { display: flex; flex-wrap: wrap; gap: 0 20px; margin-top: 8px; }
+        .buying-help-links a, .purchase-delivery a { display: inline-flex; align-items: center; min-height: 44px; font-size: 12px; line-height: 1.6; color: var(--deep); text-decoration: underline; text-underline-offset: 3px; }
+        .purchase-delivery { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--sand); overflow-wrap: anywhere; }
+        .purchase-delivery h2 { font-family: var(--font-body); font-size: 12px; font-weight: 500; letter-spacing: .08em; margin-bottom: 12px; }
+        .purchase-delivery p { font-size: 13px; font-weight: 400; line-height: 1.8; color: var(--deep); margin-top: 8px; }
+        .purchase-delivery button { min-height: 44px; padding: 8px 12px; margin-top: 8px; cursor: pointer; }
         .main-wrap:hover .main-img-hover { transform: scale(1.04); }
         .product-guide-links { max-width: 980px; margin: 0 auto; padding: 32px var(--page-padding); display: flex; flex-wrap: wrap; gap: 8px 28px; }
         .product-guide-links a { display: inline-flex; align-items: center; min-height: 44px; color: var(--deep); font-size: 14px; line-height: 1.6; text-decoration: underline; text-underline-offset: 4px; overflow-wrap: anywhere; }

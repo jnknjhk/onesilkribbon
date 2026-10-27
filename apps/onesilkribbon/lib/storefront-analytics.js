@@ -2,7 +2,7 @@ import { hasConsented } from '@/lib/consent'
 import { gbpToPence } from '@/lib/pricing'
 import { merchantVariantAttributes } from '@/lib/product-variants'
 
-export const GA_ID = 'G-D48ERTWLOR'
+export const GA_ID = 'G-D48ERTWL0R'
 const pending = []
 
 export function isPrivateAnalyticsPath(pathname) {

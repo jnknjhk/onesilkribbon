@@ -93,6 +93,13 @@ export function variantImage(product, sku) {
   }
   return firstImage(product.images) || null
 }
+export function structuredSku(sku) {
+  // Legacy display codes can be long product slugs or contain spaces. Do not
+  // truncate them: two different variants could then get the same identifier.
+  // The existing database ID is a stable fallback; no database/feed IDs change.
+  const valid = value => typeof value === 'string' && /^[\x21-\x7e]{1,50}$/.test(value)
+  return valid(sku.sku_code) ? sku.sku_code : valid(sku.id) ? sku.id : undefined
+}
 export function productGroupSchema(product, skus, url, shippingDetails, returnPolicy) {
   const variants = validSkus(skus)
   const attributes = variants.map(sku => merchantVariantAttributes(product, sku))
@@ -113,7 +120,7 @@ export function productGroupSchema(product, skus, url, shippingDetails, returnPo
       return {
         '@type': 'Product', '@id': variantUrl(url, s) + '#product',
         name, description: [name, excerpt].filter(Boolean).join('. '),
-        sku: s.sku_code || s.id, ...(s.sku_code ? { mpn: s.sku_code } : {}),
+        sku: structuredSku(s), ...(s.sku_code ? { mpn: s.sku_code } : {}),
         ...attributes[index],
         // A representative variant image is sufficient here. Repeating a
         // 31-photo gallery for every size/colour makes the HTML much larger;
@@ -123,7 +130,7 @@ export function productGroupSchema(product, skus, url, shippingDetails, returnPo
           '@type': 'Offer', url: variantUrl(url, s), priceCurrency: 'GBP', price: Number(s.price_gbp).toFixed(2),
           availability: Number(s.stock_qty) > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
           itemCondition: 'https://schema.org/NewCondition',
-          seller: { '@type': 'Organization', name: 'One Silk Ribbon', url: 'https://onesilkribbon.com' },
+          seller: { '@type': 'Organization', '@id': 'https://onesilkribbon.com/#organization', name: 'One Silk Ribbon', url: 'https://onesilkribbon.com' },
           shippingDetails, hasMerchantReturnPolicy: returnPolicy,
         },
       }

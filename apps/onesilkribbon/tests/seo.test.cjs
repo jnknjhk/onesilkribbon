@@ -44,6 +44,43 @@ test('ProductGroup offers preserve per-SKU prices, images and stock without fabr
   assert.doesNotMatch(JSON.stringify(schema), /merchantReturnDays|priceValidUntil|Mulberry Silk|AggregateOffer/)
 })
 
+test('legacy oversized, whitespace and invalid SKU codes fall back to existing unique IDs without truncation', async () => {
+  const { productGroupSchema, structuredSku } = await helper
+  const prefix = 'r'.repeat(50)
+  const legacy = [
+    { ...skus[0], id: '5dcb4fd8-4601-4000-8000-000000000001', sku_code: prefix + '-one' },
+    { ...skus[1], id: '5dcb4fd8-4601-4000-8000-000000000002', sku_code: prefix + '-two' },
+    { ...skus[0], id: '5dcb4fd8-4601-4000-8000-000000000003', sku_code: 'cinnamon-rose-0.5"-1 Yard' },
+  ]
+  const before = JSON.stringify(legacy)
+  const group = productGroupSchema(product, legacy, 'https://example.org/ribbon')
+  assert.deepEqual(group.hasVariant.map(v => v.sku), legacy.map(s => s.id))
+  assert.equal(new Set(group.hasVariant.map(v => v.sku)).size, 3)
+  assert.deepEqual(group.hasVariant.map(v => v.offers.url), legacy.map(s => `https://example.org/ribbon?sku=${s.id}`))
+  assert.deepEqual(group.hasVariant.map(v => v.offers.price), ['3.00', '25.00', '3.00'])
+  assert.equal(JSON.stringify(legacy), before, 'stored codes and purchasing records are not rewritten')
+  assert.equal(structuredSku({ ...skus[0], sku_code: prefix }), prefix)
+  for (const sku_code of ['', ' leading', 'line\nbreak', 'zero\u0000byte', '\ud800']) {
+    assert.equal(structuredSku({ ...skus[0], sku_code }), skus[0].id)
+  }
+  assert.equal(structuredSku({ id: 'also invalid', sku_code: prefix + 'x' }), undefined)
+})
+
+test('the seller links to the real organization policy without invented return terms or reviews', async () => {
+  const { productGroupSchema } = await helper
+  const layout = read('app/layout.jsx')
+  const block = layout.slice(layout.indexOf('const organizationSchema ='), layout.indexOf('export const metadata'))
+  const graph = new Function(block + '; return organizationSchema')()['@graph']
+  const organization = graph.find(item => item['@type'] === 'Organization')
+  assert.deepEqual(organization.hasMerchantReturnPolicy, {
+    '@type': 'MerchantReturnPolicy', merchantReturnLink: 'https://onesilkribbon.com/shipping-returns',
+  })
+  const group = productGroupSchema(product, skus, 'https://example.org/ribbon')
+  assert.equal(group.hasVariant[0].offers.seller['@id'], organization['@id'])
+  assert.equal(group.hasVariant[0].offers.hasMerchantReturnPolicy, undefined, 'no incomplete policy overrides the organization')
+  assert.doesNotMatch(JSON.stringify([organization, group]), /merchantReturnDays|MerchantReturnUnlimitedWindow|MerchantReturnNotPermitted|aggregateRating|"review"/)
+})
+
 let feedModuleVersion = 0
 async function feedXml(feedProduct, feedSkus) {
   const variants = await helper

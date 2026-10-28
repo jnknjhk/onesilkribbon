@@ -159,9 +159,8 @@ export default async function ProductPage({ params, searchParams }) {
 
   const productUrl = `https://onesilkribbon.com/collections/${slug}/${productSlug}`
 
-  // Google Shopping/Merchant Center 要求商品必须带至少一个标识符（gtin/mpn/isbn 三选一）。
-  // 手工小批量产品没有真正的条码，用内部 slug 顶 mpn（制造商料号）——总比完全不填、
-  // 被 Google 判定"缺商品标识符"要好；等以后如果有真的 UPC/EAN 条码，直接把这行换成 gtin 即可。
+  // Identifier markup uses existing SKU records; do not fabricate GTINs or
+  // derive new manufacturer identifiers from the page URL.
   const settings = await getSettings()
 
   // ── 配送与退货的结构化数据 ────────────────────────────────────────────────
@@ -192,6 +191,8 @@ export default async function ProductPage({ params, searchParams }) {
 
   // Do not invent a return period or price-expiry date. The published policy has
   // product-specific exclusions and no universal numerical return window.
+  // The root Organization supplies Google's supported policy-link alternative;
+  // an incomplete product-level policy would override that standard policy.
   const returnPolicy = undefined
   const breadcrumb = {
       '@type': 'BreadcrumbList',

@@ -47,6 +47,12 @@ const organizationSchema = {
       name: 'One Silk Ribbon',
       url: 'https://onesilkribbon.com',
       logo: 'https://onesilkribbon.com/images/logo.png',
+      // Google's organization-level Option B links the published policy
+      // without inventing a universal return window or overriding exclusions.
+      hasMerchantReturnPolicy: {
+        '@type': 'MerchantReturnPolicy',
+        merchantReturnLink: 'https://onesilkribbon.com/shipping-returns',
+      },
       contactPoint: { '@type': 'ContactPoint', email: 'song@onesilkribbon.com', contactType: 'customer service' },
       sameAs: ['https://www.instagram.com/onesilkribbon', 'https://www.pinterest.com/onesilkribbon'],
     },

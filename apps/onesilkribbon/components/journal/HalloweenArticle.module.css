@@ -4,6 +4,7 @@
 .breadcrumb { display: flex; gap: 15px; max-width: 1360px; margin: auto; padding: 30px 60px; font-size: 10px; letter-spacing: .13em; text-transform: uppercase; color: #75665b; }
 .breadcrumb a:hover { color: var(--wine); }
 .hero { max-width: 1360px; margin: auto; padding: 0 60px 64px; display: grid; grid-template-columns: 1fr 1fr; align-items: stretch; gap: 48px; }
+.heroNoImage { grid-template-columns: 1fr; }
 .heroCopy { padding: 36px 0 22px; align-self: center; }
 .eyebrow { font-size: 10px; font-weight: 500; letter-spacing: .2em; color: var(--wine); text-transform: uppercase; }
 .heroCopy .eyebrow { display: flex; align-items: center; gap: 10px; font-size: 9px; letter-spacing: .17em; }
@@ -35,6 +36,12 @@
 .sidebarNote em { color: var(--wine); }
 .article { min-width: 0; }
 .article p { font-size: 16px; line-height: 1.95; color: var(--body-ink); margin-bottom: 19px; }
+.article p { white-space: pre-line; }
+.articleFigure { margin: 0 0 42px; scroll-margin-top: 105px; }
+.articleFigure > div { position: relative; aspect-ratio: 16 / 9; }
+.articleFigure img { object-fit: cover; }
+.articleFigure figcaption { font-size: 12px; color: var(--body-ink); margin-top: 12px; }
+.closing { border-top: 1px solid #dcd0c2; padding-top: 25px; margin-bottom: 35px; font-style: italic; }
 .article p a { color: var(--wine); text-decoration: underline; text-decoration-color: #b69997; text-underline-offset: 4px; }
 .article a:hover { text-decoration-color: var(--wine); }
 .article .intro { border-bottom: 1px solid #dcd0c2; padding-bottom: 30px; margin-bottom: 48px; }
@@ -53,6 +60,7 @@
 .measure p > span { font-family: var(--font-body); color: #a38e75; margin: 0 8px; font-size: 20px; }
 .measure strong { font-weight: 400; color: var(--wine); }
 .measure small { font-size: 11px; color: #776655; }
+.measure small { display: block; }
 .broochCard { display: grid; grid-template-columns: 180px 1fr; border: 1px solid #dcd0c2; margin-top: 28px; }
 .broochCard > div { position: relative; min-height: 166px; }
 .broochCard img { object-fit: cover; }

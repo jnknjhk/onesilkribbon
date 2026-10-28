@@ -1,5 +1,4 @@
 import { supabaseAdmin } from '@osr/core/lib/supabase'
-import { mergePublishedJournalPosts } from '@/lib/journal-articles'
 
 // 没有这一行，Next.js 会把 sitemap 当成纯静态页在**构建时**生成一次就固定下来：
 // 之后上架新商品、发布新文章，sitemap 里都不会出现，必须重新部署才更新。
@@ -38,7 +37,7 @@ export default async function sitemap() {
   // an apparently successful file with all products or articles missing.
   if (productResult.error || postResult.error) throw new Error('Unable to generate sitemap')
   const products = productResult.data || []
-  const posts = mergePublishedJournalPosts(postResult.data || [])
+  const posts = postResult.data || []
 
   const productPages = (products || []).map(p => ({
     url: `${baseUrl}/collections/${p.collection}/${p.slug}`,

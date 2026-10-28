@@ -13,12 +13,10 @@ test('sitemap keeps real dates and rejects a database outage instead of silently
     ? { data: null, error: { message: 'private database failure' } }
     : { data: table === 'products'
       ? [{ slug: 'ribbon', collection: 'silk', updated_at: '2026-01-02' }, { slug: 'bow', collection: 'silk', updated_at: 'invalid' }]
-      : [{ slug: 'story', updated_at: null }] } }) }) }
+      : [{ slug: 'story', updated_at: null }, { slug: 'halloween-silk-ribbon-ideas', updated_at: '2026-10-28T04:05:00.000Z' }] } }) }) }
   try {
-    const editorialModule = 'data:text/javascript;base64,' + Buffer.from(read('lib/journal-articles.js')).toString('base64')
     const { default: sitemap } = await load(read('app/sitemap.js')
-      .replace("import { supabaseAdmin } from '@osr/core/lib/supabase'", 'const supabaseAdmin = globalThis.__sitemapDb')
-      .replace("'@/lib/journal-articles'", JSON.stringify(editorialModule)))
+      .replace("import { supabaseAdmin } from '@osr/core/lib/supabase'", 'const supabaseAdmin = globalThis.__sitemapDb'))
     const result = await sitemap()
     assert.equal(result.find(row => row.url.endsWith('/silk/ribbon')).lastModified.toISOString(), '2026-01-02T00:00:00.000Z')
     assert.ok(result.some(row => row.url.endsWith('/journal/story')))

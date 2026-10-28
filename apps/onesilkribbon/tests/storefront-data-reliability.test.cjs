@@ -7,7 +7,6 @@ const compile = (source, bindings, result) => new Function(...Object.keys(bindin
   source.replace(/^import .*$/gm, '').replace(/^export /gm, '') + `; return ${result}`,
 )(...Object.values(bindings))
 const pricing = compile(read('lib/pricing.js'), {}, '({shippingSettingsFromApi,shippingDescription,calculateTotals})')
-const editorial = compile(read('lib/journal-articles.js'), {}, '({HALLOWEEN_ARTICLE,mergePublishedJournalPosts})')
 const flush = () => new Promise(resolve => setImmediate(resolve))
 
 function database(result) {
@@ -28,7 +27,7 @@ function journal(result) {
   const prefix = source.split('function formatDate')[0]
   const body = source.split('export default async function JournalPage() {')[1].split('\n  return (')[0]
   return compile(prefix + `\nasync function render() {${body}\nreturn posts;}`, {
-    cache: fn => fn, mergePublishedJournalPosts: editorial.mergePublishedJournalPosts, supabaseServer: database((_table, filters) => {
+    cache: fn => fn, supabaseServer: database((_table, filters) => {
       assert.equal(filters.is_published, true)
       return result
     }),
@@ -41,27 +40,14 @@ test('journal read failures reject both metadata and content instead of publishi
   await assert.rejects(h.render(), /Unable to load journal articles/)
 })
 
-test('published editorial articles keep the Journal discoverable even when the CMS is empty', async () => {
+test('only a successfully empty journal is noindex; published CMS articles remain discoverable', async () => {
   const empty = journal({ data: [], error: null })
-  assert.equal((await empty.generateMetadata()).robots, undefined)
-  assert.deepEqual(await empty.render(), [editorial.HALLOWEEN_ARTICLE])
+  assert.equal((await empty.generateMetadata()).robots.index, false)
+  assert.deepEqual(await empty.render(), [])
   const posts = [{ slug: 'guide', title: 'Real guide' }]
   const published = journal({ data: posts, error: null })
   assert.equal((await published.generateMetadata()).robots, undefined)
-  assert.deepEqual(await published.render(), [editorial.HALLOWEEN_ARTICLE, ...posts])
-})
-
-test('the combined Journal catalogue preserves CMS posts, sorts by publication date and avoids duplicate article URLs', () => {
-  const posts = [
-    { slug: 'later', published_at: '2026-11-01' },
-    { slug: editorial.HALLOWEEN_ARTICLE.slug, title: 'CMS duplicate', published_at: '2026-10-01' },
-    { slug: 'earlier', published_at: '2026-10-01' },
-  ]
-  const before = JSON.stringify(posts)
-  const result = editorial.mergePublishedJournalPosts(posts)
-  assert.deepEqual(result.map(post => post.slug), ['later', editorial.HALLOWEEN_ARTICLE.slug, 'earlier'])
-  assert.equal(result[1].title, editorial.HALLOWEEN_ARTICLE.title)
-  assert.equal(JSON.stringify(posts), before)
+  assert.deepEqual(await published.render(), posts)
 })
 
 function collection({ productError = null, skuError = null } = {}) {

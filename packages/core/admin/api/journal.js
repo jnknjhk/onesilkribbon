@@ -6,6 +6,13 @@ import { supabaseAdmin as supabase } from '../../lib/supabase'
 import { verifyAdmin } from '../../lib/admin-auth'
 import { errorResponse } from '../../lib/api-error'
 import { fetchAll } from './_helpers'
+import { revalidatePath } from 'next/cache'
+
+function refreshJournal() {
+  revalidatePath('/journal')
+  revalidatePath('/journal/[slug]', 'page')
+  revalidatePath('/sitemap.xml')
+}
 
 export async function GET() {
   const admin = await verifyAdmin()
@@ -28,6 +35,7 @@ function postRow(post) {
     closing: post.closing || '',
     read_time: post.read_time || '3 min read',
     is_published: post.is_published,
+    updated_at: new Date().toISOString(),
   }
 }
 
@@ -43,6 +51,7 @@ export async function POST(req) {
         .insert({ ...postRow(post), published_at: post.is_published ? new Date().toISOString() : null })
         .select('id').single()
       if (error) return dbError(error, 'admin-journal-create')
+      refreshJournal()
       return Response.json({ id: data.id })
     }
 
@@ -52,6 +61,7 @@ export async function POST(req) {
       if (post.is_published && !post.was_published) row.published_at = new Date().toISOString()
       const { error } = await supabase.from('journal_posts').update(row).eq('id', post.id)
       if (error) return dbError(error, 'admin-journal-update')
+      refreshJournal()
       return Response.json({ ok: true })
     }
 
@@ -59,6 +69,7 @@ export async function POST(req) {
       // 以前删除失败也会返回成功
       const { error } = await supabase.from('journal_posts').delete().eq('id', post.id)
       if (error) return errorResponse(error, { tag: 'admin-journal-delete', message: '删除失败，请重试' })
+      refreshJournal()
       return Response.json({ ok: true })
     }
 

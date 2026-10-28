@@ -2,7 +2,6 @@ import { cache } from 'react'
 import { supabaseAdmin as supabaseServer } from '@osr/core/lib/supabase'
 import Link from 'next/link'
 import Image from 'next/image'
-import { mergePublishedJournalPosts } from '@/lib/journal-articles'
 
 export const revalidate = 60
 
@@ -14,7 +13,7 @@ const getPublishedPosts = cache(async () => {
     .eq('is_published', true)
     .order('published_at', { ascending: false })
   if (error) throw new Error('Unable to load journal articles. Please try again.')
-  return mergePublishedJournalPosts(data || [])
+  return data || []
 })
 
 export async function generateMetadata() {

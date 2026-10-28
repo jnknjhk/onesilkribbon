@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useAdminConfig } from '../../config'
 import { api } from '../../lib/api'
 import { slugify } from '../../lib/format'
+import { journalLayout, prepareJournalSections } from '../../lib/journal-content'
 import MediaPicker from '../../MediaPicker'
 import {
   PageHeader, Card, Field, Input, Textarea, Select, Segmented, Button, Badge, Notice, ConfirmDialog,
@@ -15,6 +16,7 @@ const emptyForm = category => ({
   title: '', slug: '', category, excerpt: '',
   intro: '', cover_image: '', closing: '', read_time: '3 min read',
   is_published: false,
+  layout: 'standard',
   sections: [{ type: 'text', heading: '', body: '' }],
 })
 
@@ -29,6 +31,7 @@ function formFromPost(post) {
     closing: post.closing || '',
     read_time: post.read_time || '3 min read',
     is_published: post.is_published || false,
+    layout: journalLayout(post),
     sections: post.sections?.length > 0
       ? post.sections.map(x => ({ type: x.type || 'text', ...x }))
       : [{ type: 'text', heading: '', body: '' }],
@@ -111,7 +114,7 @@ function Form({ post, cfg, onBack, onSaved }) {
       post: {
         ...(isNew ? {} : { id: post.id }),
         ...form,
-        sections: form.sections.filter(x => (x.type === 'image' ? !!x.url : ((x.heading || '').trim() || (x.body || '').trim()))),
+        sections: prepareJournalSections(form.sections, form.layout),
       },
     }
     let res
@@ -188,7 +191,7 @@ function Form({ post, cfg, onBack, onSaved }) {
                       <Field label="小标题（可选）">
                         <Input value={sec.heading || ''} placeholder="Start with the right length" onChange={e => updateSection(i, { heading: e.target.value })} />
                       </Field>
-                      <Field label="段落">
+                      <Field label="段落" hint={form.layout === 'autumn' ? '空行分段；链接写成 [文字](https://网址)；引用行以 > 开头。' : undefined}>
                         <Textarea rows={5} value={sec.body || ''} onChange={e => updateSection(i, { body: e.target.value })} />
                       </Field>
                     </div>
@@ -234,6 +237,12 @@ function Form({ post, cfg, onBack, onSaved }) {
           </Card>
           <Card title="分类与网址">
             <div className={s.stack}>
+              <Field label="文章版式">
+                <Select value={form.layout} onChange={e => setF({ layout: e.target.value })}>
+                  <option value="standard">标准文章</option>
+                  <option value="autumn">秋季专题（目录与商品推荐）</option>
+                </Select>
+              </Field>
               <Field label="分类">
                 <Select value={form.category} onChange={e => setF({ category: e.target.value })}>
                   {!categories.includes(form.category) && <option value={form.category}>{form.category}</option>}

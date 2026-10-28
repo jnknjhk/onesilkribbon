@@ -5,6 +5,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { COLLECTION_META } from '@/lib/collection-content'
+import HalloweenArticle from '@/components/journal/HalloweenArticle'
+import { usesAutumnLayout } from '@/lib/journal-text'
 
 export const revalidate = 300
 
@@ -104,6 +106,12 @@ export default async function JournalPost({ params }) {
       ],
     },
   }
+
+  // The CMS owns the content, slug and publication state for this layout too.
+  if (usesAutumnLayout(post)) return <>
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
+    <HalloweenArticle post={post} />
+  </>
 
   return (
     <>

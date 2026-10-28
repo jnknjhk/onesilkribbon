@@ -15,12 +15,18 @@ test('sitemap keeps real dates and rejects a database outage instead of silently
       ? [{ slug: 'ribbon', collection: 'silk', updated_at: '2026-01-02' }, { slug: 'bow', collection: 'silk', updated_at: 'invalid' }]
       : [{ slug: 'story', updated_at: null }] } }) }) }
   try {
-    const { default: sitemap } = await load(read('app/sitemap.js').replace("import { supabaseAdmin } from '@osr/core/lib/supabase'", 'const supabaseAdmin = globalThis.__sitemapDb'))
+    const editorialModule = 'data:text/javascript;base64,' + Buffer.from(read('lib/journal-articles.js')).toString('base64')
+    const { default: sitemap } = await load(read('app/sitemap.js')
+      .replace("import { supabaseAdmin } from '@osr/core/lib/supabase'", 'const supabaseAdmin = globalThis.__sitemapDb')
+      .replace("'@/lib/journal-articles'", JSON.stringify(editorialModule)))
     const result = await sitemap()
     assert.equal(result.find(row => row.url.endsWith('/silk/ribbon')).lastModified.toISOString(), '2026-01-02T00:00:00.000Z')
     assert.ok(result.some(row => row.url.endsWith('/journal/story')))
     assert.equal(result.filter(row => row.url.endsWith('/collections/silk')).length, 1)
-    assert.equal(result.filter(row => row.lastModified).length, 1)
+    const halloween = result.filter(row => row.url.endsWith('/journal/halloween-silk-ribbon-ideas'))
+    assert.equal(halloween.length, 1)
+    assert.equal(halloween[0].lastModified.toISOString(), '2026-10-28T04:05:00.000Z')
+    assert.equal(result.filter(row => row.lastModified).length, 2)
     failed = true
     await assert.rejects(sitemap, /Unable to generate sitemap/)
   } finally { delete globalThis.__sitemapDb }

@@ -1,4 +1,5 @@
 'use client'
+import { STANDARD_RETURN_DAYS } from '@/lib/merchant-return-policy'
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import NextImage from 'next/image'
@@ -342,6 +343,7 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
               <p>Estimated transit: 5–14 days after dispatch. Delivery times are estimates.</p>
               <p>{shippingSettings ? `Shipping is ${shippingDescription(shippingSettings)}.` : shippingError ? 'Delivery charges are currently unavailable.' : 'Loading delivery charges…'}</p>
               {shippingError && <button type="button" onClick={retryShipping}>Retry delivery charges</button>}
+              <p>Standard products, including fixed ribbon options: request a return within {STANDARD_RETURN_DAYS} days of delivery. Faulty-item rights are unaffected.</p>
               <Link href="/shipping-returns">Delivery, customs &amp; returns details</Link>
             </section>
 

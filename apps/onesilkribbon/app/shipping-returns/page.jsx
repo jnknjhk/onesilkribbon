@@ -1,5 +1,6 @@
 import { supabaseAdmin as supabaseServer } from '@osr/core/lib/supabase'
 import { shippingSettingsFromApi, shippingDescription } from '@/lib/pricing'
+import { STANDARD_RETURN_DAYS } from '@/lib/merchant-return-policy'
 
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
@@ -25,7 +26,7 @@ export default async function ShippingReturns() {
       <div style={{ paddingTop: 68, background: 'var(--cream)', minHeight: '100vh' }}>
         <div className="policy-wrap">
           <h1>Shipping &amp; Returns</h1>
-          <p className="updated">Last updated: July 2026</p>
+          <p className="updated">Last updated: 28 October 2026</p>
 
           <p>Every order from One Silk Ribbon is carefully prepared by hand — wrapped in tissue, rolled onto a vintage wooden spool, and sealed with our wax stamp. Here is everything you need to know about how it reaches you.</p>
 
@@ -49,21 +50,20 @@ export default async function ShippingReturns() {
           <p>Any customs duties, import taxes, VAT, or other fees charged by the destination country are the responsibility of the customer unless otherwise stated at checkout. We are not responsible for delays caused by customs clearance.</p>
 
           <h2>Returns</h2>
-          <p>We accept returns for eligible products. If you wish to return an item, please contact us before sending anything back — items returned without prior approval may not be accepted.</p>
+          <p>We accept returns of standard products, including ribbons sold in our fixed catalogue colours, widths and lengths. Please contact us before sending an item back so that we can provide the correct return instructions. This process does not restrict your statutory cancellation rights.</p>
 
           <h2>Standard Returns</h2>
-          <p>You may request a return for eligible products if you change your mind or no longer wish to keep the item. The return shipping cost is the responsibility of the customer.</p>
-          <p>The returned item must be:</p>
+          <p>You may notify us that you wish to cancel or return a standard product within {STANDARD_RETURN_DAYS} calendar days after delivery, without giving a reason. You then have a further {STANDARD_RETURN_DAYS} days after notifying us to send the goods back. The customer arranges and pays the return postage for change-of-mind returns.</p>
+          <p>Please keep items:</p>
           <ul>
-            <li>Unused</li>
-            <li>In its original condition</li>
-            <li>In its original packaging where applicable</li>
-            <li>Suitable for resale</li>
+            <li>Unused beyond the handling necessary to inspect them</li>
+            <li>In their original condition</li>
+            <li>In their original packaging where possible</li>
           </ul>
-          <p>Please contact us at <a href="mailto:song@onesilkribbon.com">song@onesilkribbon.com</a> before returning your order so that we can provide the appropriate return instructions. Refunds will be issued after the returned item has been received and inspected.</p>
+          <p>Reasonable inspection does not remove your statutory cancellation rights. We may reduce a refund for loss in value caused by handling beyond what is necessary to inspect the goods, where the law permits. To request a return, email <a href="mailto:song@onesilkribbon.com">song@onesilkribbon.com</a> with your order number and the items you wish to return.</p>
 
           <h2>Damaged or Defective Items</h2>
-          <p>If your order arrives damaged or you believe the product has a quality issue, please contact us at <a href="mailto:song@onesilkribbon.com">song@onesilkribbon.com</a> within 7 days of receiving your order.</p>
+          <p>If your order arrives damaged or you believe the product has a quality issue, please contact us promptly at <a href="mailto:song@onesilkribbon.com">song@onesilkribbon.com</a>. Faulty, damaged or incorrectly supplied items are handled separately from change-of-mind returns. The {STANDARD_RETURN_DAYS}-day change-of-mind period and the bespoke-product exclusions below do not limit your statutory rights concerning these problems.</p>
           <p>Please include:</p>
           <ul>
             <li>Your order number</li>
@@ -72,23 +72,21 @@ export default async function ShippingReturns() {
           </ul>
           <p>If the issue is confirmed to be a product quality problem or damage that occurred before delivery, we will provide an appropriate solution. Where a return is required due to a confirmed product quality issue, we will cover the return shipping cost.</p>
 
-          <h2>Non-Returnable Items</h2>
-          <p>The following items cannot be returned:</p>
+          <h2>Custom and Personalised Orders</h2>
+          <p>The change-of-mind cancellation right may not apply to goods made to your individual specifications or clearly personalised for you, including:</p>
           <ul>
-            <li>Cut-to-length ribbon</li>
-            <li>Products that have been cut or altered according to the customer&apos;s requested length</li>
-            <li>Custom-made products</li>
-            <li>Personalised products</li>
-            <li>Products that have been used, altered, damaged, or modified after delivery</li>
+            <li>Ribbon cut to a bespoke length specifically requested outside our standard catalogue options</li>
+            <li>Products made or altered to your individual specifications</li>
+            <li>Clearly personalised products</li>
           </ul>
-          <p>Because these products are prepared specifically according to the customer&apos;s requirements, they cannot be resold.</p>
+          <p>Choosing from our standard catalogue colours, widths or lengths does not by itself make a product bespoke. Those standard products follow the {STANDARD_RETURN_DAYS}-day return policy above. Any applicable bespoke exclusion will be explained before the custom order is placed and does not remove your statutory rights if the goods are faulty or not as described.</p>
 
           <h2>Exchanges</h2>
           <p>We currently do not offer direct exchanges. If you would like a different product, colour, size, or variation, please contact us regarding the available options.</p>
 
           <h2>Refunds</h2>
-          <p>Once your return has been received and inspected, we will process the refund for eligible returned items. The refund will generally be issued to the original payment method.</p>
-          <p>Original shipping charges, if any, may not be refundable unless the return is due to a confirmed product quality issue or an error on our part.</p>
+          <p>Refunds for statutory cancellations will be issued within {STANDARD_RETURN_DAYS} days after we receive the returned goods or evidence that you sent them back, whichever is earlier. Refunds are made to the original payment method unless otherwise agreed.</p>
+          <p>When you cancel a whole standard order under your statutory cancellation rights, we also refund the standard outbound delivery charge. The extra cost of an upgraded delivery service is not refundable. We cover return postage where the return is required because of a confirmed product quality problem, damage before delivery or an error on our part.</p>
 
           <h2>Contact Us</h2>
           <p>If you have any questions about shipping or returns, please contact us before placing a return request. Email: <a href="mailto:song@onesilkribbon.com">song@onesilkribbon.com</a></p>

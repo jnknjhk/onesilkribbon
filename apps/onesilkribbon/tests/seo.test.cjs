@@ -81,6 +81,28 @@ test('the seller links to the real organization policy without invented return t
   assert.doesNotMatch(JSON.stringify([organization, group]), /merchantReturnDays|MerchantReturnUnlimitedWindow|MerchantReturnNotPermitted|aggregateRating|"review"/)
 })
 
+test('confirmed standard catalogue returns reach every offer with a finite window and customer-paid postage', async () => {
+  const { productReturnPolicy, STANDARD_RETURN_DAYS } = await load(read('lib/merchant-return-policy.js'))
+  const { productGroupSchema } = await helper
+  assert.equal(STANDARD_RETURN_DAYS, 14)
+  for (const collection of ['fine-silk-ribbons', 'hand-frayed-silk-ribbons', 'vintage-inspired-ribbons', 'studio-tools', 'handcrafted-adornments']) {
+    const policy = productReturnPolicy()
+    const group = productGroupSchema({ ...product, collection }, skus, 'https://example.org/ribbon', undefined, policy)
+    for (const variant of group.hasVariant) {
+      const actual = variant.offers.hasMerchantReturnPolicy
+      assert.equal(actual['@type'], 'MerchantReturnPolicy', collection)
+      assert.equal(actual.applicableCountry, 'GB', collection)
+      assert.equal(actual.returnPolicyCategory, 'https://schema.org/MerchantReturnFiniteReturnWindow', collection)
+      assert.equal(actual.merchantReturnDays, 14, collection)
+      assert.equal(actual.returnMethod, 'https://schema.org/ReturnByMail', collection)
+      assert.equal(actual.returnFees, 'https://schema.org/ReturnFeesCustomerResponsibility', collection)
+      assert.equal(actual.returnShippingFeesAmount, undefined, 'customer buys postage; no invented fee')
+    }
+    assert.deepEqual(group.hasVariant.map(v => v.offers.price), ['3.00', '25.00'])
+    assert.doesNotMatch(JSON.stringify(group), /MerchantReturnNotPermitted|MerchantReturnUnlimitedWindow|aggregateRating|"review"/)
+  }
+})
+
 let feedModuleVersion = 0
 async function feedXml(feedProduct, feedSkus) {
   const variants = await helper

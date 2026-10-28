@@ -1,3 +1,5 @@
+import { STANDARD_RETURN_DAYS } from '@/lib/merchant-return-policy'
+
 export const metadata = {
   title: 'Terms & Conditions',
   description: 'Terms and conditions for purchasing from One Silk Ribbon.',
@@ -10,7 +12,7 @@ export default function Terms() {
       <div style={{ paddingTop: 68, background: 'var(--cream)', minHeight: '100vh' }}>
         <div className="policy-wrap">
           <h1>Terms &amp; Conditions</h1>
-          <p className="updated">Last updated: March 2026</p>
+          <p className="updated">Last updated: 28 October 2026</p>
 
           <p>Please read these terms carefully before placing an order with One Silk Ribbon. By purchasing from us, you agree to these terms.</p>
 
@@ -29,9 +31,10 @@ export default function Terms() {
           <p>Risk of loss and title for items pass to you upon delivery.</p>
 
           <h2>5. Returns &amp; Refunds</h2>
-          <p>We accept returns for eligible products. Cut-to-length, custom-made, and personalised items cannot be returned, as they are prepared specifically to your requirements. Please contact us before returning any item — items returned without prior approval may not be accepted.</p>
+          <p>You may notify us that you wish to cancel or return standard products, including fixed catalogue ribbon options, within {STANDARD_RETURN_DAYS} calendar days after delivery. You then have a further {STANDARD_RETURN_DAYS} days to send them back. Please contact us for return instructions; prior approval is not a condition of exercising your statutory cancellation rights.</p>
+          <p>Goods made to your individual specifications or clearly personalised for you may be excluded from change-of-mind returns. Choosing from standard catalogue colours, widths or lengths does not by itself make an item bespoke. These exclusions and the standard return period do not limit your statutory rights regarding faulty, damaged or incorrectly supplied goods.</p>
           <p>To initiate a return, email <a href="mailto:song@onesilkribbon.com">song@onesilkribbon.com</a> with your order number. Return postage is at your expense unless the item is faulty or the return is due to an error on our part.</p>
-          <p>Refunds will be processed once the returned item has been received and inspected. See our <a href="/shipping-returns">Shipping &amp; Returns</a> page for full details.</p>
+          <p>For statutory cancellations, refunds are issued within {STANDARD_RETURN_DAYS} days after we receive the returned goods or evidence of return, whichever is earlier. Standard outbound delivery is refunded when a whole standard order is cancelled under statutory cancellation rights. See our <a href="/shipping-returns">Shipping &amp; Returns</a> page for the full conditions, including reasonable inspection, bespoke exclusions and damaged-item support.</p>
 
           <h2>6. Product Descriptions</h2>
           <p>We make every effort to ensure product descriptions, colours and images are accurate. However, due to the handcrafted and naturally dyed nature of our products, slight variations in colour and texture are inherent and not considered defects.</p>

@@ -8,6 +8,7 @@ import { selectInitialSku, validSkus, productGroupSchema } from '@/lib/product-v
 import { safeJsonLd } from '@/lib/safe-json-ld'
 import { buildMetaDescription } from '@/lib/seo-meta'
 import { shippingSettingsFromApi } from '@/lib/pricing'
+import { productReturnPolicy } from '@/lib/merchant-return-policy'
 
 export const revalidate = 60
 
@@ -189,11 +190,10 @@ export default async function ProductPage({ params, searchParams }) {
     } : {}),
   } : undefined
 
-  // Do not invent a return period or price-expiry date. The published policy has
-  // product-specific exclusions and no universal numerical return window.
-  // The root Organization supplies Google's supported policy-link alternative;
-  // an incomplete product-level policy would override that standard policy.
-  const returnPolicy = undefined
+  // Do not invent exclusions or a price-expiry date. The owner confirmed a
+  // 14-day window for current fixed catalogue goods, including standard ribbon
+  // options. Bespoke enquiries are separate from these catalogue offers.
+  const returnPolicy = productReturnPolicy()
   const breadcrumb = {
       '@type': 'BreadcrumbList',
       itemListElement: [

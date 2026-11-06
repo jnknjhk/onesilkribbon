@@ -34,6 +34,8 @@ test('Next 16 is installed and scripts keep Webpack while running lint separatel
   assert.match(manifest.scripts.build, /next build --webpack/)
   assert.doesNotMatch(manifest.scripts.lint, /next lint/)
   assert.match(manifest.scripts.lint, /--ext \.js,\.jsx/)
+  assert.ok(fs.existsSync(path.join(root, 'eslint.config.mjs')))
+  assert.ok(!fs.existsSync(path.join(root, '.eslintrc.json')))
   assert.equal(manifest.engines.node, '24.x')
   assert.equal(JSON.parse(fs.readFileSync(path.resolve(root, '../../package.json'), 'utf8')).engines.node, '24.x')
   assert.ok(!fs.existsSync(path.join(root, 'sentry.client.config.js')))
@@ -41,7 +43,7 @@ test('Next 16 is installed and scripts keep Webpack while running lint separatel
   assert.match(read('app/layout.jsx'), /<html[^>]*data-scroll-behavior="smooth"/)
 })
 
-test('Next 16 middleware removes spoofed admin headers on every public route without auth calls', async () => {
+test('Next 16 proxy removes spoofed admin headers on every public route without auth calls', async () => {
   const h = middlewareHarness()
   for (const route of ['/', '/admin-login', '/api/settings', '/api/email', '/api/payment-confirmation']) {
     const response = await h.run(route)
@@ -49,7 +51,8 @@ test('Next 16 middleware removes spoofed admin headers on every public route wit
     assert.equal(response.headers.has(`x-middleware-request-${ADMIN_HEADER}`), false)
   }
   assert.equal(h.calls(), 0)
-  assert.match(read('middleware.js'), /matcher: \['\/\(\(\?!_next\/static\|_next\/image\)\.\*\)'\]/)
+  assert.match(read('proxy.js'), /export function proxy\(request\)/)
+  assert.match(read('proxy.js'), /matcher: \['\/\(\(\?!_next\/static\|_next\/image\)\.\*\)'\]/)
 })
 
 test('anonymous or non-admin users cannot enter admin APIs even with a forged admin header', async () => {

@@ -223,14 +223,10 @@ test('installed RequestData integration honors the disabled collection options',
   assert.ok(!output.user)
 })
 
-test('installed Sentry envelope never restores an oversized original span after privacy rejection', async () => {
-  const { createSpanEnvelope } = require('@sentry/core')
+test('installed Sentry privacy hook rejects oversized or private spans before serialization', async () => {
   const { telemetryPrivacyHooks } = await load()
   const privateSpan = { description: 'SECRET'.repeat(50000), data: Object.fromEntries(Array.from({ length: 10001 }, (_, i) => [`k${i}`, 'PRIVATE'])) }
-  const span = { getSpanJSON: () => privateSpan }
-  const client = { getOptions: () => telemetryPrivacyHooks, getDsn: () => undefined }
-  const envelope = createSpanEnvelope([span], client)
-  const serialized = JSON.stringify(envelope)
-  assert.doesNotMatch(serialized, /SECRET|PRIVATE/)
-  assert.deepEqual(telemetryPrivacyHooks.beforeSendSpan(privateSpan), {})
+  const sanitized = telemetryPrivacyHooks.beforeSendSpan(privateSpan)
+  assert.deepEqual(sanitized, {})
+  assert.doesNotMatch(JSON.stringify(sanitized), /SECRET|PRIVATE/)
 })

@@ -16,8 +16,8 @@ export async function verifyAdmin() {
   // 快路径：中间件在同一个请求里已经调过 supabase.auth.getUser() 验过身份了。
   // 再验一次就是又一个网络往返（线上约 450ms），而后台每个操作都要走一次接口，
   // 白等的时间很可观。中间件对**所有**请求都会先删掉外部传入的同名头，只在
-  // /admin 与 /api/admin 校验通过后才写入（见 middleware.js），所以这里读到值
-  // 就说明确实验过。这一点依赖 middleware.js 的 matcher 覆盖全部路径。
+  // /admin 与 /api/admin 校验通过后才写入（见 proxy.js），所以这里读到值
+  // 就说明确实验过。这一点依赖 proxy.js 的 matcher 覆盖全部路径。
   try {
     const h = await headers()
     const forwarded = h.get(ADMIN_HEADER)

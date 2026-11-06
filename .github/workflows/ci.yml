@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # 每天 07:17 UTC（英国夏令时 08:17 / 冬令时 07:17）对线上做一次公开页 smoke
+    - cron: '17 7 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Lint / 单元测试 / 依赖审计
+    runs-on: ubuntu-latest
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: 安装依赖
+        run: npm ci
+      - name: ESLint
+        run: npm run lint -w apps/onesilkribbon
+      - name: 单元测试
+        working-directory: apps/onesilkribbon
+        run: node --test tests/*.test.cjs
+      - name: 生产依赖安全审计
+        run: npm audit --omit=dev --audit-level=high
+
+  build:
+    name: 构建
+    needs: checks
+    runs-on: ubuntu-latest
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      # 只使用公开变量和服务端密钥；构建期不会写入仓库
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL || 'https://onesilkribbon.com' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: 安装依赖
+        run: npm ci
+      # secrets 不能在 if 里直接判断，先提升到 env 再判断，避免未配置密钥时红叉
+      - name: 构建 Next.js
+        if: env.NEXT_PUBLIC_SUPABASE_URL != ''
+        run: npm run build -w apps/onesilkribbon
+      - name: 跳过构建（未配置 Supabase 密钥）
+        if: env.NEXT_PUBLIC_SUPABASE_URL == ''
+        run: echo "::notice::未配置 NEXT_PUBLIC_SUPABASE_URL，跳过构建。请在仓库 Settings → Secrets 中配置。"
+
+  e2e-public:
+    name: 线上公开页 smoke
+    needs: checks
+    # 只在定时任务和手动触发时跑线上 smoke：
+    # push 后 Vercel 可能还没部署完，此时测生产会测到上一个版本，结果不可信。
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      E2E_BASE_URL: ${{ vars.E2E_BASE_URL || 'https://onesilkribbon.com' }}
+      E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+      E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: 安装依赖
+        run: npm ci
+      - name: 安装 Chromium
+        run: npx playwright install --with-deps chromium
+      # 未配置 E2E_ADMIN_EMAIL/PASSWORD 时，需要登录的用例会自动 skip，只跑公开页。
+      - name: Playwright
+        working-directory: apps/onesilkribbon
+        run: npx playwright test
+      - name: 上传失败快照
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            apps/onesilkribbon/playwright-report/
+            apps/onesilkribbon/test-results/
+          retention-days: 7

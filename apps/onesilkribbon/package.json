@@ -7,6 +7,7 @@
     "build": "npm run lint && next build --webpack",
     "start": "next start",
     "test:e2e": "playwright test",
+    "backup": "node scripts/backup-export.mjs",
     "lint": "eslint --ext .js,.jsx app admin components lib instrumentation.js instrumentation-client.js sentry.server.config.js sentry.edge.config.js next.config.js proxy.js"
   },
   "dependencies": {

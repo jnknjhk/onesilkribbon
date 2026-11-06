@@ -8,3 +8,5 @@ node_modules/
 test-results/
 playwright-report/
 blob-report/
+# 本地数据备份含客户个人信息，绝不提交
+backups/

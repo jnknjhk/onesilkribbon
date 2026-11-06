@@ -184,6 +184,33 @@ async function removeSkus(ids) {
   return { deleted: toDelete.length, deactivated: toDeactivate.length }
 }
 
+// 事务函数还没执行（例如迁移尚未上线）时，先安全回退到旧路径，
+// 避免部署后商品保存直接不可用。迁移执行后会自动改用 RPC。
+let warnedAtomicFallback = false
+function warnAtomicFallback() {
+  if (warnedAtomicFallback) return
+  warnedAtomicFallback = true
+  console.warn('[admin-products] atomic save RPC not available; using legacy path. Apply supabase/migrations/2026-11-06-product-save-atomic.sql')
+}
+
+function isMissingRpc(error) {
+  return ['PGRST202', '42883'].includes(error?.code) ||
+    /could not find the function|does not exist/i.test(error?.message || '')
+}
+
+function atomicProductError(error) {
+  const text = `${error?.message || ''} ${error?.details || ''}`
+  if (error?.code === '23505') {
+    if (/slug/i.test(text)) return Response.json({ error: '这个商品网址已经被另一个商品用了，请换一个' }, { status: 409 })
+    return Response.json({ error: '商品或 SKU 编码重复，请重试' }, { status: 409 })
+  }
+  if (text.includes('product_not_found')) return Response.json({ error: '商品不存在，请刷新后重试' }, { status: 404 })
+  if (text.includes('stock_conflict')) return Response.json({ error: '规格或库存已被其他操作修改，请刷新后检查，避免覆盖新订单库存' }, { status: 409 })
+  if (text.includes('sku_not_found') || text.includes('sku_conflict')) return Response.json({ error: '规格已变化或不属于此商品，请刷新后检查' }, { status: 409 })
+  if (text.includes('sku_duplicate') || text.includes('invalid_')) return Response.json({ error: '规格列表有无效或重复记录，请刷新后重试' }, { status: 400 })
+  return errorResponse(error, { tag: 'admin-products-atomic' })
+}
+
 export async function POST(req) {
   const admin = await verifyAdmin()
   if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
@@ -221,6 +248,25 @@ export async function POST(req) {
       }
       if ((deletedSkuIds || []).some(id => typeof id !== 'string' || !id || ids.has(id))) {
         return Response.json({ error: '待删除规格与保存列表冲突，请刷新后重试' }, { status: 400 })
+      }
+
+      // 优先走数据库事务；函数不存在时（迁移尚未执行）回退到旧路径。
+      if (typeof supabase.rpc === 'function') {
+        // 新建时不能把调用方误传的 id 带进去，否则 RPC 会把它当成更新。
+        const rpcProduct = action === 'create'
+          ? Object.fromEntries(Object.entries(product).filter(([key]) => key !== 'id'))
+          : product
+        const { data, error } = await supabase.rpc('admin_save_product', {
+          p_product: rpcProduct,
+          p_skus: skus || [],
+          p_deleted_sku_ids: [...new Set(deletedSkuIds || [])],
+        })
+        if (!error) {
+          if (action === 'create') return Response.json({ id: data.id })
+          return Response.json({ ok: true, deleted: data.deleted || 0, deactivated: data.deactivated || 0 })
+        }
+        if (!isMissingRpc(error)) return atomicProductError(error)
+        warnAtomicFallback()
       }
     }
 
@@ -284,6 +330,21 @@ export async function POST(req) {
     }
 
     if (action === 'delete') {
+      if (typeof supabase.rpc === 'function') {
+        const { data, error } = await supabase.rpc('admin_delete_product', { p_product_id: product.id })
+        if (!error) {
+          if (data.softDeleted) {
+            return Response.json({
+              ok: true, softDeleted: true,
+              message: `这个商品有 ${data.orderItemCount} 条历史订单记录，已改为下架而不是删除，订单历史保留完整。`,
+            })
+          }
+          return Response.json({ ok: true })
+        }
+        if (!isMissingRpc(error)) return atomicProductError(error)
+        warnAtomicFallback()
+      }
+
       // 有历史订单的商品不物理删除，改为下架 + 停用全部 SKU，保留订单数据完整
       const { count: orderItemCount, error: historyError } = await supabase
         .from('order_items').select('*', { count: 'exact', head: true }).eq('product_id', product.id)

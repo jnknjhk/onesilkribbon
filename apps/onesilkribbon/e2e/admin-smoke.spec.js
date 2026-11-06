@@ -1,5 +1,6 @@
 // 管理端 smoke 测试。
 // 公开用例不需要账号；登录后的用例只做只读浏览，不保存、不删除任何数据。
+// 必须使用专用测试管理员，不要使用日常主账号；失败快照可能包含输入值。
 // 需要登录的用例通过环境变量提供测试管理员：
 //   E2E_ADMIN_EMAIL=... E2E_ADMIN_PASSWORD=... npm run test:e2e
 // 如果提供 E2E_BASE_URL，会直接测试该地址，不再启动本地 dev server。
@@ -29,14 +30,18 @@ test.describe('public admin gate', () => {
 })
 
 test.describe('authenticated admin smoke', () => {
+  test.describe.configure({ mode: 'serial', timeout: 120_000 })
   test.skip(!email || !password, 'Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD to run authenticated smoke tests')
 
   test.beforeEach(async ({ page }) => {
+    page.setDefaultNavigationTimeout(60_000)
     await page.goto('/admin-login')
     await page.getByLabel('邮箱').fill(email)
     await page.getByLabel('密码').fill(password)
     await page.getByRole('button', { name: '登录' }).click()
-    await expect(page).toHaveURL(/\/admin(\?.*)?$/)
+    // 登录请求已经拿到密码后立刻清空输入框，避免失败快照把密码写进 test-results。
+    await page.getByLabel('密码').fill('').catch(() => {})
+    await expect(page).toHaveURL(/\/admin(\?.*)?$/, { timeout: 20_000 })
     await expect(page.getByRole('link', { name: /工作台/ })).toBeVisible()
   })
 

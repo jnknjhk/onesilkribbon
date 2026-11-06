@@ -1,1 +1,1 @@
-export { default } from '@osr/core/admin/pages/marketing/MarketingPage'
+export { default } from '@/admin/pages/marketing/MarketingPage'

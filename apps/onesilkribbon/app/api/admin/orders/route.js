@@ -1,8 +1,8 @@
-import { PATCH as updateOrder } from '@osr/core/admin/api/orders'
-import { verifyAdmin } from '@osr/core/lib/admin-auth'
+import { PATCH as updateOrder } from '@/admin/api/orders'
+import { verifyAdmin } from '@/admin/auth'
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { cancelUnpaidOrder } from '@/lib/checkout-cancel'
-export { GET } from '@osr/core/admin/api/orders'
+export { GET } from '@/admin/api/orders'
 
 export async function PATCH(req) {
   if (!await verifyAdmin()) return Response.json({ error: 'Unauthorized' }, { status: 401 })

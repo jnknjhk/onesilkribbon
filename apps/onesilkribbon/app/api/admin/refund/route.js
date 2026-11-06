@@ -1,6 +1,6 @@
 import Stripe from 'stripe'
 import { supabaseAdmin } from '@osr/core/lib/supabase'
-import { verifyAdmin } from '@osr/core/lib/admin-auth'
+import { verifyAdmin } from '@/admin/auth'
 import { errorResponse } from '@osr/core/lib/api-error'
 
 export async function POST(req) {

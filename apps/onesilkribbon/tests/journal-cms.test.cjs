@@ -29,7 +29,7 @@ test('CMS paragraphs and editable callouts preserve text, section order, images 
 })
 
 test('editing or removing the original first section keeps the selected layout; switching to standard removes it', () => {
-  const helpers = compile(fs.readFileSync(path.resolve(app, '../../packages/core/admin/lib/journal-content.js'), 'utf8'), {}, '({journalLayout,prepareJournalSections})')
+  const helpers = compile(fs.readFileSync(path.resolve(app, 'admin/lib/journal-content.js'), 'utf8'), {}, '({journalLayout,prepareJournalSections})')
   const original = { sections: [{ body: 'First', template: 'autumn' }, { heading: 'Second', body: 'Original' }] }
   const selectedLayout = helpers.journalLayout(original)
   const edited = [{ heading: 'Second', body: 'Edited text' }, { type: 'image', url: '/new-cover.jpg' }, { body: 'New paragraph' }, { body: ' ' }]
@@ -71,7 +71,7 @@ function journalApi({ authorized = true, fail = false } = {}) {
     const q = { insert(row) { writes.push(row); return q }, update(row) { writes.push(row); return q }, delete() { writes.push('delete'); return q }, eq() { return q }, select() { return q }, single() { return q }, then(resolve, reject) { return Promise.resolve(fail ? { error: { code: 'TEST_ERROR' } } : { data: { id: 'cms-id' }, error: null }).then(resolve, reject) } }
     return q
   } }
-  const POST = compile(fs.readFileSync(path.resolve(app, '../../packages/core/admin/api/journal.js'), 'utf8'), {
+  const POST = compile(fs.readFileSync(path.resolve(app, 'admin/api/journal.js'), 'utf8'), {
     supabase, verifyAdmin: async () => authorized, errorResponse: () => Response.json({ error: 'retry' }, { status: 500 }), fetchAll() {}, revalidatePath: (...args) => refreshes.push(args),
   }, 'POST')
   return { writes, refreshes, post: body => POST({ json: async () => body }) }

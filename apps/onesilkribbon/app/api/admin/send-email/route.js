@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '@osr/core/lib/supabase'
-import { verifyAdmin } from '@osr/core/lib/admin-auth'
+import { verifyAdmin } from '@/admin/auth'
 import { errorResponse } from '@osr/core/lib/api-error'
 import { escapeHtml } from '@osr/core/lib/escape-html'
 import { logEmail } from '@/lib/email-log'

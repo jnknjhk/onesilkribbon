@@ -1,1 +1,1 @@
-export { GET } from '@osr/core/admin/api/subscribers'
+export { GET } from '@/admin/api/subscribers'

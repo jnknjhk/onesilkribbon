@@ -6,6 +6,7 @@ const { NextRequest, NextResponse } = require('next/server')
 const root = path.resolve(__dirname, '..')
 const read = file => fs.readFileSync(path.join(root, file), 'utf8')
 const core = file => fs.readFileSync(path.resolve(root, '../../packages/core', file), 'utf8')
+const admin = file => fs.readFileSync(path.resolve(root, 'admin', file), 'utf8')
 const compile = (source, bindings, names) => new Function(...Object.keys(bindings),
   source.replace(/^import .*$/gm, '').replace(/^export /gm, '') + `; return {${names}}`
 )(...Object.values(bindings))
@@ -13,7 +14,7 @@ const ADMIN_HEADER = 'x-osr-admin-email'
 
 function middlewareHarness(user = null, refresh = false) {
   let calls = 0
-  const { adminMiddleware } = compile(core('lib/admin-middleware.js'), {
+  const { adminMiddleware } = compile(admin('middleware.js'), {
     NextResponse, ADMIN_HEADER, isAdminEmail: email => email === 'admin@example.test',
     createServerClient: (_url, _key, options) => ({ auth: { getUser: async () => {
       calls++
@@ -91,7 +92,7 @@ test('verifyAdmin awaits Next request headers and falls back to verified auth, n
   let forwarded = true
   let email = 'admin@example.test'
   let requests = 0
-  const { verifyAdmin } = compile(core('lib/admin-auth.js'), {
+  const { verifyAdmin } = compile(admin('auth.js'), {
     process: { env: { ADMIN_EMAILS: 'admin@example.test' } },
     headers: async () => new Headers(forwarded ? { [ADMIN_HEADER]: email } : {}),
     cookies: async () => ({ getAll: () => [{ name: 'test', value: 'session' }] }),

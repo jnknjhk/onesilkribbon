@@ -7,7 +7,7 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8')
 function load(file, bindings, exported) {
   return new Function(...Object.keys(bindings), read(file).replace(/^import .*$/gm, '').replace(/^export /gm, '') + `;return ${exported}`)(...Object.values(bindings))
 }
-const parseStockQuantity = load('packages/core/admin/lib/stock-quantity.js', {}, 'parseStockQuantity')
+const parseStockQuantity = load('apps/onesilkribbon/admin/lib/stock-quantity.js', {}, 'parseStockQuantity')
 const errorResponse = () => Response.json({ error: 'Please retry' }, { status: 500 })
 function database(respond) {
   const calls = []
@@ -30,7 +30,7 @@ function database(respond) {
 }
 function stock(respond, authorized = true) {
   const db = database(respond)
-  const PATCH = load('packages/core/admin/api/stock.js', { supabaseAdmin: db,
+  const PATCH = load('apps/onesilkribbon/admin/api/stock.js', { supabaseAdmin: db,
     verifyAdmin: async () => authorized, errorResponse, parseStockQuantity }, 'PATCH')
   return { db, patch: body => PATCH({ json: async () => body }) }
 }
@@ -38,7 +38,7 @@ const product = { id: 'product-1', slug: 'ribbon', name: 'Silk ribbon', collecti
 const sku = { id: 'sku-1', price_gbp: '9.00', stock_qty: 10, loaded_stock_qty: 10 }
 function products(respond) {
   const db = database(respond)
-  const POST = load('packages/core/admin/api/products.js', { supabase: db,
+  const POST = load('apps/onesilkribbon/admin/api/products.js', { supabase: db,
     verifyAdmin: async () => true, errorResponse, parseStockQuantity, recordSlugChange: async () => {} }, 'POST')
   return { db, post: body => POST({ json: async () => body }) }
 }
@@ -141,7 +141,7 @@ test('malformed product batches and invalid prices or quantities cannot partiall
   }
 })
 
-const helpers = load('packages/core/admin/api/_helpers.js', {}, '({fetchAll,readSettings,dayKey})')
+const helpers = load('apps/onesilkribbon/admin/api/_helpers.js', {}, '({fetchAll,readSettings,dayKey})')
 test('failed settings queries cannot be returned as empty settings', async () => {
   await assert.rejects(helpers.readSettings(database(() => ({ error: Error('offline') }))), /offline/)
   await assert.rejects(helpers.readSettings(database(() => ({ data: null }))), /Invalid settings/)
@@ -160,22 +160,31 @@ test('pagination exhaustion and malformed pages are errors, never successful par
   assert.ok(invalid.error)
 })
 
-test('dashboard rejects partial SKU/product/item queries and keeps optional email-log fallback', async () => {
-  for (const failed of ['orders', 'product_skus', 'products', 'order_items', null]) {
-    // Identify each source query, including the separately optional email log.
+test('dashboard rejects partial order, SKU, product, item and email-log queries', async () => {
+  for (const failed of ['orders', 'product_skus', 'products', 'order_items', 'email_log']) {
     const db = { from(table) { const q = { table, select: () => q, order: () => q, eq: () => q, gte: () => q, then: resolve => resolve({ error: true }) }; return q } }
-    const run = load('packages/core/admin/api/dashboard.js', { supabaseAdmin: db, verifyAdmin: async () => true,
+    const run = load('apps/onesilkribbon/admin/api/dashboard.js', { supabaseAdmin: db, verifyAdmin: async () => true,
       errorResponse, REVENUE_STATUSES: ['paid', 'shipped', 'delivered'], readSettings: async () => ({}), dayKey: helpers.dayKey,
       fetchAll: async makeQuery => ({ data: [], error: makeQuery().table === failed ? Error('offline') : null }),
     }, 'GET')
     const response = await run()
-    assert.equal(response.status, failed ? 500 : 200)
-    if (!failed) assert.equal((await response.json()).todo.failedEmails, null)
+    assert.equal(response.status, 500)
   }
 })
 
+test('dashboard reports zero failed emails when every query succeeds', async () => {
+  const db = { from() { const q = { select: () => q, order: () => q, eq: () => q, gte: () => q, then: resolve => resolve({ error: null, count: 0 }) }; return q } }
+  const run = load('apps/onesilkribbon/admin/api/dashboard.js', { supabaseAdmin: db, verifyAdmin: async () => true,
+    errorResponse, REVENUE_STATUSES: ['paid', 'shipped', 'delivered'], readSettings: async () => ({}), dayKey: helpers.dayKey,
+    fetchAll: async () => ({ data: [], error: null }),
+  }, 'GET')
+  const response = await run()
+  assert.equal(response.status, 200)
+  assert.equal((await response.json()).todo.failedEmails, 0)
+})
+
 test('settings loading preserves individual zero/missing values and supports recoverable failure', async () => {
-  const source = read('packages/core/admin/pages/settings/SettingsPage.jsx')
+  const source = read('apps/onesilkribbon/admin/pages/settings/SettingsPage.jsx')
   const prefix = source.split('function StoreSettings() {')[1].split('  const dirty')[0]
   const render = api => {
     const states = [], effects = []
@@ -205,7 +214,7 @@ test('settings loading preserves individual zero/missing values and supports rec
 })
 
 test('switching product routes cancels stale reads and keys editor state by product identity', async () => {
-  const source = read('packages/core/admin/pages/products/ProductEditorPage.jsx')
+  const source = read('apps/onesilkribbon/admin/pages/products/ProductEditorPage.jsx')
   const effects = [], states = [], callbacks = []
   let stateIndex = 0
   const hooks = { useRouter: () => ({}), useCallback: callback => { callbacks.push(callback); return callback },

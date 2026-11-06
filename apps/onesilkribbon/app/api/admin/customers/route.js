@@ -1,2 +1,2 @@
-// 实现在 packages/core/admin/api/customers.js，两个站共用
-export { GET, DELETE } from '@osr/core/admin/api/customers'
+// 实现在 admin/api/customers.js
+export { GET, DELETE } from '@/admin/api/customers'

@@ -1,6 +1,6 @@
-import { adminMiddleware } from '@osr/core/lib/admin-middleware'
+import { adminMiddleware } from './admin/middleware'
 
-// 鉴权逻辑在 core 里，两个站共用一份，见 packages/core/lib/admin-middleware.js
+// 鉴权逻辑在 admin/middleware.js
 export function middleware(request) {
   return adminMiddleware(request)
 }

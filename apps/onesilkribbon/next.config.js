@@ -1,6 +1,6 @@
 const { withSentryConfig } = require('@sentry/nextjs/config')
 
-const { ADMIN_REDIRECTS } = require('@osr/core/admin/redirects')
+const { ADMIN_REDIRECTS } = require('./admin/redirects')
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

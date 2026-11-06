@@ -57,7 +57,7 @@ revoke all on public.subscribers from anon, authenticated;
 -- 原来是"先 select 当前值，在 Node 里减一，再 update 回去"（lib/stock-check.js）。
 -- 两笔订单同时结算、或 Stripe 把同一个 webhook 推两次时，两边可能读到同样的旧值，
 -- 后写的那次把前一次的扣减覆盖掉——库存少扣，就会超卖。
--- 丝带备货多，概率低；但玻璃站以孤品为主，超卖一件就得跟客人解释，所以按正确写法改。
+-- 丝带备货多，概率低；但超卖一件就得跟客人解释，所以按正确写法改。
 --
 -- 单条 UPDATE 语句在 Postgres 里对同一行是串行的，天然不会丢更新。
 --

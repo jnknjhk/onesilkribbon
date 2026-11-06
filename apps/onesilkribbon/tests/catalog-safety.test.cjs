@@ -3,8 +3,8 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 const vm = require('node:vm')
-const source = fs.readFileSync(path.resolve(__dirname, '../../../packages/core/admin/api/products.js'), 'utf8')
-const stockSource = fs.readFileSync(path.resolve(__dirname, '../../../packages/core/admin/lib/stock-quantity.js'), 'utf8')
+const source = fs.readFileSync(path.resolve(__dirname, '../admin/api/products.js'), 'utf8')
+const stockSource = fs.readFileSync(path.resolve(__dirname, '../admin/lib/stock-quantity.js'), 'utf8')
 const parseStockQuantity = new Function(stockSource.replace(/^export /gm, '') + ';return parseStockQuantity')()
 
 function harness(respond) {

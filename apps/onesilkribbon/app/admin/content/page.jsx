@@ -1,1 +1,1 @@
-export { default } from '@osr/core/admin/pages/content/ContentPage'
+export { default } from '@/admin/pages/content/ContentPage'

@@ -1,1 +1,1 @@
-export { GET, POST, DELETE } from '@osr/core/admin/api/media'
+export { GET, POST, DELETE } from '@/admin/api/media'

@@ -1,4 +1,4 @@
-import { verifyAdmin } from '@osr/core/lib/admin-auth'
+import { verifyAdmin } from '@/admin/auth'
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { errorResponse } from '@osr/core/lib/api-error'
 import { completeOrder, deliverNotifications } from '@/lib/payment-orders'

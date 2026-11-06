@@ -1,6 +1,6 @@
 # 支付可靠性迁移
 
-仅适用 One Silk Ribbon，不适用玻璃站 Lumina。
+仅适用 One Silk Ribbon。
 
 ## 上线顺序
 

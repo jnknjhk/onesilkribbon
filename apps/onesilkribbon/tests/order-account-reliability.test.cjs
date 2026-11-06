@@ -29,12 +29,12 @@ function database(respond) {
   } }
 }
 const safeError = () => Response.json({ error: 'Operation failed safely' }, { status: 500 })
-const status = load('packages/core/admin/lib/status.js', {}, '({ORDER_TABS,DEFAULT_ORDER_TAB,tabStatuses,CAN,statusLabel})')
+const status = load('apps/onesilkribbon/admin/lib/status.js', {}, '({ORDER_TABS,DEFAULT_ORDER_TAB,tabStatuses,CAN,statusLabel})')
 const order = { id: 'order-1', order_number: 'OSR-TEST', status: 'paid', customer_email: 'test@example.test',
   tracking_number: null, tracking_carrier: null, tracking_url: null, shipped_at: null }
 const shipment = { orderNumber: order.order_number, trackingNumber: 'TEST123', carrier: 'Royal Mail', trackingUrl: 'https://www.royalmail.com/track' }
 const shipFile = 'apps/onesilkribbon/app/api/admin/ship/route.js'
-const ordersFile = 'packages/core/admin/api/orders.js'
+const ordersFile = 'apps/onesilkribbon/admin/api/orders.js'
 const customerOrdersFile = 'apps/onesilkribbon/app/api/user/orders/route.js'
 function shipping(respond, authorized = true, mailFails = false) {
   const db = database(respond), sent = []

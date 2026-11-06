@@ -6,7 +6,7 @@
     "dev": "next dev --webpack",
     "build": "npm run lint && next build --webpack",
     "start": "next start",
-    "lint": "eslint --ext .js,.jsx app components lib instrumentation.js instrumentation-client.js sentry.server.config.js sentry.edge.config.js next.config.js middleware.js"
+    "lint": "eslint --ext .js,.jsx app admin components lib instrumentation.js instrumentation-client.js sentry.server.config.js sentry.edge.config.js next.config.js middleware.js"
   },
   "dependencies": {
     "@next/third-parties": "^16.4.3",

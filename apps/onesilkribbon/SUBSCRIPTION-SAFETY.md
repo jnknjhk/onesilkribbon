@@ -1,6 +1,6 @@
 # Subscription email safeguards
 
-Apply `supabase/migrations/2026-10-14-subscription-safety.sql` to the **silk** Supabase project before deploying the API change. This is not the glass site's Lumina database. The migration is transactional, additive and repeatable; it does not delete or rewrite existing subscribers or coupons.
+Apply `supabase/migrations/2026-10-14-subscription-safety.sql` to the **silk** Supabase project before deploying the API change. The migration is transactional, additive and repeatable; it does not delete or rewrite existing subscribers or coupons.
 
 The database serializes admission across serverless instances: one accepted attempt per address per 60 seconds, at most three per address in a rolling 24 hours, and at most 100 total per rolling hour. Failed mail deliveries also consume admission budget. These conservative limits protect mail spending; a distributed flood can still exhaust the shared quota and temporarily deny legitimate subscriptions. No claim of bot elimination is made.
 

@@ -1,1 +1,1 @@
-export { default } from '@osr/core/admin/pages/Workbench'
+export { default } from '@/admin/pages/Workbench'

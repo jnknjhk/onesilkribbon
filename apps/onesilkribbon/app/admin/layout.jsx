@@ -1,5 +1,5 @@
-import AdminShell from '@osr/core/admin/shell/AdminShell'
-import { adminConfig } from '../../admin.config'
+import AdminShell from '@/admin/shell/AdminShell'
+import { siteConfig } from '@/admin/site-config'
 
 // 后台的页面不让搜索引擎收录
 export const metadata = {
@@ -8,5 +8,5 @@ export const metadata = {
 }
 
 export default function AdminLayout({ children }) {
-  return <AdminShell config={adminConfig}>{children}</AdminShell>
+  return <AdminShell config={siteConfig}>{children}</AdminShell>
 }

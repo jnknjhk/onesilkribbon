@@ -1,1 +1,1 @@
-export { GET, POST, PATCH, DELETE } from '@osr/core/admin/api/coupons'
+export { GET, POST, PATCH, DELETE } from '@/admin/api/coupons'

@@ -4,11 +4,7 @@
   "private": true,
   "exports": {
     "./lib/*": "./lib/*.js",
-    "./components/*": "./components/*.jsx",
-    "./admin/lib/*": "./admin/lib/*.js",
-    "./admin/api/*": "./admin/api/*.js",
-    "./admin/redirects": "./admin/redirects.js",
-    "./admin/*": "./admin/*.jsx"
+    "./components/*": "./components/*.jsx"
   },
   "peerDependencies": {
     "next": "^16.4.3",

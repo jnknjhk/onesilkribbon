@@ -1,6 +1,6 @@
 # 2026-10-16 audit fixes
 
-Apply `supabase/migrations/2026-10-16-audit-security.sql` to the **silk** Supabase database before deploying these changes. Do not run it against the independent glass site's Lumina database.
+Apply `supabase/migrations/2026-10-16-audit-security.sql` to the **silk** Supabase database before deploying these changes.
 
 ## Data preservation and permissions
 

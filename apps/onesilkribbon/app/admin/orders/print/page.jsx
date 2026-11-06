@@ -1,1 +1,1 @@
-export { default } from '@osr/core/admin/pages/orders/PrintSlips'
+export { default } from '@/admin/pages/orders/PrintSlips'

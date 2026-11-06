@@ -1,9 +1,9 @@
 import { supabaseAdmin } from '@osr/core/lib/supabase'
-import { verifyAdmin } from '@osr/core/lib/admin-auth'
+import { verifyAdmin } from '@/admin/auth'
 import { sendShippingNotification } from '@/lib/email'
 import { NextResponse } from 'next/server'
 import { errorResponse } from '@osr/core/lib/api-error'
-import { CAN, statusLabel } from '@osr/core/admin/lib/status'
+import { CAN, statusLabel } from '@/admin/lib/status'
 
 export async function POST(req) {
   const admin = await verifyAdmin()

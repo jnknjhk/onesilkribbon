@@ -1,6 +1,6 @@
 # 第二批：库存预留、退款与优惠券
 
-仅用于丝带站 Supabase（jmwautbooalixgvlfhnk），不得在玻璃站 Lumina 执行。
+仅用于丝带站 Supabase（jmwautbooalixgvlfhnk）。
 
 ## 上线
 

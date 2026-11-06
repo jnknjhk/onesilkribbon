@@ -5,7 +5,7 @@ import { errorResponse } from '@osr/core/lib/api-error'
 import { REVENUE_STATUSES } from '../lib/status'
 import { fetchAll, dayKey, readSettings } from './_helpers'
 
-export const DEFAULT_LOW_STOCK = 3
+const DEFAULT_LOW_STOCK = 3
 const OVERDUE_DAYS = 2
 
 export async function GET() {

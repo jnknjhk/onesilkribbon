@@ -294,13 +294,6 @@
 .dirtyDot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--warning); margin-right: 6px; }
 @media (max-width: 900px) { .saveBar { margin: 20px -12px -48px; padding: 10px 12px; } }
 
-/* ── 折叠区 ───────────────────────────────────────────── */
-.details { border-top: 1px solid var(--border); }
-.details summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; font-size: 15px; font-weight: 600; }
-.details summary::-webkit-details-marker { display: none; }
-.details[open] summary svg { transform: rotate(180deg); }
-.detailsBody { padding: 0 18px 18px; }
-
 /* ── 图片格 ───────────────────────────────────────────── */
 .imgGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 10px; }
 .imgTile { position: relative; aspect-ratio: 1 / 1; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); background: #EFEDEA; }

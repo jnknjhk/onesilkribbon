@@ -14,7 +14,6 @@ const PATHS = {
   check:     <path d="m5 12 5 5L20 7" />,
   chevronRight: <path d="m9 6 6 6-6 6" />,
   chevronLeft:  <path d="m15 6-6 6 6 6" />,
-  chevronDown:  <path d="m6 9 6 6 6-6" />,
   arrowLeft: <path d="M19 12H5M12 19l-7-7 7-7" />,
   arrowUp:   <path d="M12 19V5M5 12l7-7 7 7" />,
   arrowDown: <path d="M12 5v14M19 12l-7 7-7-7" />,
@@ -35,7 +34,6 @@ const PATHS = {
   layers:    <><path d="m12 2 10 5-10 5L2 7z" /><path d="m2 17 10 5 10-5" /><path d="m2 12 10 5 10-5" /></>,
   clock:     <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
   note:      <><path d="M4 4h16v11l-5 5H4z" /><path d="M15 20v-5h5" /></>,
-  eye:       <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></>,
   upload:    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />,
   refresh:   <><path d="M21 12a9 9 0 1 1-3-6.7L21 8" /><path d="M21 3v5h-5" /></>,
   star:      <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z" />,
@@ -44,7 +42,6 @@ const PATHS = {
   inbox:     <><path d="M22 12h-6l-2 3h-4l-2-3H2" /><path d="M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z" /></>,
   database:  <><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5" /><path d="M3 12c0 1.7 4 3 9 3s9-1.3 9-3" /></>,
   download:  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />,
-  pound:     <path d="M18 7a4 4 0 0 0-7-2.6c-.8.9-1 2-1 3.6V20M6 13h8M6 20h12" />,
 }
 
 export function Icon({ name, size = 18, strokeWidth = 1.8, style, className }) {

@@ -87,16 +87,6 @@ export function Card({ title, subtitle, actions, children, padded = true, classN
   )
 }
 
-// 默认收起的次要内容（编辑页里的"规格参数""排序"等）
-export function Collapsible({ title, defaultOpen = false, children }) {
-  return (
-    <details className={s.details} open={defaultOpen}>
-      <summary>{title}<Icon name="chevronDown" size={16} /></summary>
-      <div className={s.detailsBody}>{children}</div>
-    </details>
-  )
-}
-
 // ── 页签 ─────────────────────────────────────────────────────────────────────
 // tabs: [{ key, label, count?, href? }]。有 href 时渲染成链接（能在新标签页打开、能收藏）
 export function Tabs({ tabs, value, onChange }) {

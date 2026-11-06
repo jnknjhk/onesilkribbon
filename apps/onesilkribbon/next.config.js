@@ -11,6 +11,9 @@ const nextConfig = {
       { protocol: 'https', hostname: '**.supabase.co' },
       { protocol: 'https', hostname: '**.supabase.in' },
       { protocol: 'https', hostname: 'cdn.shopify.com' },
+      // 文章和商品内容里会存本站绝对图片地址（例如 /images/... 被写成完整 URL），
+      // next/image 需要显式允许这个 hostname，否则开发环境会直接进入错误边界。
+      { protocol: 'https', hostname: 'onesilkribbon.com' },
     ],
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 86400,

@@ -7,7 +7,7 @@ import { createSupabaseBrowserClient } from '@osr/core/lib/supabase'
 import { useBodyScrollLock } from '../../lib/use-body-scroll-lock'
 import { AdminConfigProvider } from '../config'
 import { Icon, ToastProvider, Button, cx, styles as s } from '../ui'
-import { AdminCountsProvider, useAdminCounts } from './AdminCounts'
+import { AdminCountsProvider, useAdminCounts, clearAdminCountsCache } from './AdminCounts'
 
 export const NAV = [
   { href: '/admin',           label: '工作台', icon: 'home', exact: true },
@@ -53,6 +53,7 @@ function ShellBody({ config, children }) {
   }, [navOpen])
 
   async function signOut() {
+    clearAdminCountsCache()
     await createSupabaseBrowserClient().auth.signOut()
     router.push('/admin-login')
   }

@@ -6,7 +6,7 @@ import { api } from '../../lib/api'
 import { date } from '../../lib/format'
 import { useUrlState } from '../../lib/url-state'
 import { useListRequest } from '../../lib/use-list-request'
-import { compressImage, friendlyUploadError } from '../../lib/compress-image'
+import { uploadMedia } from '../../lib/upload-media'
 import MediaPicker from '../../MediaPicker'
 import JournalEditor from './JournalEditor'
 import {
@@ -194,16 +194,10 @@ function MediaLibrary({ get, set }) {
     setUploading(true)
     let ok = 0
     for (const file of files) {
-      let res
       try {
-        const fd = new FormData()
-        fd.append('file', await compressImage(file))
-        fd.append('namespace', 'general')
-        res = await fetch('/api/admin/media', { method: 'POST', body: fd })
-        const d = await res.json()
-        if (d.media) ok++
-        else toast.error(`${file.name}：${d.error || '上传失败'}`)
-      } catch (err) { toast.error(`${file.name}：${friendlyUploadError(err, res)}`) }
+        await uploadMedia(file, 'general')
+        ok++
+      } catch (err) { toast.error(`${file.name}：${err.message}`) }
     }
     setUploading(false)
     if (fileRef.current) fileRef.current.value = ''
@@ -234,7 +228,7 @@ function MediaLibrary({ get, set }) {
       <div className={s.toolbar}>
         <SearchInput value={search} onChange={setSearch} placeholder="按文件名搜索" style={{ flex: 1, minWidth: 220 }} />
         <Button variant="primary" icon="upload" loading={uploading} onClick={() => fileRef.current?.click()}>上传图片</Button>
-        <input ref={fileRef} type="file" accept="image/*" multiple onChange={upload} style={{ display: 'none' }} />
+        <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/gif" multiple onChange={upload} style={{ display: 'none' }} />
       </div>
       <Notice tone="info" style={{ marginBottom: 14 }}>商品、文章、网站图片里用的图都在这里。正在被使用的图不能删除，要先在用到它的地方换掉。</Notice>
       <Card padded={!data || items.length > 0}>

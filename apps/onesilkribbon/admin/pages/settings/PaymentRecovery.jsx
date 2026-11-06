@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { api } from '../../lib/api'
 import { Card, Button, EmptyState, Notice, SkeletonRows, styles as s } from '../../ui'
 
 export default function PaymentRecovery() {
@@ -10,10 +11,7 @@ export default function PaymentRecovery() {
   const [refreshing, setRefreshing] = useState(false)
   const [failed, setFailed] = useState(false)
   async function load() {
-    const response = await fetch('/api/admin/payment-recovery', { cache: 'no-store' })
-    const result = await response.json()
-    if (!response.ok) throw new Error(result.error || '读取失败')
-    setData(result)
+    setData(await api('/api/admin/payment-recovery', { cache: 'no-store' }))
   }
   useEffect(() => { load().catch(err => { setFailed(true); setMessage(err.message) }) }, [])
   async function refresh() {
@@ -25,11 +23,7 @@ export default function PaymentRecovery() {
   async function recover(orderNumber) {
     setBusy(true); setFailed(false); setMessage('正在核对付款记录…')
     try {
-      const response = await fetch('/api/admin/payment-recovery', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderNumber }),
-      })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || '恢复失败，资料已保留')
+      const result = await api('/api/admin/payment-recovery', { method: 'POST', body: { orderNumber } })
       setMessage((result.pending ? '付款链接仍有效，库存预留已保留：' : '处理完成：') + orderNumber)
       await load()
     } catch (err) { setFailed(true); setMessage(err.message) }

@@ -52,7 +52,9 @@ export function compressImage(file, { maxDimension = 2000, quality = 0.85, skipI
 export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024
 
 export function friendlyUploadError(err, res) {
-  if (res && !res.ok && res.status === 413) return '图片太大，请压缩后重试'
-  if (err && /json/i.test(err.message || '')) return '上传失败，图片可能过大，请压缩后重试'
-  return '上传失败：' + (err?.message || '未知错误')
+  const status = res?.status ?? err?.status
+  if (status === 413) return '图片太大，请压缩后重试'
+  const message = err?.message || ''
+  if (message && !/^(请求失败|Failed to fetch|NetworkError|Load failed)/i.test(message)) return message
+  return '上传失败，请重试'
 }

@@ -6,6 +6,7 @@ import { api } from '../../lib/api'
 import { money, dateTime } from '../../lib/format'
 import { ORDER_STATUS, ORDER_TABS, CAN } from '../../lib/status'
 import { isErased } from '../../lib/erasure'
+import { useAdminCounts } from '../../shell/AdminCounts'
 import {
   PageHeader, Card, Badge, Button, ButtonLink, Modal, ConfirmDialog, Field, Textarea, Checkbox,
   Notice, EmptyState, SkeletonRows, Segmented, useToast, styles as s, cx,
@@ -24,6 +25,7 @@ function backHref(status) {
 
 export default function OrderDetail({ number }) {
   const toast = useToast()
+  const { refresh: refreshCounts } = useAdminCounts()
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [modal, setModal] = useState(null) // 'ship' | 'refund' | 'cancel' | 'resend' | 'deliver'
@@ -41,7 +43,7 @@ export default function OrderDetail({ number }) {
 
   const { order, items, events, emails } = data
   const st = ORDER_STATUS[order.status] || { label: order.status, tone: 'neutral' }
-  const done = () => { setModal(null); load() }
+  const done = () => { setModal(null); load(); refreshCounts() }
   const erased = isErased(order) // 客户已删除：没有联系方式了，不显示发邮件这类操作
 
   return (

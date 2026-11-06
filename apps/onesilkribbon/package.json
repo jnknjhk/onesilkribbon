@@ -6,6 +6,7 @@
     "dev": "next dev --webpack",
     "build": "npm run lint && next build --webpack",
     "start": "next start",
+    "test:e2e": "playwright test",
     "lint": "eslint --ext .js,.jsx app admin components lib instrumentation.js instrumentation-client.js sentry.server.config.js sentry.edge.config.js next.config.js middleware.js"
   },
   "dependencies": {
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.9",
+    "@playwright/test": "^1.65.0",
     "eslint": "^8",
     "eslint-config-next": "^15.5.28"
   }

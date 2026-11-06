@@ -3,37 +3,36 @@
 // 都从这里选：图片先进媒体库，之后哪里都能重复选用，不用每个地方各自上传一份。
 //
 // props: open, onClose, multiple, namespace（'product'|'journal'|'site'|'general'），onSelect(urls[])
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { compressImage, friendlyUploadError } from './lib/compress-image'
-import { api } from './lib/api'
+import { useEffect, useRef, useState } from 'react'
+import { uploadMedia } from './lib/upload-media'
+import { useDebouncedValue } from './lib/use-debounced-value'
+import { useListRequest } from './lib/use-list-request'
 import { Modal, Button, SearchInput, Tabs, Notice, EmptyState, Icon, styles as s, cx } from './ui'
+
+const ACCEPT = 'image/jpeg,image/png,image/webp,image/avif,image/gif'
 
 export default function MediaPicker({ open, onClose, multiple = false, namespace = 'general', onSelect }) {
   const [tab, setTab] = useState('library')
-  const [items, setItems] = useState([])
-  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search, 300)
   const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
   const [picked, setPicked] = useState([]) // [{ id, url }]
   const [uploading, setUploading] = useState(false)
-  const [error, setError] = useState('')
+  const [uploadError, setUploadError] = useState('')
   const fileRef = useRef(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params = new URLSearchParams({ page: String(page) })
-      if (search) params.set('search', search)
-      const data = await api(`/api/admin/media?${params}`)
-      setItems(data.media || [])
-      setTotalPages(data.totalPages || 1)
-    } catch (e) { setError(e.message); setItems([]) }
-    setLoading(false)
-  }, [page, search])
+  useEffect(() => { setPage(1) }, [debouncedSearch])
+  useEffect(() => {
+    if (open) { setPicked([]); setUploadError('') }
+  }, [open])
 
-  useEffect(() => { if (open) { setPicked([]); setError(''); load() } }, [open, load])
-  useEffect(() => { setPage(1) }, [search])
+  const params = new URLSearchParams({ page: String(page) })
+  if (debouncedSearch) params.set('search', debouncedSearch)
+  const { data, loading, error: loadError, reload } = useListRequest(
+    open ? `/api/admin/media?${params.toString()}` : null
+  )
+  const items = data?.media || []
+  const totalPages = data?.totalPages || 1
 
   if (!open) return null
 
@@ -45,20 +44,13 @@ export default function MediaPicker({ open, onClose, multiple = false, namespace
   async function upload(e) {
     const files = Array.from(e.target.files || [])
     if (!files.length) return
-    setUploading(true); setError('')
+    setUploading(true); setUploadError('')
     const done = []
     for (const file of files) {
-      let res
       try {
-        const compressed = await compressImage(file)
-        const fd = new FormData()
-        fd.append('file', compressed)
-        fd.append('namespace', namespace)
-        res = await fetch('/api/admin/media', { method: 'POST', body: fd })
-        const data = await res.json()
-        if (data.media) done.push(data.media)
-        else setError(data.error || '上传失败')
-      } catch (err) { setError(friendlyUploadError(err, res)) }
+        const media = await uploadMedia(file, namespace)
+        if (media) done.push(media)
+      } catch (err) { setUploadError(err.message) }
     }
     setUploading(false)
     if (fileRef.current) fileRef.current.value = ''
@@ -66,7 +58,7 @@ export default function MediaPicker({ open, onClose, multiple = false, namespace
     if (!multiple) { onSelect([done[0].url]); onClose(); return }
     // 多选：刚传的直接算选中，回到素材库继续挑
     setPicked(p => [...p, ...done.map(m => ({ id: m.id, url: m.url }))])
-    setTab('library'); setSearch(''); setPage(1); load()
+    setTab('library'); setSearch(''); setPage(1); reload()
   }
 
   return (
@@ -81,7 +73,11 @@ export default function MediaPicker({ open, onClose, multiple = false, namespace
         {multiple && <Button variant="primary" disabled={!picked.length} onClick={() => { onSelect(picked.map(p => p.url)); onClose() }}>使用选中的 {picked.length || ''} 张</Button>}
       </>}>
       <Tabs value={tab} onChange={setTab} tabs={[{ key: 'library', label: '媒体库' }, { key: 'upload', label: '上传新图' }]} />
-      {error && <Notice tone="danger" style={{ marginBottom: 12 }}>{error}</Notice>}
+      {(uploadError || loadError) && (
+        <Notice tone="danger" style={{ marginBottom: 12 }}>
+          {uploadError || `加载失败：${loadError}`}
+        </Notice>
+      )}
       {tab === 'library' ? (
         <>
           <SearchInput value={search} onChange={setSearch} placeholder="按文件名搜索" style={{ marginBottom: 14 }} />
@@ -109,7 +105,7 @@ export default function MediaPicker({ open, onClose, multiple = false, namespace
             <span style={{ color: 'var(--text-2)', fontSize: 14 }}>{uploading ? '上传中…' : multiple ? '点击选择图片（可多选）' : '点击选择图片'}</span>
             <span>会自动压缩，手机原图也可以直接传</span>
           </button>
-          <input ref={fileRef} type="file" accept="image/*" multiple={multiple} onChange={upload} style={{ display: 'none' }} />
+          <input ref={fileRef} type="file" accept={ACCEPT} multiple={multiple} onChange={upload} style={{ display: 'none' }} />
         </div>
       )}
     </Modal>

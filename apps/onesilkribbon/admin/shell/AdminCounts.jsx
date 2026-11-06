@@ -5,19 +5,31 @@ import { usePathname } from 'next/navigation'
 import { api } from '../lib/api'
 
 const AdminCountsCtx = createContext({ counts: null, refresh: () => {} })
+const CACHE_TTL = 30_000
+let cachedCounts = null
+let cachedAt = 0
 
 export function AdminCountsProvider({ children }) {
   const pathname = usePathname()
-  const [counts, setCounts] = useState(null)
+  const [counts, setCounts] = useState(cachedCounts)
   const controllerRef = useRef(null)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (force = false) => {
+    if (!force && cachedCounts && Date.now() - cachedAt < CACHE_TTL) {
+      setCounts(cachedCounts)
+      return
+    }
+
     controllerRef.current?.abort()
     const controller = new AbortController()
     controllerRef.current = controller
     try {
       const data = await api('/api/admin/orders?countsOnly=1', { signal: controller.signal })
-      if (!controller.signal.aborted) setCounts(data.counts || {})
+      if (!controller.signal.aborted) {
+        cachedCounts = data.counts || {}
+        cachedAt = Date.now()
+        setCounts(cachedCounts)
+      }
     } catch (err) {
       // 计数失败时保留上一次的数字，不把侧边栏角标清零
       if (!controller.signal.aborted && err.name !== 'AbortError') console.error('读取订单计数失败', err)
@@ -29,9 +41,16 @@ export function AdminCountsProvider({ children }) {
     return () => controllerRef.current?.abort()
   }, [pathname, load])
 
-  return <AdminCountsCtx.Provider value={{ counts, refresh: load }}>{children}</AdminCountsCtx.Provider>
+  const refresh = useCallback(() => load(true), [load])
+
+  return <AdminCountsCtx.Provider value={{ counts, refresh }}>{children}</AdminCountsCtx.Provider>
 }
 
 export function useAdminCounts() {
   return useContext(AdminCountsCtx)
+}
+
+export function clearAdminCountsCache() {
+  cachedCounts = null
+  cachedAt = 0
 }

@@ -6,10 +6,10 @@ export class ApiError extends Error {
   constructor(message, status, data) { super(message); this.status = status; this.data = data }
 }
 
-export async function api(path, { method = 'GET', body, signal } = {}) {
+export async function api(path, { method = 'GET', body, signal, cache } = {}) {
   const isForm = typeof FormData !== 'undefined' && body instanceof FormData
   const res = await fetch(path, {
-    method, signal,
+    method, signal, cache,
     headers: body && !isForm ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? (isForm ? body : JSON.stringify(body)) : undefined,
   })

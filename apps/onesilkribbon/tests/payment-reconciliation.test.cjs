@@ -166,9 +166,11 @@ test('PayPal full refund records the refund against the capture owner', async ()
   }])
 })
 
-test('PayPal denied capture releases a pending reservation', async () => {
-  const event = { event_type: 'PAYMENT.CAPTURE.DENIED', resource: { supplementary_data: { related_ids: { order_id: 'PP1' } } } }
-  const h = paypalRoute(event, { order: { order_number: 'OSR-1', total_gbp: 20, status: 'pending', payment_method: 'paypal' } })
-  assert.equal((await h.POST(h.req())).status, 200)
-  assert.deepEqual(h.rpc, [{ name: 'release_checkout_reservation', args: { p_order_number: 'OSR-1', p_reason: 'PayPal 付款失败' } }])
+test('PayPal denied or declined capture releases a pending reservation', async () => {
+  for (const type of ['PAYMENT.CAPTURE.DENIED', 'PAYMENT.CAPTURE.DECLINED']) {
+    const event = { event_type: type, resource: { supplementary_data: { related_ids: { order_id: 'PP1' } } } }
+    const h = paypalRoute(event, { order: { order_number: 'OSR-1', total_gbp: 20, status: 'pending', payment_method: 'paypal' } })
+    assert.equal((await h.POST(h.req())).status, 200)
+    assert.deepEqual(h.rpc, [{ name: 'release_checkout_reservation', args: { p_order_number: 'OSR-1', p_reason: 'PayPal 付款失败' } }])
+  }
 })

@@ -106,7 +106,7 @@ export async function POST(req) {
       return received()
     }
 
-    if (event.event_type === 'PAYMENT.CAPTURE.DENIED' || event.event_type === 'PAYMENT.CAPTURE.FAILED') {
+    if (['PAYMENT.CAPTURE.DENIED', 'PAYMENT.CAPTURE.DECLINED', 'PAYMENT.CAPTURE.FAILED'].includes(event.event_type)) {
       const paypalOrderId = event.resource?.supplementary_data?.related_ids?.order_id
       const session = await sessionForPayPalOrder(paypalOrderId)
       if (session?.order_number) {

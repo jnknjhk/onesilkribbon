@@ -61,6 +61,7 @@ STRIPE_WEBHOOK_SECRET              = whsec_...（下一步配置）
 NEXT_PUBLIC_PAYPAL_CLIENT_ID = AaBbCc...
 PAYPAL_SECRET                = secret...
 PAYPAL_MODE                  = live
+PAYPAL_WEBHOOK_ID            = webhook-id（下一步创建）
 ```
 
 ### AfterShip（在 aftership.com → API）
@@ -80,10 +81,33 @@ NEXT_PUBLIC_SITE_URL = https://onesilkribbon.com
 1. 登录 Stripe → Developers → Webhooks
 2. 点击 **"Add endpoint"**
 3. URL 填入：`https://onesilkribbon.com/api/stripe/webhook`
-4. 选择事件：`checkout.session.completed` + `payment_intent.payment_failed`
+4. 选择事件：
+   - `checkout.session.completed`
+   - `checkout.session.async_payment_succeeded`
+   - `checkout.session.async_payment_failed`
+   - `checkout.session.expired`
+   - `charge.refunded`
+   - `refund.created`
+   - `refund.updated`
 5. 点击 **"Add endpoint"**
 6. 复制 **Signing secret**（whsec_...）
 7. 填入 Vercel 的 `STRIPE_WEBHOOK_SECRET`
+
+> `payment_intent.payment_failed` 可以保留，但代码只把它当信息事件；真正释放库存的信号是 `checkout.session.expired` 或 `async_payment_failed`。
+
+---
+
+## 第四步之二：配置 PayPal Webhook
+
+1. 登录 [developer.paypal.com](https://developer.paypal.com) → 你的 App → **Webhooks**
+2. 添加 Webhook，URL 填入：`https://onesilkribbon.com/api/paypal/webhook`
+3. 选择事件：
+   - `PAYMENT.CAPTURE.COMPLETED`
+   - `PAYMENT.CAPTURE.DENIED`
+   - `PAYMENT.CAPTURE.FAILED`
+   - `PAYMENT.CAPTURE.REFUNDED`
+   - `PAYMENT.CAPTURE.REVERSED`
+4. 创建后复制 **Webhook ID**，填入 Vercel 的 `PAYPAL_WEBHOOK_ID`
 
 ---
 

@@ -1,8 +1,31 @@
 import Stripe from 'stripe'
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { errorResponse } from '@osr/core/lib/api-error'
-import { recordPayment, prepareOrder, completeOrder, deliverNotifications } from '@/lib/payment-orders'
+import { recordPayment, recordExternalRefund, prepareOrder, completeOrder, deliverNotifications } from '@/lib/payment-orders'
 import { stripeProviderScope } from '@/lib/stripe-reservations'
+
+async function stripeOrderForPayment(paymentIntent, orderNumberHint) {
+  if (orderNumberHint) {
+    const { data, error } = await supabaseAdmin.from('orders')
+      .select('order_number,total_gbp,status,payment_method').eq('order_number', orderNumberHint).maybeSingle()
+    if (error) throw error
+    if (data?.payment_method === 'stripe') return data
+  }
+  if (!paymentIntent) return null
+  const { data: receipt, error } = await supabaseAdmin.from('payment_receipts')
+    .select('order_number').eq('provider', 'stripe').eq('payment_id', paymentIntent).maybeSingle()
+  if (error) throw error
+  if (receipt?.order_number) {
+    const { data, error: orderError } = await supabaseAdmin.from('orders')
+      .select('order_number,total_gbp,status,payment_method').eq('order_number', receipt.order_number).maybeSingle()
+    if (orderError) throw orderError
+    return data?.payment_method === 'stripe' ? data : null
+  }
+  const { data, error: orderError } = await supabaseAdmin.from('orders')
+    .select('order_number,total_gbp,status,payment_method').eq('payment_intent_id', paymentIntent).maybeSingle()
+  if (orderError) throw orderError
+  return data?.payment_method === 'stripe' ? data : null
+}
 
 export async function POST(req) {
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
@@ -36,6 +59,80 @@ export async function POST(req) {
       return Response.json({ received: true })
     } catch (err) { return errorResponse(err, { status: 503, tag: 'stripe-checkout-expired' }) }
   }
+  if (event.type === 'checkout.session.async_payment_failed') {
+    try {
+      const session = event.data.object
+      const orderNumber = session.metadata?.orderNumber
+      if (!orderNumber) return Response.json({ received: true })
+      const { data: order, error } = await supabaseAdmin.from('orders')
+        .select('order_number,status,payment_method,total_gbp').eq('order_number', orderNumber).maybeSingle()
+      if (error) throw error
+      if (!order || order.status !== 'pending') return Response.json({ received: true })
+      if (order.payment_method !== 'stripe' ||
+          (session.amount_total != null &&
+            (session.currency !== 'gbp' || session.amount_total !== Math.round(Number(order.total_gbp) * 100)))) {
+        throw new Error('Async payment identity/amount mismatch')
+      }
+      const { error: releaseError } = await supabaseAdmin.rpc('release_checkout_reservation', {
+        p_order_number: orderNumber, p_reason: 'Stripe 异步付款失败',
+      })
+      if (releaseError) throw releaseError
+      return Response.json({ received: true })
+    } catch (err) {
+      return errorResponse(err, { status: 503, tag: 'stripe-async-payment-failed' })
+    }
+  }
+
+  if (['charge.refunded', 'refund.created', 'refund.updated'].includes(event.type)) {
+    try {
+      const object = event.data.object
+      const refunds = event.type === 'charge.refunded'
+        ? (Array.isArray(object.refunds?.data) && object.refunds.data.length
+            ? object.refunds.data
+            : object.refunded
+              ? [{ id: `charge:${object.id}`, amount: object.amount_refunded, currency: object.currency, status: 'succeeded', payment_intent: object.payment_intent }]
+              : [])
+        : [object]
+      const orderHint = event.type === 'charge.refunded' ? object.metadata?.orderNumber : null
+
+      for (const refund of refunds) {
+        if (!refund || (refund.status && refund.status !== 'succeeded')) continue
+        const paymentIntent = typeof refund.payment_intent === 'string' ? refund.payment_intent : refund.payment_intent?.id
+        const order = await stripeOrderForPayment(paymentIntent, orderHint)
+        if (!order) continue
+        const amountPence = Number(refund.amount)
+        if (!Number.isSafeInteger(amountPence) || amountPence <= 0) continue
+        const currency = String(refund.currency || object.currency || 'gbp').toUpperCase()
+        const full = event.type === 'charge.refunded'
+          ? object.refunded === true
+          : amountPence >= Math.round(Number(order.total_gbp) * 100)
+        await recordExternalRefund({
+          provider: 'stripe',
+          refundId: String(refund.id || object.id),
+          orderNumber: order.order_number,
+          paymentId: paymentIntent || null,
+          amountPence,
+          currency,
+          full,
+          evidence: {
+            charge_id: event.type === 'charge.refunded' ? object.id : refund.charge || null,
+            refund_id: refund.id || null,
+            status: refund.status || null,
+            reason: refund.reason || null,
+          },
+        })
+      }
+      return Response.json({ received: true })
+    } catch (err) {
+      return errorResponse(err, { status: 503, tag: 'stripe-refund-webhook' })
+    }
+  }
+
+  if (event.type === 'payment_intent.payment_failed') {
+    // Card retries inside the same Checkout session are normal; session expiry is the safe release signal.
+    return Response.json({ received: true })
+  }
+
   if (!['checkout.session.completed', 'checkout.session.async_payment_succeeded'].includes(event.type)) {
     return Response.json({ received: true })
   }

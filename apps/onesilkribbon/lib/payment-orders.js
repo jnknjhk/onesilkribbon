@@ -39,6 +39,24 @@ export async function recordPayment({ provider, paymentId, orderNumber, amountPe
   }
 }
 
+// 记录支付平台后台产生的退款（Stripe/PayPal webhook）。
+// 满额退款由数据库函数同步订单状态；库存不自动回补，留给人工确认是否真的退货。
+export async function recordExternalRefund({ provider, refundId, orderNumber, paymentId, amountPence, currency, full, evidence }) {
+  if (!Number.isSafeInteger(amountPence) || amountPence <= 0) throw new Error('Invalid refund amount')
+  const { data, error } = await supabaseAdmin.rpc('record_external_refund', {
+    p_provider: provider,
+    p_refund_id: refundId,
+    p_order_number: orderNumber,
+    p_payment_id: paymentId || null,
+    p_amount_pence: amountPence,
+    p_currency: currency,
+    p_full: Boolean(full),
+    p_evidence: evidence || {},
+  })
+  if (error) throw error
+  return data
+}
+
 export async function completeOrder(provider, paymentId) {
   const { data, error } = await supabaseAdmin.rpc('complete_payment_checkout', {
     p_provider: provider, p_payment_id: paymentId,

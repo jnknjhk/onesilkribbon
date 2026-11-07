@@ -19,6 +19,7 @@
 | 10 | `2026-11-06-admin-performance-indexes.sql` | 后台查询索引 |
 | 11 | `2026-11-06-pii-erasure-and-order-closing.sql` | 关闭未付款订单、支付证据 PII 脱敏 |
 | 12 | `2026-11-07-customer-identity.sql` | 游客订单按已验证邮箱归户、统一客户消费口径 |
+| 13 | `2026-11-07-payment-refunds.sql` | 记录 Stripe/PayPal 外部退款，满额退款同步订单状态 |
 
 ## 安全说明
 

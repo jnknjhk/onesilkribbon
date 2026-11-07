@@ -16,7 +16,7 @@ const parseStockQuantity = value => {
 
 function compile({ rpc, from }) {
   return new Function(
-    'supabase', 'verifyAdmin', 'errorResponse', 'parseStockQuantity', 'recordSlugChange',
+    'supabase', 'verifyAdmin', 'errorResponse', 'parseStockQuantity',
     'cleanSearch', 'pageRange', 'readSettings', 'revalidateCatalog',
     source + ';return { POST }'
   )(
@@ -24,7 +24,6 @@ function compile({ rpc, from }) {
     async () => ({ email: 'admin@example.com' }),
     () => Response.json({ error: 'Operation failed safely' }, { status: 500 }),
     parseStockQuantity,
-    async () => {},
     q => String(q || ''),
     () => ({ page: 1, pageSize: 30, from: 0, to: 29 }),
     async () => ({}),
@@ -89,24 +88,13 @@ test('atomic business errors are returned without falling back to legacy writes'
   assert.match((await response.json()).error, /库存/)
 })
 
-test('a missing RPC safely falls back to the legacy path', async () => {
-  let inserted = null
+test('a missing RPC fails closed without legacy table writes', async () => {
   const { POST } = compile({
     rpc: async () => ({ data: null, error: { code: 'PGRST202', message: 'Could not find the function public.admin_save_product' } }),
-    from(table) {
-      assert.equal(table, 'products')
-      const query = {
-        insert(row) { inserted = row; return query },
-        select() { return query },
-        async single() { return { data: { id: 'legacy-product' }, error: null } },
-      }
-      return query
-    },
+    from: () => { throw new Error('legacy table write must not run') },
   })
   const response = await POST({ json: async () => createBody() })
-  assert.equal(response.status, 200)
-  assert.deepEqual(await response.json(), { id: 'legacy-product' })
-  assert.equal(inserted.slug, 'silk')
+  assert.equal(response.status, 500)
 })
 
 test('product delete uses the atomic RPC and keeps soft-deleted history', async () => {

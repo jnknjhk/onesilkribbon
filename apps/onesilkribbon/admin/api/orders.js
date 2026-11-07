@@ -140,35 +140,21 @@ export async function GET(req) {
   }
 }
 
-// PATCH /api/admin/orders — { id, action: 'cancel' | 'deliver' | 'note', reason?, notes? }
+// PATCH /api/admin/orders — { id, action: 'deliver' | 'note', notes? }
+// 取消未付款订单由 app/api/admin/orders/route.js 拦截并走 cancelUnpaidOrder，
+// 这里不再保留直接改状态的影子路径。
 export async function PATCH(req) {
   const admin = await verifyAdmin()
   if (!admin) return unauthorized()
 
   try {
-    const { id, action, reason, notes } = await req.json()
+    const { id, action, notes } = await req.json()
     if (!id || !action) return Response.json({ error: 'Missing id/action' }, { status: 400 })
 
     const { data: current, error: readErr } = await supabaseAdmin
       .from('orders').select('id, status, tracking_number, tracking_carrier, shipping_city').eq('id', id).maybeSingle()
     if (readErr) return errorResponse(readErr, { tag: 'admin-orders-read' })
     if (!current) return Response.json({ error: '找不到这个订单' }, { status: 404 })
-
-    if (action === 'cancel') {
-      // 只有没付款的订单能直接取消。已付款的必须走退款——以前这里不拦，
-      // 取消后钱还在账上、订单却显示"已取消"
-      if (!CAN.cancel(current.status)) {
-        return Response.json({ error: '已付款的订单不能直接取消，请使用"退款"' }, { status: 409 })
-      }
-      const { data, error } = await supabaseAdmin.from('orders').update({
-        status:        'cancelled',
-        cancel_reason: reason || null,
-        cancelled_at:  new Date().toISOString(),
-      }).eq('id', id).eq('status', current.status).select().maybeSingle()
-      if (error) return errorResponse(error, { tag: 'admin-orders-cancel' })
-      if (!data) return Response.json({ error: '订单状态已变化，请刷新后再操作' }, { status: 409 })
-      return Response.json({ success: true, order: data })
-    }
 
     // 手动标记送达。接了 AfterShip 的话物流商说签收就会自动写 delivered_at，
     // 但没接 / 物流商不回传时需要能手动确认，否则订单永远停在"已发货"。

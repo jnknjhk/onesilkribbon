@@ -152,9 +152,9 @@ test('delivery cannot overwrite a refund or write a false Delivered event', asyn
   assert.ok(!h.db.calls.some(call => call.table === 'tracking_events'))
 })
 
-test('cancel conflict is explicit and delivery history failure preserves saved status', async () => {
-  const cancelled = adminOrders(call => ({ data: call.operation === 'update' ? null : { ...order, status: 'pending' } }))
-  assert.equal((await cancelled.patch({ id: order.id, action: 'cancel' })).status, 409)
+test('cancel is delegated to the app route and delivery history failure preserves saved status', async () => {
+  assert.match(read('apps/onesilkribbon/app/api/admin/orders/route.js'), /cancelUnpaidOrder/)
+  assert.doesNotMatch(read('apps/onesilkribbon/admin/api/orders.js'), /action === 'cancel'/)
   const delivered = adminOrders(call => call.table === 'tracking_events' ? { error: true }
     : { data: call.operation === 'update' ? { ...order, status: 'delivered' } : { ...order, status: 'shipped' } })
   const response = await delivered.patch({ id: order.id, action: 'deliver' })

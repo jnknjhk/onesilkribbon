@@ -34,19 +34,6 @@ function stock(respond, authorized = true) {
     verifyAdmin: async () => authorized, errorResponse, parseStockQuantity }, 'PATCH')
   return { db, patch: body => PATCH({ json: async () => body }) }
 }
-const product = { id: 'product-1', slug: 'ribbon', name: 'Silk ribbon', collection: 'silk' }
-const sku = { id: 'sku-1', price_gbp: '9.00', stock_qty: 10, loaded_stock_qty: 10 }
-function products(respond) {
-  const db = database(respond)
-  const POST = load('apps/onesilkribbon/admin/api/products.js', { supabase: db,
-    verifyAdmin: async () => true, errorResponse, parseStockQuantity, recordSlugChange: async () => {},
-    revalidateCatalog: async () => {} }, 'POST')
-  return { db, post: body => POST({ json: async () => body }) }
-}
-const update = (skus = [sku], deletedSkuIds = []) => ({ action: 'update', product, skus, deletedSkuIds })
-const catalogReply = call => ({ data: call.operation === 'read'
-  ? call.table === 'products' ? { slug: product.slug } : [{ id: 'sku-1' }, { id: 'newer-sku' }]
-  : { id: 'sku-1' } })
 
 test('stock parser rejects values that previously became zero or truncated integers', () => {
   for (const value of ['', ' ', null, undefined, true, false, [], {}, '1.5', 1.5, '1abc', 'Infinity', Infinity, NaN, -1, 2147483648]) {
@@ -94,52 +81,6 @@ test('intervening checkout preserves stock and lookup failures are not called mi
   const denied = stock(() => { throw Error('Not authorized') }, false)
   assert.equal((await denied.patch({ updates: [] })).status, 401)
   assert.equal(denied.db.calls.length, 0)
-})
-
-test('saving an old product editor cannot remove a newly created omitted SKU', async () => {
-  const h = products(catalogReply)
-  assert.equal((await h.post(update())).status, 200)
-  assert.ok(!h.db.calls.some(call => call.operation === 'delete'))
-  assert.ok(!h.db.calls.some(call => call.table === 'order_items'))
-  const writes = h.db.calls.filter(call => call.table === 'product_skus' && call.operation === 'update')
-  assert.equal(writes.length, 1)
-  assert.ok(writes[0].filters.some(([, key, value]) => key === 'id' && value === 'sku-1'))
-})
-
-test('only explicitly removed SKUs are deleted or deactivated with history retained', async () => {
-  for (const historical of [false, true]) {
-    const h = products(call => call.table === 'order_items' ? { data: historical ? [{ sku_id: 'newer-sku' }] : [] } : catalogReply(call))
-    assert.equal((await h.post(update([sku], ['newer-sku']))).status, 200)
-    const removal = h.db.calls.find(call => call.table === 'product_skus' &&
-      (call.operation === 'delete' || call.row?.is_active === false))
-    assert.equal(removal.operation, historical ? 'update' : 'delete')
-    assert.deepEqual(removal.filters.find(([kind]) => kind === 'in')[2], ['newer-sku'])
-  }
-})
-
-test('older clients without loaded stock must refresh before saving, without false success', async () => {
-  const h = products(catalogReply)
-  const { loaded_stock_qty, ...oldSku } = sku
-  assert.equal((await h.post(update([{ ...oldSku, stock_qty: 100 }]))).status, 409)
-  assert.equal(h.db.calls.length, 0)
-})
-
-test('explicit edits against null inventory compare SQL null rather than zero', async () => {
-  const h = products(catalogReply)
-  assert.equal((await h.post(update([{ ...sku, loaded_stock_qty: null, stock_qty: 5 }]))).status, 200)
-  const write = h.db.calls.find(call => call.table === 'product_skus' && call.operation === 'update')
-  assert.ok(write.filters.some(([kind, key, value]) => kind === 'is' && key === 'stock_qty' && value === null))
-})
-
-test('malformed product batches and invalid prices or quantities cannot partially save', async () => {
-  for (const body of [null, update(null), update([sku, sku]), update([sku], ['sku-1']),
-    update([{ ...sku, stock_qty: '2.5' }]), update([{ ...sku, price_gbp: '9oops' }]),
-    update([{ ...sku, price_gbp: '' }]), update([{ ...sku, loaded_stock_qty: false }]),
-    update([sku, { ...sku, id: 'sku-2', price_gbp: -1 }])]) {
-    const h = products(() => { throw Error('Validation should stop all database calls') })
-    assert.equal((await h.post(body)).status, 400)
-    assert.equal(h.db.calls.length, 0)
-  }
 })
 
 const helpers = load('apps/onesilkribbon/admin/api/_helpers.js', {}, '({fetchAll,readSettings,dayKey})')

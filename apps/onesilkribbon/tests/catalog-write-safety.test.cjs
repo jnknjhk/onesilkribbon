@@ -102,29 +102,6 @@ test('pagination exhaustion and malformed pages are errors, never successful par
   assert.ok(invalid.error)
 })
 
-test('dashboard rejects partial order, SKU, product, item and email-log queries', async () => {
-  for (const failed of ['orders', 'product_skus', 'products', 'order_items', 'email_log']) {
-    const db = { from(table) { const q = { table, select: () => q, order: () => q, eq: () => q, gte: () => q, then: resolve => resolve({ error: true }) }; return q } }
-    const run = load('apps/onesilkribbon/admin/api/dashboard.js', { supabaseAdmin: db, verifyAdmin: async () => true,
-      errorResponse, REVENUE_STATUSES: ['paid', 'shipped', 'delivered'], readSettings: async () => ({}), dayKey: helpers.dayKey,
-      fetchAll: async makeQuery => ({ data: [], error: makeQuery().table === failed ? Error('offline') : null }),
-    }, 'GET')
-    const response = await run()
-    assert.equal(response.status, 500)
-  }
-})
-
-test('dashboard reports zero failed emails when every query succeeds', async () => {
-  const db = { from() { const q = { select: () => q, order: () => q, eq: () => q, gte: () => q, then: resolve => resolve({ error: null, count: 0 }) }; return q } }
-  const run = load('apps/onesilkribbon/admin/api/dashboard.js', { supabaseAdmin: db, verifyAdmin: async () => true,
-    errorResponse, REVENUE_STATUSES: ['paid', 'shipped', 'delivered'], readSettings: async () => ({}), dayKey: helpers.dayKey,
-    fetchAll: async () => ({ data: [], error: null }),
-  }, 'GET')
-  const response = await run()
-  assert.equal(response.status, 200)
-  assert.equal((await response.json()).todo.failedEmails, 0)
-})
-
 test('settings loading preserves individual zero/missing values and supports recoverable failure', async () => {
   const source = read('apps/onesilkribbon/admin/pages/settings/SettingsPage.jsx')
   const prefix = source.split('function StoreSettings() {')[1].split('  const dirty')[0]

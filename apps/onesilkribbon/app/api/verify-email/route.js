@@ -1,9 +1,7 @@
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { redirect } from 'next/navigation'
 import { errorResponse } from '@osr/core/lib/api-error'
-
-const RESEND_API = 'https://api.resend.com/emails'
-const FROM       = `One Silk Ribbon <${process.env.EMAIL_FROM || 'song@onesilkribbon.com'}>`
+import { sendEmail } from '@/lib/email'
 
 const styles = `
   body{margin:0;padding:0;background:#F7F3EE;font-family:'Georgia',serif}
@@ -39,12 +37,13 @@ async function sendCouponEmail(email, couponCode) {
   </div>
 </div></body></html>`
 
-  const response = await fetch(RESEND_API, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.RESEND_API_KEY}`, 'Idempotency-Key': `welcome/${couponCode}` },
-    body: JSON.stringify({ from: FROM, to: email, subject: `Your exclusive welcome code — One Silk Ribbon`, html }),
+  await sendEmail({
+    to: email,
+    subject: 'Your exclusive welcome code — One Silk Ribbon',
+    html,
+    kind: 'welcome_coupon',
+    deliveryKey: `welcome/${couponCode}`,
   })
-  if (!response.ok) throw new Error('Welcome email failed')
 }
 
 export async function GET(req) {

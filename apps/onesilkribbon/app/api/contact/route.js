@@ -1,9 +1,6 @@
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { escapeHtml } from '@osr/core/lib/escape-html'
-import { logEmail } from '@/lib/email-log'
-
-const RESEND_API = 'https://api.resend.com/emails'
-const FROM = 'One Silk Ribbon <song@onesilkribbon.com>'
+import { sendEmail } from '@/lib/email'
 
 // 和联系页输入框的 maxLength 保持一致
 const MAX_LEN = { name: 100, email: 254, subject: 200, message: 5000 }
@@ -135,17 +132,9 @@ export async function POST(req) {
     // 客户看到"已收到你的留言"，而你那边其实什么都没收到。现在逐封检查并落库。
     async function send({ to, replyTo, subject: subj, html, kind }) {
       try {
-        const res = await fetch(RESEND_API, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.RESEND_API_KEY}` },
-          body: JSON.stringify({ from: FROM, to, ...(replyTo ? { reply_to: replyTo } : {}), subject: subj, html }),
-        })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.message || 'Email send failed')
-        await logEmail({ kind, to, subject: subj, status: 'sent', providerId: data.id })
+        await sendEmail({ to, replyTo, subject: subj, html, kind })
         return true
-      } catch (e) {
-        await logEmail({ kind, to, subject: subj, status: 'failed', error: e.message })
+      } catch {
         return false
       }
     }

@@ -16,10 +16,16 @@ const RESEND_API = 'https://api.resend.com/emails'
 const FROM       = `One Silk Ribbon <${process.env.EMAIL_FROM || 'song@onesilkribbon.com'}>`
 const OWNER      = 'song@onesilkribbon.com'
 
+// 所有邮件（订单、订阅验证、欢迎券、联系表单、后台群发）都从这里发出：
+// 统一超时、幂等键、Reply-To/CC 和 email_log 记录。
 // kind / orderNumber 只用于写「邮件记录」，不影响邮件内容本身。
 // 成功和失败都落库，后台才能看出"这封到底发出去没有"。
-async function sendEmail({ to, subject, html, kind = 'other', orderNumber = null, deliveryKey }) {
+export async function sendEmail({
+  to, subject, html, kind = 'other', orderNumber = null, deliveryKey,
+  replyTo, cc, timeoutMs = 20000,
+} = {}) {
   try {
+    if (!process.env.RESEND_API_KEY) throw new Error('Email service unavailable')
     const res = await fetch(RESEND_API, {
       method: 'POST',
       headers: {
@@ -27,9 +33,17 @@ async function sendEmail({ to, subject, html, kind = 'other', orderNumber = null
         'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
         ...(deliveryKey ? { 'Idempotency-Key': deliveryKey } : {}),
       },
-      body: JSON.stringify({ from: FROM, to, subject, html }),
+      body: JSON.stringify({
+        from: FROM,
+        to,
+        subject,
+        html,
+        ...(replyTo ? { reply_to: replyTo } : {}),
+        ...(cc ? { cc } : {}),
+      }),
+      signal: AbortSignal.timeout(timeoutMs),
     })
-    const data = await res.json()
+    const data = await res.json().catch(() => ({}))
     if (!res.ok) throw new Error(data.message || 'Email send failed')
 
     await logEmail({ kind, to, subject, orderNumber, status: 'sent', providerId: data.id })

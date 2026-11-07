@@ -5,6 +5,7 @@
 import { supabaseAdmin as supabase } from '@osr/core/lib/supabase'
 import { verifyAdmin } from '../auth'
 import { errorResponse } from '@osr/core/lib/api-error'
+import { revalidateSiteImages } from '../lib/revalidate'
 
 export async function GET() {
   const admin = await verifyAdmin()
@@ -27,6 +28,7 @@ export async function POST(req) {
     const { error } = await supabase.from('site_images')
       .upsert({ key, url, updated_at: new Date().toISOString() }, { onConflict: 'key' })
     if (error) throw error
+    try { revalidateSiteImages() } catch {}
     return Response.json({ url })
   } catch (err) {
     return errorResponse(err, { tag: 'admin-site-images-post' })
@@ -42,6 +44,7 @@ export async function DELETE(req) {
     const { error } = await supabase.from('site_images')
       .update({ url: null, updated_at: new Date().toISOString() }).eq('key', key)
     if (error) throw error
+    try { revalidateSiteImages() } catch {}
     return Response.json({ ok: true })
   } catch (err) {
     return errorResponse(err, { tag: 'admin-site-images-delete' })

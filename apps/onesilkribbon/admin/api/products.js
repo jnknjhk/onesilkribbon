@@ -9,6 +9,7 @@ import { errorResponse } from '@osr/core/lib/api-error'
 import { cleanSearch, pageRange, readSettings } from './_helpers'
 import { recordSlugChange } from '@osr/core/lib/product-redirects'
 import { parseStockQuantity } from '../lib/stock-quantity'
+import { revalidateCatalog } from '../lib/revalidate'
 
 const DEFAULT_LOW_STOCK = 3
 
@@ -370,5 +371,8 @@ export async function POST(req) {
     return Response.json({ error: 'Unknown action' }, { status: 400 })
   } catch (err) {
     return errorResponse(err, { tag: 'admin-products-post' })
+  } finally {
+    // 商品、价格、库存、图片、上下架都可能影响前台；统一失效，避免每个分支漏掉。
+    try { revalidateCatalog() } catch {}
   }
 }

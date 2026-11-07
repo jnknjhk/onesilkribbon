@@ -39,7 +39,8 @@ const sku = { id: 'sku-1', price_gbp: '9.00', stock_qty: 10, loaded_stock_qty: 1
 function products(respond) {
   const db = database(respond)
   const POST = load('apps/onesilkribbon/admin/api/products.js', { supabase: db,
-    verifyAdmin: async () => true, errorResponse, parseStockQuantity, recordSlugChange: async () => {} }, 'POST')
+    verifyAdmin: async () => true, errorResponse, parseStockQuantity, recordSlugChange: async () => {},
+    revalidateCatalog: async () => {} }, 'POST')
   return { db, post: body => POST({ json: async () => body }) }
 }
 const update = (skus = [sku], deletedSkuIds = []) => ({ action: 'update', product, skus, deletedSkuIds })

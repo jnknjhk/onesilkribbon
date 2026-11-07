@@ -17,7 +17,7 @@ const parseStockQuantity = value => {
 function compile({ rpc, from }) {
   return new Function(
     'supabase', 'verifyAdmin', 'errorResponse', 'parseStockQuantity', 'recordSlugChange',
-    'cleanSearch', 'pageRange', 'readSettings',
+    'cleanSearch', 'pageRange', 'readSettings', 'revalidateCatalog',
     source + ';return { POST }'
   )(
     { rpc, from },
@@ -27,7 +27,8 @@ function compile({ rpc, from }) {
     async () => {},
     q => String(q || ''),
     () => ({ page: 1, pageSize: 30, from: 0, to: 29 }),
-    async () => ({})
+    async () => ({}),
+    async () => {}
   )
 }
 

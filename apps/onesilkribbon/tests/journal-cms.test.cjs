@@ -82,7 +82,7 @@ test('saving content or publication state and deleting an article refresh the li
     const h = journalApi()
     const post = { id: 'cms-id', slug: 'edited-slug', title: 'Edited', is_published: published, was_published: true, sections: [{ type: 'text', template: 'autumn', body: 'New CMS text' }] }
     assert.equal((await h.post({ action, post })).status, 200)
-    assert.deepEqual(h.refreshes, [['/journal'], ['/journal/[slug]', 'page'], ['/sitemap.xml']])
+    assert.deepEqual(h.refreshes, [['/'], ['/journal'], ['/journal/[slug]', 'page'], ['/sitemap.xml']])
     if (action !== 'delete') { assert.deepEqual(h.writes[0].sections, post.sections); assert.equal(h.writes[0].is_published, published); assert.ok(Number.isFinite(Date.parse(h.writes[0].updated_at))) }
   }
 })

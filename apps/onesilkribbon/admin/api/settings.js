@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { verifyAdmin } from '../auth'
 import { errorResponse } from '@osr/core/lib/api-error'
 import { readSettings } from './_helpers'
+import { revalidateSettings } from '../lib/revalidate'
 
 export async function GET() {
   const admin = await verifyAdmin()
@@ -26,6 +27,7 @@ export async function POST(req) {
     // 以前逐条写、错误不检查，后台照样显示"已保存"。现在一次写完，失败就报错
     const { error } = await supabaseAdmin.from('settings').upsert(rows, { onConflict: 'key' })
     if (error) return errorResponse(error, { tag: 'admin-settings-post', message: '保存失败，请重试' })
+    try { revalidateSettings() } catch {}
     return Response.json({ ok: true })
   } catch (err) {
     return errorResponse(err, { tag: 'admin-settings-post' })

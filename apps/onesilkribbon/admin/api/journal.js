@@ -10,6 +10,7 @@ import { pageRange } from './_helpers'
 import { revalidatePath } from 'next/cache'
 
 function refreshJournal() {
+  revalidatePath('/')
   revalidatePath('/journal')
   revalidatePath('/journal/[slug]', 'page')
   revalidatePath('/sitemap.xml')

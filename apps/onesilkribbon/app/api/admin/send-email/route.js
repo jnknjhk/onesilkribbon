@@ -1,11 +1,7 @@
-import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { verifyAdmin } from '@/admin/auth'
 import { errorResponse } from '@osr/core/lib/api-error'
 import { escapeHtml } from '@osr/core/lib/escape-html'
-import { logEmail } from '@/lib/email-log'
-
-const RESEND_API = 'https://api.resend.com/emails'
-const FROM = 'One Silk Ribbon <song@onesilkribbon.com>'
+import { sendEmail } from '@/lib/email'
 
 const styles = `
   body { margin:0; padding:0; background:#F7F3EE; font-family:'Georgia',serif; }
@@ -62,22 +58,7 @@ export async function POST(req) {
 
     const html = buildHtml(subject, body)
 
-    const res = await fetch(RESEND_API, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-      },
-      body: JSON.stringify({ from: FROM, to, cc: 'song@onesilkribbon.com', subject, html }),
-    })
-
-    const data = await res.json()
-    if (!res.ok) {
-      await logEmail({ kind: 'marketing', to, subject, status: 'failed', error: data.message || 'Send failed' })
-      throw new Error(data.message || 'Send failed')
-    }
-
-    await logEmail({ kind: 'marketing', to, subject, status: 'sent', providerId: data.id })
+    await sendEmail({ to, cc: 'song@onesilkribbon.com', subject, html, kind: 'marketing' })
     return Response.json({ success: true })
   } catch (err) {
     return errorResponse(err, { tag: 'admin-send-email' })

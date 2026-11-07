@@ -1,9 +1,7 @@
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
-
-const RESEND_API = 'https://api.resend.com/emails'
-const FROM       = `One Silk Ribbon <${process.env.EMAIL_FROM || 'song@onesilkribbon.com'}>`
+import { sendEmail } from '@/lib/email'
 
 // 拦截明显假域名
 const BLOCKED_DOMAINS = ['test.com','fake.com','example.com','mailinator.com','guerrillamail.com','tempmail.com','throwaway.email','yopmail.com','sharklasers.com','trashmail.com']
@@ -40,14 +38,13 @@ async function sendVerificationEmail(email, token, requestId, createdAt) {
   </div>
 </div></body></html>`
 
-  const res = await fetch(RESEND_API, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.RESEND_API_KEY}`, 'Idempotency-Key': `subscription/${requestId}` },
-    signal: AbortSignal.timeout(20000),
-    body: JSON.stringify({ from: FROM, to: email, subject: 'Please confirm your email — One Silk Ribbon', html }),
+  await sendEmail({
+    to: email,
+    subject: 'Please confirm your email — One Silk Ribbon',
+    html,
+    kind: 'subscription_verification',
+    deliveryKey: `subscription/${requestId}`,
   })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.message || 'Email send failed')
 }
 
 export async function POST(req) {

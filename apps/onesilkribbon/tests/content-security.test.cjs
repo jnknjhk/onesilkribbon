@@ -12,7 +12,7 @@ function emailHarness() {
   const sent = []
   const logs = []
   const context = vm.createContext({
-    URL, process: { env: {} },
+    URL, AbortSignal, process: { env: { RESEND_API_KEY: 'test-only' } },
     logEmail: async entry => { logs.push(entry) },
     // No network API is exposed: all deliveries are captured here.
     fetch: async (url, options) => {

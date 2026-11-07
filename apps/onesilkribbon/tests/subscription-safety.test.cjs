@@ -86,7 +86,6 @@ test('public users cannot call email preparation or read verification tokens', a
 })
 
 test('subscription endpoint fails closed and retries use a stable mail idempotency key', async () => {
-  const originalFetch = global.fetch
   let dbError = true
   let fetches = 0
   const request = { id: 'request-1', email: 'subscriber@example.org', verify_token: token, created_at: '2026-10-14T00:00:00Z' }
@@ -94,15 +93,16 @@ test('subscription endpoint fails closed and retries use a stable mail idempoten
     rpc: async () => dbError ? { error: { code: 'offline' } } : { data: request },
     from: () => ({ update: () => ({ eq: async () => ({}) }) }),
   }
-  global.fetch = async (_url, options) => {
+  globalThis.__subscribeSend = async ({ deliveryKey }) => {
     fetches++
-    assert.equal(options.headers['Idempotency-Key'], 'subscription/request-1')
-    return new Response('{}', { status: 200 })
+    assert.equal(deliveryKey, 'subscription/request-1')
+    return { id: 'mock-email' }
   }
   process.env.RESEND_API_KEY = 'test-only'
   const source = fs.readFileSync(path.join(__dirname, '../app/api/subscribe/route.js'), 'utf8')
     .replace("import { supabaseAdmin } from '@osr/core/lib/supabase'", 'const supabaseAdmin = globalThis.__subscribeDb')
     .replace("import { NextResponse } from 'next/server'", 'const NextResponse = Response')
+    .replace("import { sendEmail } from '@/lib/email'", 'const sendEmail = globalThis.__subscribeSend')
   try {
     const { POST } = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'))
     const req = body => new Request('https://example.org/api/subscribe', { method: 'POST', body: JSON.stringify(body) })
@@ -112,5 +112,5 @@ test('subscription endpoint fails closed and retries use a stable mail idempoten
     dbError = false
     assert.equal((await POST(req({ email: 'subscriber@example.org' }))).status, 200)
     assert.equal(fetches, 1)
-  } finally { global.fetch = originalFetch; delete globalThis.__subscribeDb }
+  } finally { delete globalThis.__subscribeDb; delete globalThis.__subscribeSend }
 })

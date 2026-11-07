@@ -3,29 +3,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import AccountLayout from '@osr/core/components/AccountLayout'
 import { useAuth } from '@osr/core/lib/auth'
-
-const STATUS_LABEL = {
-  pending: 'Pending', paid: 'Paid', processing: 'Processing',
-  shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled', refunded: 'Refunded',
-}
-const STATUS_COLOR = {
-  pending:    { bg: '#FEF9EE', text: '#B45309' },
-  paid:       { bg: '#F0FDF4', text: '#15803D' },
-  processing: { bg: '#EFF6FF', text: '#1D4ED8' },
-  shipped:    { bg: '#EFF6FF', text: '#1D4ED8' },
-  delivered:  { bg: '#F0FDF4', text: '#15803D' },
-  cancelled:  { bg: '#FEF2F2', text: '#B91C1C' },
-  refunded:   { bg: '#F5F3FF', text: '#6D28D9' },
-}
-
-function StatusBadge({ status }) {
-  const s = STATUS_COLOR[status] || { bg: 'var(--mist)', text: 'var(--taupe)' }
-  return (
-    <span style={{ display: 'inline-block', padding: '3px 10px', background: s.bg, color: s.text, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', borderRadius: 2 }}>
-      {STATUS_LABEL[status] || status}
-    </span>
-  )
-}
+import OrderStatusBadge from '@/components/OrderStatusBadge'
 
 const FILTERS = ['all', 'paid', 'shipped', 'delivered', 'cancelled']
 const FILTER_LABEL = { all: 'All', paid: 'Paid', shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled' }
@@ -122,7 +100,7 @@ export default function OrdersPage() {
                   <p style={{ fontSize: 11, color: 'var(--taupe)' }}>{order.shipping_name}</p>
                 </div>
                 <p style={{ fontSize: 12, color: 'var(--deep)' }}>{fmtDate(order.created_at)}</p>
-                <div><StatusBadge status={order.status} /></div>
+                <div><OrderStatusBadge status={order.status} /></div>
                 <p style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 400 }}>{fmtGBP(order.total_gbp)}</p>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--warm)" strokeWidth="1.5">
                   <polyline points="9 18 15 12 9 6"/>

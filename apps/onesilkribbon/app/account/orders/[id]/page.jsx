@@ -4,20 +4,8 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import AccountLayout from '@osr/core/components/AccountLayout'
 import { useAuth } from '@osr/core/lib/auth'
-
-const STATUS_LABEL = {
-  pending: 'Pending', paid: 'Paid', processing: 'Processing',
-  shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled', refunded: 'Refunded',
-}
-const STATUS_COLOR = {
-  pending:    { bg: '#FEF9EE', text: '#B45309' },
-  paid:       { bg: '#F0FDF4', text: '#15803D' },
-  processing: { bg: '#EFF6FF', text: '#1D4ED8' },
-  shipped:    { bg: '#EFF6FF', text: '#1D4ED8' },
-  delivered:  { bg: '#F0FDF4', text: '#15803D' },
-  cancelled:  { bg: '#FEF2F2', text: '#B91C1C' },
-  refunded:   { bg: '#F5F3FF', text: '#6D28D9' },
-}
+import OrderStatusBadge from '@/components/OrderStatusBadge'
+import { TRACKABLE_ORDER_STATUSES } from '@/lib/order-status'
 
 // 订单状态进度条步骤（与系统实际使用的状态保持一致：pending/paid/shipped）
 const STEPS = ['pending', 'paid', 'shipped']
@@ -135,18 +123,11 @@ export default function OrderDetailPage() {
               <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 300, color: 'var(--ink)' }}>{order.order_number}</h1>
               <p style={{ fontSize: 12, color: 'var(--taupe)', marginTop: 4 }}>Placed {fmtDate(order.created_at)}</p>
             </div>
-            {(() => {
-              const s = STATUS_COLOR[order.status] || { bg: 'var(--mist)', text: 'var(--taupe)' }
-              return (
-                <span style={{ display: 'inline-block', padding: '5px 14px', background: s.bg, color: s.text, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', borderRadius: 2 }}>
-                  {STATUS_LABEL[order.status] || order.status}
-                </span>
-              )
-            })()}
+            <OrderStatusBadge status={order.status} large />
           </div>
 
           {/* 状态进度 */}
-          {['paid','processing','shipped','delivered'].includes(order.status) && (
+          {TRACKABLE_ORDER_STATUSES.includes(order.status) && (
             <div style={{ background: '#fff', border: '1px solid var(--sand)', padding: '20px 24px 24px' }}>
               <p style={{ fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase', color: 'var(--taupe)', marginBottom: 4 }}>Order Progress</p>
               <OrderProgress status={order.status} />

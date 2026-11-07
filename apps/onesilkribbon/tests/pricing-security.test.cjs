@@ -8,7 +8,7 @@ function load(file, bindings, names) {
     .replace(/^import .*$/gm, '').replace(/export /g, '')
   return new Function(...Object.keys(bindings), source + `;return {${names}}`)(...Object.values(bindings))
 }
-const money = load('lib/pricing.js', {}, 'gbpToPence,penceToGBP,calculateTotals,cartSubtotalPence,couponDiscountPence')
+const money = load('lib/pricing.js', {}, 'gbpToPence,penceToGBP,calculateTotals,cartSubtotalPence,couponDiscountPence,SHIPPING_RATE,FREE_SHIPPING_THRESHOLD')
 function pricingMock(overrides = {}) {
   const rows = {
     product_skus: [{ id: 'sku', product_id: 'product', price_gbp: '1.01', stock_qty: 100, is_active: true }],

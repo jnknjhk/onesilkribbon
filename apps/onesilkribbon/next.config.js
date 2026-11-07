@@ -18,9 +18,6 @@ const nextConfig = {
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 86400,
   },
-  experimental: {
-    serverActions: { allowedOrigins: ['localhost:3000', 'onesilkribbon.com'] }
-  },
   async redirects() {
     return [
       // 没有商品目录列表页（导航逻辑是 首页 → 系列 → 商品），/products 本身只是

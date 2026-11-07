@@ -1,5 +1,6 @@
 import { supabaseAdmin as supabaseServer } from '@osr/core/lib/supabase'
 import { COLLECTION_SLUGS } from '@/lib/collections'
+import { FREE_SHIPPING_THRESHOLD } from '@/lib/pricing'
 import HomeClient from './HomeClient'
 
 export const revalidate = 60
@@ -89,7 +90,7 @@ export default async function HomePage() {
     .select('key, value')
     .in('key', ['free_shipping_threshold', 'free_shipping_enabled'])
   const settingsMap = Object.fromEntries((shippingSettings || []).map(r => [r.key, r.value]))
-  const freeThreshold = settingsMap['free_shipping_threshold'] || '45'
+  const freeThreshold = settingsMap['free_shipping_threshold'] || FREE_SHIPPING_THRESHOLD
   const freeEnabled   = settingsMap['free_shipping_enabled'] !== 'false'
 
   // ── Journal posts ─────────────────────────────────────────────────────────

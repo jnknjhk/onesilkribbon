@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '@osr/core/lib/supabase'
-import { calculateTotals, gbpToPence, penceToGBP, cartSubtotalPence, couponDiscountPence } from '@/lib/pricing'
+import { calculateTotals, gbpToPence, penceToGBP, cartSubtotalPence, couponDiscountPence, SHIPPING_RATE, FREE_SHIPPING_THRESHOLD } from '@/lib/pricing'
 
 // 服务端权威计价：绝不信任客户端传来的 price / totals，一切以数据库为准。
 // 返回 { ok:true, lineItems, totals } 或 { ok:false, error, unavailable }
@@ -95,8 +95,8 @@ export async function computeAuthoritativeOrder({ items, couponCode, shippingSet
     if (settingsError) return { ok: false, error: 'Could not verify shipping, please try again' }
     const map = Object.fromEntries((settingsRows || []).map(r => [r.key, r.value]))
     resolvedShippingSettings = {
-      shippingRate: map.shipping_rate ?? 3.95,
-      freeShippingThreshold: map.free_shipping_threshold ?? 45,
+      shippingRate: map.shipping_rate ?? SHIPPING_RATE,
+      freeShippingThreshold: map.free_shipping_threshold ?? FREE_SHIPPING_THRESHOLD,
       freeShippingEnabled: map.free_shipping_enabled !== 'false',
     }
   }

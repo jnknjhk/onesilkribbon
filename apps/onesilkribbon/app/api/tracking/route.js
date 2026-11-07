@@ -12,9 +12,8 @@ export async function POST(req) {
   const orderNumber = typeof body?.order==='string' ? body.order.trim() : ''
   const email = typeof body?.email==='string' ? body.email.trim() : ''
 
-  // 光凭订单号就能查到收件人、城市和物流单号——而订单号是可猜的：
-  // PayPal 单是 OSR-YYMMDD-4位随机数，Stripe 单是 OSR-年份-4位-3位，
-  // 猜中一个只需要几千次请求。所以必须同时验证下单邮箱才返回任何信息。
+  // 光凭订单号就能查到收件人、城市和物流单号，所以必须同时验证下单邮箱
+  // 才返回任何信息。当前订单号是 OSR-年份-UUID，但这道双因子校验仍然必要。
   if (!orderNumber || orderNumber.length>100 || !email || email.length>254 || !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email)) {
     return reply({ error: 'Order number and email are required' }, { status: 400 })
   }

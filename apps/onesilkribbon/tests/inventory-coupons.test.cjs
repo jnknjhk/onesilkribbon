@@ -275,6 +275,7 @@ test('refund provider response lost: retry finds existing refund instead of crea
         savedRefund={id:'re_saved',status:'succeeded',payment_intent:'pi_test',metadata:{osr_order_id:'test-order'}};
         throw Error('response lost')}}},
     errorResponse:()=>Response.json({error:'retry'},{status:409}),
+    recordAdminAction:async()=>{},
   },'POST')
   const req={json:async()=>({orderId:'test-order',manual:false,restock:true})}
   assert.equal((await POST(req)).status,409)

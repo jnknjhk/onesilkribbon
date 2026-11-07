@@ -18,6 +18,7 @@ function compile({ rpc, from }) {
   return new Function(
     'supabase', 'verifyAdmin', 'errorResponse', 'parseStockQuantity',
     'cleanSearch', 'pageRange', 'readSettings', 'revalidateCatalog',
+    'isMissingRpc', 'recordAdminAction',
     source + ';return { POST }'
   )(
     { rpc, from },
@@ -27,6 +28,8 @@ function compile({ rpc, from }) {
     q => String(q || ''),
     () => ({ page: 1, pageSize: 30, from: 0, to: 29 }),
     async () => ({}),
+    async () => {},
+    () => false,
     async () => {}
   )
 }

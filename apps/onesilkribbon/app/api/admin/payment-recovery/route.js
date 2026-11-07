@@ -1,4 +1,5 @@
 import { verifyAdmin } from '@/admin/auth'
+import { fetchAll } from '@/admin/api/_helpers'
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { errorResponse } from '@osr/core/lib/api-error'
 import { completeOrder, deliverNotifications } from '@/lib/payment-orders'
@@ -7,7 +8,7 @@ import { reconcileStripeReservation } from '@/lib/stripe-reservations'
 
 export async function GET() {
   if (!await verifyAdmin()) return Response.json({ error: 'Unauthorized' }, { status: 401 })
-  const [receipts, notifications, pendingPayPal, pendingStripe] = await Promise.all([
+  const [receipts, notifications, pendingPayPal, pendingStripe, pendingRefunds, unprocessedRefunds, refundedOrders, refundRequests, paymentRefunds] = await Promise.all([
     supabaseAdmin.from('payment_receipts').select('provider,payment_id,order_number,created_at')
       .is('processed_at', null).order('created_at').limit(100),
     supabaseAdmin.from('payment_notifications').select('order_number,customer_sent_at,owner_sent_at')
@@ -16,9 +17,39 @@ export async function GET() {
       .eq('payment_method', 'paypal').eq('status', 'pending').order('created_at').limit(100),
     supabaseAdmin.from('orders').select('order_number,created_at')
       .eq('payment_method', 'stripe').eq('status', 'pending').order('created_at').limit(100),
+    // 后台发起、但还没完成的退款（自动退款待确认 / 手动退款待补记）
+    supabaseAdmin.from('refund_requests')
+      .select('order_id, manual, restock, reason, provider_id, provider_status, created_at, orders(order_number, status, total_gbp, payment_method)')
+      .is('completed_at', null).order('created_at').limit(100),
+    // 支付平台已经回传退款、但本地还没确认处理的记录
+    supabaseAdmin.from('payment_refunds')
+      .select('provider, refund_id, order_number, amount_pence, currency, full_refund, created_at')
+      .is('processed_at', null).order('created_at').limit(100),
+    // 已退款订单与退款记录对账：找出状态是 refunded、但没有任何退款记录的订单
+    fetchAll(() => supabaseAdmin.from('orders')
+      .select('id, order_number, total_gbp, payment_method, refund_reason, created_at')
+      .eq('status', 'refunded').order('created_at', { ascending: false }).order('id')),
+    fetchAll(() => supabaseAdmin.from('refund_requests').select('order_id').order('order_id')),
+    fetchAll(() => supabaseAdmin.from('payment_refunds').select('order_number').order('order_number')),
   ])
-  if (receipts.error || notifications.error || pendingPayPal.error || pendingStripe.error) return errorResponse(receipts.error || notifications.error || pendingPayPal.error || pendingStripe.error)
-  return Response.json({ receipts: receipts.data, notifications: notifications.data, pendingPayPal: pendingPayPal.data, pendingStripe: pendingStripe.data })
+  const failed = [receipts, notifications, pendingPayPal, pendingStripe, pendingRefunds, unprocessedRefunds, refundedOrders, refundRequests, paymentRefunds].find(r => r.error)
+  if (failed) return errorResponse(failed.error)
+
+  const withRefundRequest = new Set((refundRequests.data || []).map(r => r.order_id))
+  const withPaymentRefund = new Set((paymentRefunds.data || []).map(r => r.order_number))
+  const refundedWithoutRecord = (refundedOrders.data || []).filter(o =>
+    !withRefundRequest.has(o.id) && !withPaymentRefund.has(o.order_number)
+  )
+
+  return Response.json({
+    receipts: receipts.data,
+    notifications: notifications.data,
+    pendingPayPal: pendingPayPal.data,
+    pendingStripe: pendingStripe.data,
+    pendingRefunds: pendingRefunds.data,
+    unprocessedRefunds: unprocessedRefunds.data,
+    refundedWithoutRecord,
+  })
 }
 
 export async function POST(req) {

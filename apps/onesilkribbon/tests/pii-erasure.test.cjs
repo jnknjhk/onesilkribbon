@@ -55,6 +55,7 @@ before(async () => {
     '2026-10-14-payment-reliability.sql',
     '2026-10-14-inventory-coupons.sql',
     '2026-11-06-pii-erasure-and-order-closing.sql',
+    '2026-11-08-admin-backoffice.sql',
   ]) {
     await db.exec(migration(file))
   }
@@ -181,7 +182,50 @@ test('admin erasure and maintenance call the non-destructive database functions'
   const maintenance = read('admin/api/maintenance.js')
   assert.match(erase, /close_unpaid_order/)
   assert.match(erase, /anonymize_customer_payment_evidence/)
+  assert.match(erase, /admin_erase_customer_data/)
   assert.doesNotMatch(erase, /from\('orders'\)\s*\.delete/)
   assert.match(maintenance, /close_unpaid_order/)
   assert.doesNotMatch(maintenance, /from\('orders'\)\s*\.delete/)
 })
+
+test('admin_erase_customer_data removes accounts and subscriptions but keeps anonymized orders', async () => {
+  const uid = '40000000-0000-4000-8000-000000000001'
+  const email = 'erase@example.com'
+  await prepare('erase-me')
+  await db.query(`update orders set user_id=$1, customer_email=$2 where order_number='erase-me'`, [uid, email])
+  await db.query(`insert into user_profiles(id,email,first_name) values($1,$2,'Test')`, [uid, email])
+  await db.query(`insert into user_addresses(user_id,line1,city,postcode) values($1,'1 Street','London','A1 2BC')`, [uid])
+  await db.query(`insert into subscribers(email,status,verified) values($1,'active',true)`, [email])
+  await db.query(`insert into newsletter_subscribers(email) values($1)`, [email])
+  await db.query(`insert into customers(email,first_name) values($1,'Test')`, [email])
+  await db.query(`insert into coupons(code,discount_type,discount_value,description)
+    values('ERASE10','percent',10,'Welcome discount for ' || $1)`, [email])
+  await db.query(`insert into email_log(kind,to_email,subject,order_number,status)
+    values('contact',$1,'Hello','erase-me','sent')`, [email])
+
+  const { rows: result } = await db.query(
+    `select admin_erase_customer_data($1, array[$2]::uuid[], array['erase-me']) as r`,
+    [email, uid]
+  )
+  assert.equal(result[0].r.closedOrders, 1)
+  assert.equal(result[0].r.anonymizedOrders, 1)
+
+  const order = (await rows("select customer_email, shipping_name, user_id, phone, status from orders where order_number='erase-me'"))[0]
+  assert.equal(order.customer_email, 'deleted-customer@invalid')
+  assert.equal(order.shipping_name, '已删除的客户')
+  assert.equal(order.user_id, null)
+  assert.equal(order.phone, null)
+  assert.equal(order.status, 'cancelled')
+
+  assert.equal((await rows(`select count(*)::int n from user_profiles where id='${uid}'`))[0].n, 0)
+  assert.equal((await rows(`select count(*)::int n from user_addresses where user_id='${uid}'`))[0].n, 0)
+  assert.equal((await rows(`select count(*)::int n from subscribers where email='${email}'`))[0].n, 0)
+  assert.equal((await rows(`select count(*)::int n from newsletter_subscribers where email='${email}'`))[0].n, 0)
+  assert.equal((await rows(`select count(*)::int n from customers where email='${email}'`))[0].n, 0)
+  assert.equal((await rows("select description from coupons where code='ERASE10'"))[0].description, 'Welcome discount（客户已删除）')
+  assert.equal((await rows("select to_email from email_log where order_number='erase-me'"))[0].to_email, 'deleted-customer@invalid')
+
+  // 订单本身和商品明细保留（财务记录），只是个人信息被替换。
+  assert.equal((await rows("select count(*)::int n from order_items where order_id=(select id from orders where order_number='erase-me')"))[0].n, 1)
+})
+

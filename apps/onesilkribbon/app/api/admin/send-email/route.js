@@ -1,4 +1,5 @@
 import { verifyAdmin } from '@/admin/auth'
+import { siteConfig } from '@/admin/site-config'
 import { errorResponse } from '@osr/core/lib/api-error'
 import { escapeHtml } from '@osr/core/lib/escape-html'
 import { sendEmail } from '@/lib/email'
@@ -18,28 +19,30 @@ const styles = `
 `
 
 function buildHtml(subject, body) {
+  const { brand, tagline, siteUrl, ownerEmail } = siteConfig
+  const siteLabel = siteUrl.replace(/^https?:\/\//, '').replace(/\/$/, '')
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><style>${styles}</style></head>
 <body>
 <div class="wrapper">
   <div class="header">
-    <h1>One Silk Ribbon</h1>
-    <p>Handcrafted Mulberry Silk</p>
+    <h1>${brand}</h1>
+    <p>${tagline}</p>
   </div>
   <div class="body">
     <p class="text">${escapeHtml(body).replace(/\n/g, '<br>')}</p>
     <hr class="divider">
     <p style="font-size:12px;color:#9A8878;">
-      Questions? Contact us at <a href="mailto:song@onesilkribbon.com" style="color:#B89B6A;">song@onesilkribbon.com</a>
+      Questions? Contact us at <a href="mailto:${ownerEmail}" style="color:#B89B6A;">${ownerEmail}</a>
     </p>
   </div>
   <div class="footer">
     <p>
-      <a href="https://onesilkribbon.com">onesilkribbon.com</a> &nbsp;·&nbsp;
-      <a href="mailto:song@onesilkribbon.com">song@onesilkribbon.com</a>
+      <a href="${siteUrl}">${siteLabel}</a> &nbsp;·&nbsp;
+      <a href="mailto:${ownerEmail}">${ownerEmail}</a>
     </p>
-    <p style="margin-top:8px;">© ${new Date().getFullYear()} One Silk Ribbon. All rights reserved.</p>
+    <p style="margin-top:8px;">© ${new Date().getFullYear()} ${brand}. All rights reserved.</p>
   </div>
 </div>
 </body>
@@ -58,7 +61,7 @@ export async function POST(req) {
 
     const html = buildHtml(subject, body)
 
-    await sendEmail({ to, cc: 'song@onesilkribbon.com', subject, html, kind: 'marketing' })
+    await sendEmail({ to, cc: siteConfig.ownerEmail, subject, html, kind: 'marketing' })
     return Response.json({ success: true })
   } catch (err) {
     return errorResponse(err, { tag: 'admin-send-email' })

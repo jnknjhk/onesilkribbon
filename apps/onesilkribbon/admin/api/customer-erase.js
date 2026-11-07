@@ -8,7 +8,7 @@
 // 先 planErasure() 算出会动哪些数据（后台确认框里展示给你看），确认后 eraseCustomer() 执行。
 // 每一步都可以重复执行：中途出错就再点一次删除，已经处理过的部分不会重复处理。
 import { supabaseAdmin } from '@osr/core/lib/supabase'
-import { fetchAll } from './_helpers'
+import { fetchAll, isMissingRpc } from './_helpers'
 import { ERASED_EMAIL, ERASED_NAME } from '../lib/erasure'
 
 const DAY = 86400000
@@ -63,7 +63,7 @@ export async function planErasure(email) {
   if (error) throw error
 
   const blockers = []
-  const toShip = orders.filter(o => o.status === 'paid' || o.status === 'processing')
+  const toShip = orders.filter(o => o.status === 'paid')
   if (toShip.length) {
     blockers.push(`还有 ${toShip.length} 笔已付款、还没发货的订单（${toShip.map(o => o.order_number).join('、')}）。删除后就没有收货地址了，请先发货或退款再删除。`)
   }
@@ -122,6 +122,54 @@ export async function eraseCustomer(email) {
   const plan = await planErasure(email)
   if (plan.blockers.length) return { ok: false, blockers: plan.blockers }
 
+  // 登录账号单独删除（GoTrue 的 auth 用户无法放进数据库事务）。
+  // 先删账号、再执行数据库事务：数据库那一步失败时订单和资料还在，可以安全重试；
+  // 反过来先抹订单的话，重试时就找不到这个登录账号了。
+  const authFailures = []
+  for (const account of plan.accounts) {
+    if (!account.auth) continue
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(account.id)
+    if (error && !/not found/i.test(error.message || '')) authFailures.push(error.message)
+  }
+  if (authFailures.length) {
+    return { ok: false, blockers: [`删除登录账号失败，请重试：${authFailures.join('；')}`] }
+  }
+
+  const orderNumbers = plan.orders.map(o => o.order_number).filter(Boolean)
+  const { data, error } = await supabaseAdmin.rpc('admin_erase_customer_data', {
+    p_email: email,
+    p_user_ids: plan.accounts.map(a => a.id),
+    p_order_numbers: orderNumbers,
+  })
+
+  if (!error) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      throw new Error('Invalid customer erasure response')
+    }
+    return {
+      ok: true,
+      done: {
+        accounts: plan.accounts.length,
+        closedOrders: Number(data.closedOrders) || 0,
+        anonymizedOrders: Number(data.anonymizedOrders) || 0,
+        subscription: (Number(data.subscribers) || 0) > 0,
+      },
+      skippedAccounts: plan.summary.skippedAccounts,
+    }
+  }
+
+  // 有支付证据时数据库事务会整体回滚：账号已删，但订单和资料还在，可重试。
+  if (/payment_evidence_exists/.test(error.message || '')) {
+    return { ok: false, blockers: ['有订单已有支付证据，请先核对付款再删除。'] }
+  }
+  if (!isMissingRpc(error)) throw new Error(error.message)
+
+  // 迁移还没执行：回退到原来的逐步骤执行（同样幂等）。
+  return eraseCustomerLegacy(plan)
+}
+
+async function eraseCustomerLegacy(plan) {
+  const email = plan.email
   const lower = email.trim().toLowerCase()
   const done = { accounts: 0, closedOrders: 0, anonymizedOrders: 0, subscription: false }
   const must = (res, what) => { if (res.error) throw new Error(`${what}：${res.error.message}`); return res }

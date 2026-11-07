@@ -1,10 +1,12 @@
 import Stripe from 'stripe'
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { verifyAdmin } from '@/admin/auth'
+import { recordAdminAction } from '@/admin/lib/audit'
 import { errorResponse } from '@osr/core/lib/api-error'
 
 export async function POST(req) {
-  if (!await verifyAdmin()) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  const admin = await verifyAdmin()
+  if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
   try {
     const { orderId, manual = false, restock = false, reason } = await req.json()
     if (typeof orderId !== 'string' || typeof manual !== 'boolean' || typeof restock !== 'boolean') {
@@ -45,6 +47,9 @@ export async function POST(req) {
     }
     const { data: result, error: finishError } = await supabaseAdmin.rpc('finish_order_refund', { p_order_id: orderId })
     if (finishError) throw finishError
+    await recordAdminAction(admin, 'order.refund', {
+      targetType: 'order', targetId: orderId, detail: { manual, restock },
+    })
     return Response.json(result)
   } catch (err) {
     return errorResponse(err, { status: 409, tag: 'admin-refund',

@@ -4,7 +4,9 @@
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { verifyAdmin } from '../auth'
 import { errorResponse } from '@osr/core/lib/api-error'
+import { REVENUE_STATUSES } from '../lib/status'
 import { fetchAll } from './_helpers'
+import { recordAdminAction } from '../lib/audit'
 
 const STALE_DAYS = 7 // 超过这么多天还停在待付款的订单，视为顾客已放弃
 
@@ -23,14 +25,17 @@ export async function GET() {
       fetchAll(() => supabaseAdmin.from('paypal_sessions')
         .select('id, order_number, created_at, expires_at')
         .lt('expires_at', new Date().toISOString()).order('created_at').order('id')),
-      // 没有商品明细的订单：发不了货，要人工核对。
-      fetchAll(() => supabaseAdmin.from('orders').select('id, order_number, status, total_gbp, customer_email, created_at').order('id')),
+      // 已付款但没有商品明细的订单：发不了货，要人工核对。
+      // 口径必须和工作台 admin_dashboard().needsReview 一致（paid/shipped/delivered）。
+      fetchAll(() => supabaseAdmin.from('orders')
+        .select('id, order_number, status, total_gbp, customer_email, created_at')
+        .in('status', REVENUE_STATUSES).order('id')),
       fetchAll(() => supabaseAdmin.from('order_items').select('order_id').order('id')),
     ])
     for (const r of [stalePending, expiredSessions, allOrders, items]) if (r.error) throw r.error
 
     const withItems = new Set(items.data.map(i => i.order_id))
-    const missingItems = allOrders.data.filter(o => !withItems.has(o.id) && o.status !== 'pending')
+    const missingItems = allOrders.data.filter(o => !withItems.has(o.id) && REVENUE_STATUSES.includes(o.status))
 
     // 有 payment_checkouts / payment_receipts 的 session 受数据库触发器保护，
     // 不能删；不要把它们显示成“可以放心删除”。
@@ -90,6 +95,13 @@ export async function POST(req) {
         if (error) results.push({ order_number: order.order_number, ok: false, error: error.message })
         else results.push({ order_number: order.order_number, ok: true, status: data?.status })
       }
+      await recordAdminAction(admin, 'maintenance.close_orders', {
+        detail: {
+          requested: targets.length,
+          closed: results.filter(r => r.ok).length,
+          blocked: results.filter(r => !r.ok).length,
+        },
+      })
       return Response.json({
         success: true,
         closed: results.filter(r => r.ok).length,
@@ -100,6 +112,9 @@ export async function POST(req) {
     if (action === 'deleteSessions') {
       const { error } = await supabaseAdmin.from('paypal_sessions').delete().in('id', ids)
       if (error) return errorResponse(error, { tag: 'admin-maintenance-delete-sessions' })
+      await recordAdminAction(admin, 'maintenance.delete_sessions', {
+        detail: { deleted: ids.length },
+      })
       return Response.json({ success: true, deleted: ids.length })
     }
 

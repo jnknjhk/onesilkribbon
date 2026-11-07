@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { verifyAdmin } from '../auth'
 import { errorResponse } from '@osr/core/lib/api-error'
 import { ORDER_TABS, DEFAULT_ORDER_TAB, tabStatuses, CAN } from '../lib/status'
-import { cleanSearch } from './_helpers'
+import { cleanSearch, isMissingRpc } from './_helpers'
 
 const MAX_PAGE_SIZE = 100
 
@@ -12,12 +12,30 @@ function unauthorized() {
 }
 
 // 每个页签有多少单（页签上的数字、侧边栏"待发货"角标）
+// 优先用数据库一次聚合；函数还没应用时回退到按页签逐个 count。
 async function tabCounts() {
+  const { data, error } = await supabaseAdmin.rpc('admin_order_status_counts')
+
+  if (!error) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      throw new Error('Invalid order count response')
+    }
+    const byStatus = Object.fromEntries(
+      Object.entries(data).map(([status, count]) => [status, Number(count) || 0])
+    )
+    const all = Object.values(byStatus).reduce((sum, count) => sum + count, 0)
+    return Object.fromEntries(ORDER_TABS.map(t => [
+      t.key,
+      t.statuses ? t.statuses.reduce((sum, status) => sum + (byStatus[status] || 0), 0) : all,
+    ]))
+  }
+  if (!isMissingRpc(error)) throw error
+
   const entries = await Promise.all(ORDER_TABS.map(async t => {
     let q = supabaseAdmin.from('orders').select('id', { count: 'exact', head: true })
     if (t.statuses) q = q.in('status', t.statuses)
-    const { count, error } = await q
-    if (error || !Number.isInteger(count)) throw error || new Error('Missing order count')
+    const { count, error: countError } = await q
+    if (countError || !Number.isInteger(count)) throw countError || new Error('Missing order count')
     return [t.key, count]
   }))
   return Object.fromEntries(entries)
@@ -119,7 +137,7 @@ export async function GET(req) {
     let query = supabaseAdmin.from('orders').select('*', { count: 'exact' })
     const statuses = tabStatuses(tab)
     if (statuses) query = query.in('status', statuses)
-    if (q) query = query.or(`order_number.ilike.%${q}%,customer_email.ilike.%${q}%,shipping_name.ilike.%${q}%`)
+    if (q) query = query.or(`order_number.ilike.%${q}%,customer_email.ilike.%${q}%,shipping_name.ilike.%${q}%,tracking_number.ilike.%${q}%`)
     // 待发货按"等得最久的在前"，其它按最新在前
     query = tab === 'to_ship'
       ? query.order('created_at', { ascending: true }).order('id', { ascending: true })

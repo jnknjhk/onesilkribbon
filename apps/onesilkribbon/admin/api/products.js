@@ -6,9 +6,10 @@
 import { supabaseAdmin as supabase } from '@osr/core/lib/supabase'
 import { verifyAdmin } from '../auth'
 import { errorResponse } from '@osr/core/lib/api-error'
-import { cleanSearch, pageRange, readSettings } from './_helpers'
+import { cleanSearch, pageRange, readSettings, isMissingRpc } from './_helpers'
 import { parseStockQuantity } from '../lib/stock-quantity'
 import { revalidateCatalog } from '../lib/revalidate'
+import { recordAdminAction } from '../lib/audit'
 
 const DEFAULT_LOW_STOCK = 3
 
@@ -74,7 +75,36 @@ async function productList(searchParams, threshold) {
   })
 }
 
+// 库存列表优先走数据库函数：搜索能同时匹配商品名，且不会在商品超过 100 个时截断。
+// 函数还没应用时回退到旧查询。
 async function stockList(searchParams, threshold) {
+  const { page, pageSize, from } = pageRange(searchParams)
+  const q = cleanSearch(searchParams.get('q'))
+  const filter = searchParams.get('filter') || ''
+
+  const { data, error } = await supabase.rpc('admin_stock_page', {
+    p_query: q,
+    p_filter: filter,
+    p_threshold: threshold,
+    p_limit: pageSize,
+    p_offset: from,
+  })
+  if (!error) {
+    if (!data || !Array.isArray(data.skus) || !Number.isFinite(Number(data.total))) {
+      return errorResponse(new Error('Invalid stock response'), { tag: 'admin-stock-list' })
+    }
+    const total = Number(data.total) || 0
+    return Response.json({
+      skus: data.skus, total, page, pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      lowStockThreshold: threshold,
+    })
+  }
+  if (!isMissingRpc(error)) return errorResponse(error, { tag: 'admin-stock-list' })
+  return legacyStockList(searchParams, threshold)
+}
+
+async function legacyStockList(searchParams, threshold) {
   const { page, pageSize, from, to } = pageRange(searchParams)
   const q = cleanSearch(searchParams.get('q'))
   const filter = searchParams.get('filter') || ''
@@ -149,6 +179,7 @@ export async function POST(req) {
   const admin = await verifyAdmin()
   if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
+  let shouldRevalidate = false
   try {
     const body = await req.json()
     if (!body || typeof body !== 'object' || Array.isArray(body)) return Response.json({ error: '无效的商品信息' }, { status: 400 })
@@ -197,8 +228,17 @@ export async function POST(req) {
       if (error) return atomicProductError(error)
       if (action === 'create') {
         if (!data?.id) return errorResponse(new Error('Product save returned no id'), { tag: 'admin-products-atomic' })
+        shouldRevalidate = true
+        await recordAdminAction(admin, 'product.create', {
+          targetType: 'product', targetId: data.id, detail: { name: product.name },
+        })
         return Response.json({ id: data.id })
       }
+      shouldRevalidate = true
+      await recordAdminAction(admin, 'product.update', {
+        targetType: 'product', targetId: product.id,
+        detail: { name: product.name, skus: skus.length, deletedSkus: (deletedSkuIds || []).length },
+      })
       return Response.json({ ok: true, deleted: data?.deleted || 0, deactivated: data?.deactivated || 0 })
     }
 
@@ -206,11 +246,20 @@ export async function POST(req) {
       const { data, error } = await supabase.rpc('admin_delete_product', { p_product_id: product.id })
       if (error) return atomicProductError(error)
       if (data?.softDeleted) {
+        shouldRevalidate = true
+        await recordAdminAction(admin, 'product.delete', {
+          targetType: 'product', targetId: product.id,
+          detail: { softDeleted: true, orderItems: data.orderItemCount || 0 },
+        })
         return Response.json({
           ok: true, softDeleted: true,
           message: `这个商品有 ${data.orderItemCount} 条历史订单记录，已改为下架而不是删除，订单历史保留完整。`,
         })
       }
+      shouldRevalidate = true
+      await recordAdminAction(admin, 'product.delete', {
+        targetType: 'product', targetId: product.id, detail: { softDeleted: false },
+      })
       return Response.json({ ok: true })
     }
 
@@ -218,7 +267,9 @@ export async function POST(req) {
   } catch (err) {
     return errorResponse(err, { tag: 'admin-products-post' })
   } finally {
-    // 商品、价格、库存、图片、上下架都可能影响前台；统一失效，避免每个分支漏掉。
-    try { revalidateCatalog() } catch {}
+    // 只有真正写入成功才刷新前台缓存；校验失败或 RPC 报错时不应该让缓存白白失效。
+    if (shouldRevalidate) {
+      try { revalidateCatalog() } catch {}
+    }
   }
 }

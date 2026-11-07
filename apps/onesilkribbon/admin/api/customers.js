@@ -9,6 +9,7 @@ import { errorResponse } from '@osr/core/lib/api-error'
 import { cleanSearch, pageRange } from './_helpers'
 import { planErasure, eraseCustomer } from './customer-erase'
 import { ERASED_EMAIL } from '../lib/erasure'
+import { recordAdminAction, auditEmail } from '../lib/audit'
 
 const notErasable = email => !email || email === ERASED_EMAIL || email === 'unknown'
 
@@ -40,6 +41,9 @@ export async function DELETE(req) {
     const result = await eraseCustomer(email)
     if (!result.ok) return Response.json({ error: result.blockers.join(' '), blockers: result.blockers }, { status: 409 })
     console.log('[admin-customers] 已删除客户', { by: admin.email, ...result.done })
+    await recordAdminAction(admin, 'customer.erase', {
+      targetType: 'customer', targetId: auditEmail(email), detail: result.done,
+    })
     return Response.json(result)
   } catch (err) {
     return errorResponse(err, { tag: 'admin-customers-delete', message: '删除没有全部完成，请再点一次删除（已经处理过的部分不会重复处理）' })

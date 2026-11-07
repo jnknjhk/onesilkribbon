@@ -19,6 +19,9 @@ export async function api(path, { method = 'GET', body, signal, cache } = {}) {
     if (typeof window !== 'undefined') window.location.href = '/admin-login'
     throw new ApiError('登录已过期，请重新登录', 401, data)
   }
-  if (!res.ok) throw new ApiError(data?.error || `请求失败（${res.status}）`, res.status, data)
+  // errorResponse() 的兜底文案是给前台用的英文；后台统一翻成中文，避免中英混排
+  const GENERIC_ERROR = 'Something went wrong. Please try again.'
+  const message = data?.error === GENERIC_ERROR ? '操作失败，请重试' : (data?.error || `请求失败（${res.status}）`)
+  if (!res.ok) throw new ApiError(message, res.status, data)
   return data
 }

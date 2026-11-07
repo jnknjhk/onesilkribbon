@@ -1,5 +1,16 @@
 // 后台接口共用的服务端工具（只在 route handler 里用，不要在浏览器端引用）
 
+// 新 RPC 还没在数据库里创建时的错误码：PostgREST 找不到函数 / Postgres 未定义函数。
+// 后台用它判断是“迁移还没执行”还是真正的查询错误；前者走旧逻辑回退。
+export function isMissingRpc(error) {
+  return error?.code === 'PGRST202' || error?.code === '42883'
+}
+
+// 表还没创建时的错误码（审计日志等可选功能）
+export function isMissingRelation(error) {
+  return error?.code === 'PGRST205' || error?.code === '42P01'
+}
+
 // 把一条查询分页取完。Supabase（PostgREST）每次请求最多返回 1000 行（项目设置里的 Max rows），
 // 超出的部分会被**静默截断**——之前仪表盘、订单列表、SKU 列表都踩在这个坑上：数据一多，
 // 统计数字会悄悄算少。这里一直取到返回空页为止，不依赖服务器的上限具体是多少。

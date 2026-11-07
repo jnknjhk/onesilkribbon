@@ -41,13 +41,14 @@ function shipping(respond, authorized = true, mailFails = false) {
   const POST = load(shipFile, { supabaseAdmin: db, verifyAdmin: async () => authorized,
     NextResponse: Response, errorResponse: safeError, ...status,
     sendShippingNotification: async message => { sent.push(message); if (mailFails) throw Error('Mail unavailable') },
+    recordAdminAction: async () => {},
   }, 'POST')
   return { db, sent, post: body => POST({ json: async () => body }) }
 }
 function adminOrders(respond) {
   const db = database(respond)
   const routes = load(ordersFile, { supabaseAdmin: db, verifyAdmin: async () => true,
-    errorResponse: safeError, cleanSearch: text => text || '', ...status }, '({GET,PATCH})')
+    errorResponse: safeError, cleanSearch: text => text || '', isMissingRpc: () => false, ...status }, '({GET,PATCH})')
   return { db, get: query => routes.GET({ url: `https://example.test/api/admin/orders?${query}` }),
     patch: body => routes.PATCH({ json: async () => body }) }
 }

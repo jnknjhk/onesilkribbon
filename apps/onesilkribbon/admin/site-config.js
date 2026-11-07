@@ -4,7 +4,9 @@ import { COLLECTIONS } from '@/lib/collections'
 
 export const siteConfig = {
   brand: 'One Silk Ribbon',
-  siteUrl: 'https://onesilkribbon.com',
+  tagline: 'Handcrafted Mulberry Silk',
+  // 预览/测试环境用 NEXT_PUBLIC_SITE_URL，避免后台邮件和链接指到生产
+  siteUrl: process.env.NEXT_PUBLIC_SITE_URL || 'https://onesilkribbon.com',
   ownerEmail: 'song@onesilkribbon.com',
 
   // 商品系列：value 是数据库 products.collection 存的值，不能改；label 只影响后台显示

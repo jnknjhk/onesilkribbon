@@ -7,7 +7,8 @@ import { randomUUID } from 'node:crypto'
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { verifyAdmin } from '../auth'
 import { errorResponse } from '@osr/core/lib/api-error'
-import { fetchAll } from './_helpers'
+import { fetchAll, isMissingRpc } from './_helpers'
+import { recordAdminAction } from '../lib/audit'
 
 const PAGE_SIZE = 60
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024
@@ -132,7 +133,15 @@ const USAGE = [
   { table: 'journal_posts', cols: 'id, title, cover_image, sections',   label: r => `文章「${r.title}」` },
 ]
 
+// 优先让数据库做包含查询，避免把商品、SKU、文章整表拉到 Node 再逐行匹配。
 async function findUsage(url) {
+  const { data, error } = await supabaseAdmin.rpc('admin_media_usage', { p_url: url })
+  if (!error) return Array.isArray(data) ? data : []
+  if (!isMissingRpc(error)) throw error
+  return legacyFindUsage(url)
+}
+
+async function legacyFindUsage(url) {
   const used = []
   for (const u of USAGE) {
     const { data, error } = await fetchAll(() => supabaseAdmin.from(u.table).select(u.cols).order(u.cols.split(',')[0].trim()))
@@ -164,6 +173,7 @@ export async function DELETE(req) {
     await supabaseAdmin.storage.from('media').remove([record.path])
     const { error } = await supabaseAdmin.from('media').delete().eq('id', id)
     if (error) return errorResponse(error, { tag: 'admin-media-delete' })
+    await recordAdminAction(admin, 'media.delete', { targetType: 'media', targetId: id })
     return Response.json({ success: true })
   } catch (err) {
     return errorResponse(err, { tag: 'admin-media-delete' })

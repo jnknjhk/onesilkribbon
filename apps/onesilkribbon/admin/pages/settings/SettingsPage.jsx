@@ -12,6 +12,7 @@ import {
 } from '../../ui'
 import { ORDER_STATUS } from '../../lib/status'
 import PaymentRecovery from './PaymentRecovery'
+import AuditLog from './AuditLog'
 
 // 没设置过时前台用的默认值（和旧版后台一致）
 const SHIPPING_DEFAULTS = { shipping_rate: '3.95', free_shipping_threshold: '45.00', free_shipping_enabled: 'true' }
@@ -19,6 +20,7 @@ const TABS = [
   { key: 'store', label: '店铺设置' },
   { key: 'maintenance', label: '数据维护' },
   { key: 'payment-recovery', label: '付款恢复' },
+  { key: 'audit', label: '操作记录' },
 ]
 const DEFAULTS = { tab: 'store' }
 
@@ -29,7 +31,10 @@ export default function SettingsPage() {
     <div>
       <PageHeader title="设置" />
       <Tabs value={tab} onChange={v => set({ tab: v })} tabs={TABS} />
-      {tab === 'payment-recovery' ? <PaymentRecovery /> : tab === 'maintenance' ? <Maintenance /> : <StoreSettings />}
+      {tab === 'payment-recovery' ? <PaymentRecovery />
+        : tab === 'maintenance' ? <Maintenance />
+        : tab === 'audit' ? <AuditLog />
+        : <StoreSettings />}
     </div>
   )
 }

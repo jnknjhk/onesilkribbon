@@ -4,6 +4,7 @@ import { sendShippingNotification } from '@/lib/email'
 import { NextResponse } from 'next/server'
 import { errorResponse } from '@osr/core/lib/api-error'
 import { CAN, statusLabel } from '@/admin/lib/status'
+import { recordAdminAction } from '@/admin/lib/audit'
 
 export async function POST(req) {
   const admin = await verifyAdmin()
@@ -88,6 +89,9 @@ export async function POST(req) {
       console.error('[ship] 发货通知邮件发送失败（订单状态已更新）')
     }
 
+    await recordAdminAction(admin, 'order.ship', {
+      targetType: 'order', targetId: orderNumber, detail: { carrier },
+    })
     return NextResponse.json({ ok: true, emailSent, historySaved })
   } catch (err) {
     return errorResponse(err, { tag: 'admin-ship-email' })

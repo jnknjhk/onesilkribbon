@@ -21,6 +21,8 @@
 | 12 | `2026-11-07-customer-identity.sql` | 游客订单按已验证邮箱归户、统一客户消费口径 |
 | 13 | `2026-11-07-payment-refunds.sql` | 记录 Stripe/PayPal 外部退款，满额退款同步订单状态 |
 | 14 | `2026-11-07-admin-dashboard.sql` | 工作台统计下推到数据库聚合 |
+| 15 | `2026-11-08-admin-backoffice.sql` | 订单状态计数、库存搜索、媒体用途查询、客户删除事务 |
+| 16 | `2026-11-08-admin-audit-log.sql` | 后台敏感操作审计表 |
 
 ## 安全说明
 

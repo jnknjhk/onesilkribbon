@@ -1,5 +1,6 @@
 // One Silk Ribbon 的后台配置：品牌、商品系列、网站图片位置、订阅来源和邮件模板。
 // 纯数据，不能放函数——它要从服务端 layout 传给浏览器端组件。
+import { COLLECTIONS } from '@/lib/collections'
 
 export const siteConfig = {
   brand: 'One Silk Ribbon',
@@ -7,14 +8,7 @@ export const siteConfig = {
   ownerEmail: 'song@onesilkribbon.com',
 
   // 商品系列：value 是数据库 products.collection 存的值，不能改；label 只影响后台显示
-  collections: [
-    { value: 'fine-silk-ribbons',        label: '精品丝带 Fine Silk Ribbons' },
-    { value: 'hand-frayed-silk-ribbons', label: '手工磨边 Hand-Frayed' },
-    { value: 'handcrafted-adornments',   label: '手工饰品 Adornments' },
-    { value: 'patterned-ribbons',        label: '图案丝带 Patterned' },
-    { value: 'studio-tools',             label: '工作室工具 Studio Tools' },
-    { value: 'vintage-inspired-ribbons', label: '复古系列 Vintage-Inspired' },
-  ],
+  collections: COLLECTIONS.map(({ slug, label }) => ({ value: slug, label })),
 
   // 网站图片位置。key 是前台读取 site_images 用的键，不能改
   imageSlots: [
@@ -32,14 +26,10 @@ export const siteConfig = {
     {
       label: '首页系列图',
       desc: '首页 "Our Collections" 每个系列的展示图，建议 800×600px。没有上传时自动使用该系列的商品图片',
-      keys: [
-        { key: 'home_col_fine-silk-ribbons',        label: 'Fine Silk Ribbons' },
-        { key: 'home_col_hand-frayed-silk-ribbons', label: 'Hand-Frayed Silk Ribbons' },
-        { key: 'home_col_handcrafted-adornments',   label: 'Handcrafted Adornments' },
-        { key: 'home_col_patterned-ribbons',        label: 'Patterned Ribbons' },
-        { key: 'home_col_studio-tools',             label: 'Studio Tools' },
-        { key: 'home_col_vintage-inspired-ribbons', label: 'Vintage-Inspired Ribbons' },
-      ],
+      keys: COLLECTIONS.map(collection => ({
+        key: `home_col_${collection.slug}`,
+        label: collection.name,
+      })),
     },
     {
       label: '首页品牌故事图',
@@ -49,14 +39,10 @@ export const siteConfig = {
     {
       label: '系列封面图',
       desc: '每个系列页顶部的大图，建议 1600×900px 以上，横向构图',
-      keys: [
-        { key: 'hero_fine-silk-ribbons',        label: 'Fine Silk Ribbons' },
-        { key: 'hero_hand-frayed-silk-ribbons', label: 'Hand-Frayed Silk Ribbons' },
-        { key: 'hero_handcrafted-adornments',   label: 'Handcrafted Adornments' },
-        { key: 'hero_patterned-ribbons',        label: 'Patterned Ribbons' },
-        { key: 'hero_studio-tools',             label: 'Studio Tools' },
-        { key: 'hero_vintage-inspired-ribbons', label: 'Vintage-Inspired Ribbons' },
-      ],
+      keys: COLLECTIONS.map(collection => ({
+        key: `hero_${collection.slug}`,
+        label: collection.name,
+      })),
     },
     {
       label: 'About 页图片',

@@ -1,12 +1,8 @@
 import { supabaseAdmin as supabaseServer } from '@osr/core/lib/supabase'
+import { COLLECTION_SLUGS } from '@/lib/collections'
 import HomeClient from './HomeClient'
 
 export const revalidate = 60
-
-const COLLECTION_SLUGS = [
-  'fine-silk-ribbons','hand-frayed-silk-ribbons','handcrafted-adornments',
-  'patterned-ribbons','studio-tools','vintage-inspired-ribbons',
-]
 
 export default async function HomePage() {
   // ── 一次性取所有 site_images ──────────────────────────────────────────────

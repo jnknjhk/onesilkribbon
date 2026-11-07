@@ -16,7 +16,7 @@ create table if not exists products (
   slug text unique not null,
   description text,
   care_instructions text,
-  collection text not null, -- 系列 slug，见 admin/site-config.js
+  collection text not null, -- 系列 slug，见 lib/collections.js
   is_active boolean default true,
   is_featured boolean default false,
   images text[] default '{}',

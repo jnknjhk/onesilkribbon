@@ -4,25 +4,15 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { formatGBP } from '@/lib/pricing'
 import { subscribeEmail, isValidEmail } from '@osr/core/lib/client/subscribe'
-import { COLLECTION_META } from '@/lib/collection-content'
+import { COLLECTIONS } from '@/lib/collections'
 
-const COLLECTIONS = [
-  { name: 'Fine Silk Ribbons',  slug: 'fine-silk-ribbons',        count: 'Ultra-Fine Silk',      desc: 'Our signature collection. Ultra-fine 100% mulberry silk ribbons in hand-selected colourways, from 2mm to 10mm.' },
-  { name: 'Hand-Frayed',        slug: 'hand-frayed-silk-ribbons', count: 'Hand-Torn & Textured', desc: 'Each ribbon is carefully hand-frayed to create an ethereal, softly textured edge — perfect for bouquets and fine craft.' },
-  { name: 'Adornments',         slug: 'handcrafted-adornments',   count: 'Handmade Accessories', desc: 'Silk scrunchies, bows and decorative pieces — each made by hand from the same pure mulberry silk as our ribbons.' },
-  { name: 'Patterned',          slug: 'patterned-ribbons',        count: 'Botanical & Geometric', desc: 'Botanical, geometric and heritage-inspired motifs printed on pure silk. Each design tells a story.' },
-  { name: 'Studio Tools',       slug: 'studio-tools',             count: "Maker's Essentials",   desc: 'Curated essentials for the ribbon-maker and florist — scissors, spools, and everything for a well-appointed studio.' },
-  { name: 'Vintage-Inspired',   slug: 'vintage-inspired-ribbons', count: 'Antique-Inspired',     desc: 'Heritage tones and antique-inspired textures, evoking the romance of a bygone era.' },
-].map(collection => ({ ...collection, desc: COLLECTION_META[collection.slug].desc }))
-
-const COLLECTION_FALLBACK_BG = {
-  'fine-silk-ribbons':        'linear-gradient(160deg,#D4C5B0,#9A8878,#C4A882)',
-  'hand-frayed-silk-ribbons': 'linear-gradient(160deg,#E8C9B8,#C9A48A,#9A7A66)',
-  'handcrafted-adornments':   'linear-gradient(160deg,#B8A898,#7A6A5A,#4A3A30)',
-  'patterned-ribbons':        'linear-gradient(160deg,#C8D4C0,#8A9A80,#5A7050)',
-  'studio-tools':             'linear-gradient(160deg,#D0D0C8,#9A9A90,#5A5A54)',
-  'vintage-inspired-ribbons': 'linear-gradient(160deg,#D4B8C0,#9A7A84,#5A3A44)',
-}
+const HOME_COLLECTIONS = COLLECTIONS.map(collection => ({
+  name: collection.shortName || collection.name,
+  slug: collection.slug,
+  count: collection.homeCount,
+  desc: collection.desc,
+  bg: collection.homeBg || collection.bg,
+}))
 
 export default function HomeClient({ heroImages, storyImage, collectionImages, activeCollectionSlugs, featuredProducts, journalPosts, freeThreshold = '45', freeEnabled = true }) {
   useEffect(() => {
@@ -191,7 +181,7 @@ function Marquee({ freeThreshold = '45', freeEnabled = true }) {
 
 /* ═══ COLLECTIONS ═══ */
 function Collections({ collectionImages, activeCollectionSlugs }) {
-  const collections = COLLECTIONS.filter(c => !activeCollectionSlugs || activeCollectionSlugs.includes(c.slug))
+  const collections = HOME_COLLECTIONS.filter(c => !activeCollectionSlugs || activeCollectionSlugs.includes(c.slug))
   return (
     <section style={{ padding: 'var(--section-padding-y, 100px) 0' }}>
       <div style={{ textAlign: 'center', marginBottom: 'clamp(48px, 6vw, 80px)', padding: '0 var(--page-padding, 60px)' }} className="reveal">
@@ -204,7 +194,7 @@ function Collections({ collectionImages, activeCollectionSlugs }) {
       <div style={{ maxWidth: 1360, margin: '0 auto', padding: '0 var(--page-padding, 60px)' }}>
         {collections.map((c, i) => {
           const img = collectionImages[c.slug]
-          const fallback = COLLECTION_FALLBACK_BG[c.slug]
+          const fallback = c.bg
           const isEven = i % 2 === 1
 
           return (

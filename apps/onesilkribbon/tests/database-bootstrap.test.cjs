@@ -17,6 +17,7 @@ const migrations = [
   '2026-11-06-product-save-atomic.sql',
   '2026-11-06-admin-performance-indexes.sql',
   '2026-11-06-pii-erasure-and-order-closing.sql',
+  '2026-11-07-customer-identity.sql',
 ]
 
 const read = file => fs.readFileSync(path.join(__dirname, '..', 'supabase', file), 'utf8')
@@ -77,6 +78,7 @@ test('new database can be bootstrapped from schema.sql plus migrations', async (
   assert.ok((await rows("select to_regprocedure('public.prepare_payment_checkout(jsonb,jsonb)') as value"))[0].value)
   assert.ok((await rows("select to_regprocedure('public.close_unpaid_order(text,text)') as value"))[0].value)
   assert.ok((await rows("select to_regprocedure('public.anonymize_customer_payment_evidence(text[])') as value"))[0].value)
+  assert.ok((await rows("select to_regprocedure('public.claim_guest_orders(uuid,text)') as value"))[0].value)
 })
 
 test('baseline keeps public catalog readable and orders private', async () => {

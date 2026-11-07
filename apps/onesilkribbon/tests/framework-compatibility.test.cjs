@@ -117,8 +117,10 @@ test('login callback writes SDK session cookies and redirects only to the site',
   const { safeNextPath } = compile(core('lib/safe-next.js'), {}, 'safeNextPath')
   const codes = []
   const profiles = []
+  const claims = []
   const { GET } = compile(read('app/api/auth/callback/route.js'), {
-    NextResponse, safeNextPath, ensureUserProfile: async user => { profiles.push(user.id) },
+    NextResponse, safeNextPath, claimGuestOrders: async user => { claims.push(user.id) },
+    ensureUserProfile: async user => { profiles.push(user.id) },
     createServerClient: (_url, _key, options) => ({ auth: { exchangeCodeForSession: async code => {
       codes.push(code)
       options.cookies.setAll([{ name: 'test-session', value: 'verified-session', options: { path: '/', httpOnly: true } }])
@@ -130,6 +132,7 @@ test('login callback writes SDK session cookies and redirects only to the site',
   assert.equal(response.cookies.get('test-session').value, 'verified-session')
   assert.deepEqual(codes, ['test-only'])
   assert.deepEqual(profiles, ['test-user'])
+  assert.deepEqual(claims, ['test-user'])
   const missing = await GET(new NextRequest('https://onesilkribbon.com/api/auth/callback'))
   assert.equal(missing.headers.get('location'), 'https://onesilkribbon.com/login?error=no_code')
   assert.equal(codes.length, 1)

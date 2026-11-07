@@ -265,7 +265,8 @@ create index if not exists user_addresses_user_id_idx on user_addresses(user_id)
 create index if not exists media_created_at_idx on media(created_at desc);
 
 -- ── CUSTOMER SUMMARY ──────────────────────
--- 后台客户列表用的聚合视图。与 2026-09-02-customer-summary.sql 保持一致。
+-- 后台客户列表用的聚合视图。与 2026-11-07-customer-identity.sql 保持一致：
+-- orders 统计全部订单；spent 只统计已付款/已发货/已送达，和后台营收口径一致。
 create or replace view customer_summary as
 select
   coalesce(o.customer_email, 'unknown')                                        as email,
@@ -273,9 +274,11 @@ select
   (array_agg(o.shipping_city    order by o.created_at desc))[1]                as city,
   (array_agg(o.shipping_country order by o.created_at desc))[1]                as country,
   count(*)::int                                                                as orders,
-  coalesce(sum(o.total_gbp), 0)::numeric                                       as spent,
+  coalesce(sum(o.total_gbp) filter (where o.status in ('paid','shipped','delivered')), 0)::numeric
+                                                                               as spent,
   max(o.created_at)                                                            as last_order,
-  (array_agg(o.user_id) filter (where o.user_id is not null))[1]               as user_id
+  (array_agg(o.user_id) filter (where o.user_id is not null))[1]               as user_id,
+  (count(*) filter (where o.status in ('paid','shipped','delivered')))::int    as paid_orders
 from orders o
 group by coalesce(o.customer_email, 'unknown');
 

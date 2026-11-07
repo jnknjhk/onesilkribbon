@@ -5,9 +5,9 @@
 -- 参与聚合——页面不会报错，但每个老客户的累计消费和订单数都会**算少**。
 -- 这不是"看不到数据"，是"显示出来的数字是错的"，所以必须把聚合下推到数据库。
 --
--- 口径与原来的 JS 实现保持一致：统计**全部**订单，不区分状态（pending / cancelled
--- 也计入累计消费）。这一版只修"算少"的问题，不顺手改口径——要改成只算已付款订单
--- 是另一个决定，改了会让历史数字整体变小，需要单独确认。
+-- 口径与后台营收一致：orders 统计全部订单；spent 只统计已付款/已发货/已送达，
+-- paid_orders 单独给出已付款订单数。这个定义与 2026-11-07-customer-identity.sql
+-- 保持一致，确保 schema.sql 和迁移可以重复执行。
 
 create or replace view customer_summary as
 select
@@ -17,10 +17,12 @@ select
   (array_agg(o.shipping_city    order by o.created_at desc))[1]                as city,
   (array_agg(o.shipping_country order by o.created_at desc))[1]                as country,
   count(*)::int                                                                as orders,
-  coalesce(sum(o.total_gbp), 0)::numeric                                       as spent,
+  coalesce(sum(o.total_gbp) filter (where o.status in ('paid','shipped','delivered')), 0)::numeric
+                                                                               as spent,
   max(o.created_at)                                                            as last_order,
   -- 同一邮箱可能既下过访客单也下过登录单，只要有一笔带 user_id 就认作已注册客户
-  (array_agg(o.user_id) filter (where o.user_id is not null))[1]               as user_id
+  (array_agg(o.user_id) filter (where o.user_id is not null))[1]               as user_id,
+  (count(*) filter (where o.status in ('paid','shipped','delivered')))::int    as paid_orders
 from orders o
 group by coalesce(o.customer_email, 'unknown');
 

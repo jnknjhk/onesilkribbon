@@ -6,6 +6,30 @@ import { supabaseAdmin } from '@osr/core/lib/supabase'
 // 注册流程也不建档。结果是 5 个注册账号对应 0 条档案，客户点"编辑资料"直接报错
 // （.single() 查不到行会抛错），后台客户列表也看不到姓名电话。
 
+// 把该邮箱下还没有归属的游客订单接到当前账号。只处理已验证邮箱，
+// 只写 orders.user_id；订单内容、金额、地址和支付证据都不动。
+export async function claimGuestOrders(user) {
+  if (!user?.id || !user.email) return 0
+  if (!user.email_confirmed_at && !user.confirmed_at) return 0
+  const email = String(user.email).trim()
+  if (!email || email.length > 254) return 0
+
+  try {
+    const { data, error } = await supabaseAdmin.rpc('claim_guest_orders', {
+      p_user_id: user.id,
+      p_email: email,
+    })
+    if (error) {
+      console.error('[claimGuestOrders] could not claim guest orders')
+      return 0
+    }
+    return Number(data) || 0
+  } catch {
+    console.error('[claimGuestOrders] claim request failed')
+    return 0
+  }
+}
+
 // 确保某个登录用户有一条 user_profiles 记录，返回这条记录。
 // 冲突时只读取已有档案，登录元数据不能覆盖客户自己编辑过的资料。
 export async function ensureUserProfile(user) {

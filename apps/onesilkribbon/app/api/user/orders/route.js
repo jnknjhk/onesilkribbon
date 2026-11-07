@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { getAuthUser as getUser } from '@osr/core/lib/get-auth-user'
 import { errorResponse } from '@osr/core/lib/api-error'
+import { claimGuestOrders } from '@/lib/user-records'
 
 // Customer responses must never include internal notes or payment provider IDs.
 const ORDER_FIELDS = 'id,order_number,status,subtotal_gbp,vat_amount_gbp,shipping_gbp,total_gbp,created_at,shipping_name,shipping_line1,shipping_line2,shipping_city,shipping_postcode,shipping_country,payment_method,tracking_number,tracking_carrier,tracking_url,shipped_at,delivered_at'
@@ -11,6 +12,10 @@ const reply = data => Response.json(data, { headers: { 'Cache-Control': 'private
 export async function GET(request) {
   const user = await getUser(request)
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // Existing accounts may have placed guest orders before signing up. Claim them
+  // before reading the list so the account page shows the full order history.
+  await claimGuestOrders(user)
 
   const { searchParams } = new URL(request.url)
   const orderId = searchParams.get('id')

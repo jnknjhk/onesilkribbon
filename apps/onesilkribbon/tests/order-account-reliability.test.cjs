@@ -189,7 +189,7 @@ test('customer order responses retain ownership filtering and omit internal fiel
   const stored = { ...order, user_id: 'customer-1', notes: 'PRIVATE STAFF NOTE', payment_intent_id: 'pi_private' }
   const db = database(call => ({ data: call.table === 'orders'
     ? Object.fromEntries(call.columns.split(',').map(key => [key, stored[key]])) : [] }))
-  const GET = load(customerOrdersFile, { supabaseAdmin: db, getUser: async () => ({ id: 'customer-1' }), errorResponse: safeError }, 'GET')
+  const GET = load(customerOrdersFile, { supabaseAdmin: db, getUser: async () => ({ id: 'customer-1' }), claimGuestOrders: async () => 0, errorResponse: safeError }, 'GET')
   const response = await GET({ url: 'https://example.test/api/user/orders?id=order-1' })
   assert.equal(response.status, 200)
   assert.equal(response.headers.get('cache-control'), 'private, no-store')
@@ -204,17 +204,17 @@ test('customer order responses retain ownership filtering and omit internal fiel
 test('customer order failures are distinct from a missing order and never yield partial data', async () => {
   for (const table of ['orders', 'order_items', 'tracking_events']) {
     const db = database(call => call.table === table ? { error: true } : { data: order })
-    const GET = load(customerOrdersFile, { supabaseAdmin: db, getUser: async () => ({ id: 'customer-1' }), errorResponse: safeError }, 'GET')
+    const GET = load(customerOrdersFile, { supabaseAdmin: db, getUser: async () => ({ id: 'customer-1' }), claimGuestOrders: async () => 0, errorResponse: safeError }, 'GET')
     assert.equal((await GET({ url: 'https://example.test/api/user/orders?id=order-1' })).status, 500)
   }
   const db = database(() => ({ data: null }))
-  const GET = load(customerOrdersFile, { supabaseAdmin: db, getUser: async () => ({ id: 'customer-1' }), errorResponse: safeError }, 'GET')
+  const GET = load(customerOrdersFile, { supabaseAdmin: db, getUser: async () => ({ id: 'customer-1' }), claimGuestOrders: async () => 0, errorResponse: safeError }, 'GET')
   assert.equal((await GET({ url: 'https://example.test/api/user/orders?id=not-owned' })).status, 404)
 })
 
 test('anonymous customer order requests never query private tables', async () => {
   const db = database(() => { throw Error('Unauthorized query') })
-  const GET = load(customerOrdersFile, { supabaseAdmin: db, getUser: async () => null, errorResponse: safeError }, 'GET')
+  const GET = load(customerOrdersFile, { supabaseAdmin: db, getUser: async () => null, claimGuestOrders: async () => 0, errorResponse: safeError }, 'GET')
   assert.equal((await GET({ url: 'https://example.test/api/user/orders?id=order-1' })).status, 401)
   assert.equal(db.calls.length, 0)
 })

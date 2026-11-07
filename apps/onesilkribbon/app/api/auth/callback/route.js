@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import { safeNextPath } from '@osr/core/lib/safe-next'
-import { ensureUserProfile } from '@/lib/user-records'
+import { claimGuestOrders, ensureUserProfile } from '@/lib/user-records'
 
 export async function GET(request) {
   const { searchParams, origin } = new URL(request.url)
@@ -52,6 +52,11 @@ export async function GET(request) {
   // 他们不会再往 auth.users 插行，只会走登录，所以触发器碰不到他们。
   // 失败不能影响登录本身——没有档案顶多是资料页少几个字段，登录被挡住客户就流失了。
   if (exchanged?.user) {
+    try {
+      await claimGuestOrders(exchanged.user)
+    } catch (e) {
+      console.error('[auth/callback] 游客订单归户失败（不影响登录）:', e.message)
+    }
     try {
       await ensureUserProfile(exchanged.user)
     } catch (e) {

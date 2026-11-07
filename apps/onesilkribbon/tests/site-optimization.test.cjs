@@ -133,7 +133,7 @@ test('homepage only prices active variants and product selection has no delayed 
 
 test('checkout cannot show a payable fallback total before delivery settings load', () => {
   const checkout = read('app/checkout/page.jsx')
-  assert.match(checkout, /if \(loading \|\| !shippingSettings \|\| !validate\(\)\) return/)
+  assert.match(checkout, /if \(submittingRef\.current \|\| loading \|\| !shippingSettings \|\| !validate\(\)\) return/)
   assert.match(checkout, /disabled=\{loading \|\| !shippingSettings\}/)
   assert.match(checkout, /setShippingError\(/)
   assert.match(checkout, /paymentRequestError && <p role="alert"/)

@@ -17,8 +17,14 @@ export async function cancelUnpaidOrder(order, reason) {
       .eq('order_number', order.order_number).maybeSingle()
     if (error) throw error
     if (session) {
-      const provider = await getPayPalOrder(session.paypal_order_id)
-      if (provider.status === 'COMPLETED' || provider.purchase_units?.some(u => u.payments?.captures?.length)) {
+      let provider = null
+      try {
+        provider = await getPayPalOrder(session.paypal_order_id)
+      } catch (err) {
+        // 已过期的 PayPal 订单查不到，不可能再被捕获；可以继续释放本地预占。
+        if (!/not found/i.test(err?.message || '')) throw err
+      }
+      if (provider && (provider.status === 'COMPLETED' || provider.purchase_units?.some(u => u.payments?.captures?.length))) {
         throw new Error('PayPal 已有收款记录，请先核对付款。')
       }
     }

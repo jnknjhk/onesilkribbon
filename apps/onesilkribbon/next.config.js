@@ -47,7 +47,7 @@ const nextConfig = {
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
         ],
       },
-      ...['/api/payment-confirmation','/api/paypal/capture','/api/order-status','/api/tracking','/order-confirmed','/track-order','/login','/auth/:path*','/account/:path*'].map(source=>({
+      ...['/api/payment-confirmation','/api/paypal/capture','/api/stripe/cancel','/api/paypal/cancel','/api/order-status','/api/tracking','/order-confirmed','/track-order','/login','/auth/:path*','/account/:path*'].map(source=>({
         source,headers:[{key:'Referrer-Policy',value:'no-referrer'}],
       })),
     ]

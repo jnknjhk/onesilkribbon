@@ -165,9 +165,11 @@ test('PayPal capture response lost after payment: retrieve state and recover',as
 })
 test('PayPal session save failure never returns approval URL',async()=>{
   const defaults=paypalBindings()
+  let released=0
   const POST=loadRoute('app/api/paypal/create-order/route.js',{
     ...defaults,getAuthUser:async()=>null,newOrderNumber:()=> 'pp-order',orderRecord:()=>({}),prepareOrder:async()=>{},
-    checkoutForm:x=>x,refreshCheckoutReservations:async()=>{},
+    checkoutForm:x=>x,refreshCheckoutReservations:async()=>{},createCancelProof:()=> 'cancel-proof',
+    releaseFailedPayPalCreation:async()=>{released++},
     computeAuthoritativeOrder:async()=>({ok:true,lineItems:items,totals:{total:20,shipping:0}}),
     fetch:async url=>Response.json(url.endsWith('token')?{access_token:'access'}:{id:'PP1',links:[{rel:'approve',href:'https://paypal.example/pay'}]}),
     supabaseAdmin:{from:()=>({insert:async()=>({error:Error('database down')})})},
@@ -175,6 +177,7 @@ test('PayPal session save failure never returns approval URL',async()=>{
   })
   const response=await POST({json:async()=>({items,form:{email:'customer@example.com'}})})
   assert.equal(response.status,503);assert.equal((await response.json()).approvalUrl,undefined)
+  assert.equal(released,1)
 })
 
 test('notification retry retains independent progress and retries only unsent message',async()=>{
@@ -193,15 +196,18 @@ test('notification retry retains independent progress and retries only unsent me
 })
 test('Stripe binding failure expires the session and never returns its URL',async()=>{
   let expired=0
+  let cancelUrl=''
   const POST=loadRoute('app/api/stripe/create-checkout-session/route.js',{
-    Stripe:class {checkout={sessions:{create:async()=>({id:'cs1',url:'https://stripe.example/pay'}),expire:async()=>{expired++}}}},
+    Stripe:class {checkout={sessions:{create:async(params)=>{cancelUrl=params.cancel_url;return {id:'cs1',url:'https://stripe.example/pay'}},expire:async()=>{expired++}}}},
     supabaseAdmin:{from(){const q={insert:async()=>({}),update(){return q},eq(){return q},select(){return q},single:async()=>({error:Error('write failed')})};return q}},
     checkoutForm:x=>x,refreshCheckoutReservations:async()=>{},beginStripeCreation:async()=>{},
     releaseFailedStripeCreation:async({stripe,session})=>{await stripe.checkout.sessions.expire(session.id)},
+    createCancelProof:()=> 'cancel-proof',
     getAuthUser:async()=>null,computeAuthoritativeOrder:async()=>({ok:true,lineItems:items,totals:{total:20}}),
     newOrderNumber:()=> 'binding',orderRecord:()=>({}),prepareStripeOrder:async()=>{},gbpToPence:()=>2000,
     errorResponse:()=>Response.json({error:'retry'},{status:503}),
   })
   const response=await POST({json:async()=>({items,form:{email:'customer@example.com'}})})
   assert.equal(response.status,503);assert.equal(expired,1);assert.equal((await response.json()).url,undefined)
+  assert.match(cancelUrl,/\/api\/stripe\/cancel\?order=binding&proof=cancel-proof/)
 })

@@ -90,6 +90,7 @@ test('Stripe creation route rejects invalid form without preparing stock or cont
   let prepared=0
   const POST=load('app/api/stripe/create-checkout-session/route.js',{
     checkoutForm,refreshCheckoutReservations:async()=>{},prepareStripeOrder:async()=>{prepared++},
+    createCancelProof:()=> 'cancel-proof',
     errorResponse:()=>Response.json({error:'unexpected'},{status:500}),
   },'POST')
   const result=await POST({json:async()=>({form:{...form,email:'bad'},items:[]})})

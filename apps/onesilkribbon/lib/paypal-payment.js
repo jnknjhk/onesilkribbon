@@ -4,17 +4,30 @@ import { prepareOrder, orderRecord, recordPayment, completeOrder, deliverNotific
 const BASE = process.env.PAYPAL_MODE === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com'
 const parse = value => typeof value === 'string' ? JSON.parse(value) : value
 
+// 创建 PayPal 订单失败时，客户没有拿到 approval URL；释放本地库存预占，
+// 避免一件货被锁定 2 小时。失败时保留原订单，交给过期扫描/人工对账。
+export async function releaseFailedPayPalCreation(orderNumber) {
+  const { error } = await supabaseAdmin.rpc('release_checkout_reservation', {
+    p_order_number: orderNumber,
+    p_reason: 'PayPal 付款链接创建失败',
+  })
+  if (error) throw error
+}
+
 export async function getPayPalOrder(token) {
   const response = await fetch(BASE + '/v1/oauth2/token', {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded',
       Authorization: 'Basic ' + Buffer.from(process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID + ':' + process.env.PAYPAL_SECRET).toString('base64') },
     body: 'grant_type=client_credentials',
+    signal: AbortSignal.timeout(15000),
   })
   const auth = await response.json()
   if (!response.ok || !auth.access_token) throw new Error('PayPal authentication failed')
   const result = await fetch(BASE + '/v2/checkout/orders/' + encodeURIComponent(token), {
     headers: { Authorization: 'Bearer ' + auth.access_token },
+    signal: AbortSignal.timeout(15000),
   })
+  if (result.status === 404) throw new Error('PayPal order not found')
   if (!result.ok) throw new Error('PayPal lookup failed; reservation retained')
   return result.json()
 }
@@ -52,12 +65,13 @@ export async function recoverPayPal(orderNumber, token, { capture = true } = {})
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded',
       Authorization: 'Basic ' + Buffer.from(process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID + ':' + process.env.PAYPAL_SECRET).toString('base64') },
     body: 'grant_type=client_credentials',
+    signal: AbortSignal.timeout(15000),
   })
   const auth = await authRes.json()
   if (!authRes.ok || !auth.access_token) throw new Error('PayPal authentication failed')
   const headers = { Authorization: 'Bearer ' + auth.access_token, 'Content-Type': 'application/json' }
   const readProvider = async () => {
-    const response = await fetch(BASE + '/v2/checkout/orders/' + encodeURIComponent(token), { headers })
+    const response = await fetch(BASE + '/v2/checkout/orders/' + encodeURIComponent(token), { headers, signal: AbortSignal.timeout(15000) })
     const data = await response.json()
     if (!response.ok) throw new Error('PayPal order lookup failed')
     return data
@@ -71,6 +85,7 @@ export async function recoverPayPal(orderNumber, token, { capture = true } = {})
     try {
       const response = await fetch(BASE + '/v2/checkout/orders/' + encodeURIComponent(token) + '/capture', {
         method: 'POST', headers: { ...headers, 'PayPal-Request-Id': 'capture-' + token },
+        signal: AbortSignal.timeout(20000),
       })
       if (response.ok) data = await response.json()
     } catch (err) { console.warn('PayPal capture response unavailable; checking provider', token) }

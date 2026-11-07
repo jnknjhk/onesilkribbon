@@ -4,6 +4,8 @@ import { getAuthUser } from '@osr/core/lib/get-auth-user'
 import { errorResponse } from '@osr/core/lib/api-error'
 import { newOrderNumber, orderRecord, prepareOrder } from '@/lib/payment-orders'
 import { checkoutForm } from '@/lib/checkout-form'
+import { createCancelProof } from '@/lib/payment-proof'
+import { releaseFailedPayPalCreation } from '@/lib/paypal-payment'
 import { refreshCheckoutReservations } from '@/lib/stripe-reservations'
 
 const PAYPAL_BASE = process.env.PAYPAL_MODE === 'live'
@@ -18,12 +20,16 @@ async function getPayPalToken() {
       'Authorization': `Basic ${Buffer.from(`${process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID}:${process.env.PAYPAL_SECRET}`).toString('base64')}`,
     },
     body: 'grant_type=client_credentials',
+    signal: AbortSignal.timeout(15000),
   })
   const data = await res.json()
+  if (!res.ok || !data.access_token) throw new Error('PayPal authentication failed')
   return data.access_token
 }
 
 export async function POST(req) {
+  let orderNumber
+  let prepared = false
   try {
     const { items, form: rawForm, coupon } = (await req.json()) || {}
     const form = checkoutForm(rawForm)
@@ -39,7 +45,7 @@ export async function POST(req) {
     }
     const { lineItems: orderLineItems, totals } = priced
 
-    const orderNumber = newOrderNumber()
+    orderNumber = newOrderNumber()
 
     const itemsTotal     = Number(totals.subtotal)
     const discountAmount = parseFloat(totals.discount) || 0
@@ -49,6 +55,7 @@ export async function POST(req) {
     // Persist the complete order before creating a payable provider order.
     await prepareOrder(orderRecord({ orderNumber, form,
       totals: { ...totals, subtotal: itemsTotal.toFixed(2) }, userId, provider: 'paypal' }), orderLineItems)
+    prepared = true
     const token = await getPayPalToken()
 
     const paypalOrder = await fetch(`${PAYPAL_BASE}/v2/checkout/orders`, {
@@ -58,6 +65,7 @@ export async function POST(req) {
         'Authorization': `Bearer ${token}`,
         'PayPal-Request-Id': orderNumber.slice(-36),
       },
+      signal: AbortSignal.timeout(15000),
       body: JSON.stringify({
         intent: 'CAPTURE',
         purchase_units: [{
@@ -93,7 +101,7 @@ export async function POST(req) {
         application_context: {
           brand_name: 'One Silk Ribbon',
           return_url: `${process.env.NEXT_PUBLIC_SITE_URL}/api/paypal/capture?order=${orderNumber}`,
-          cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/checkout`,
+          cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/api/paypal/cancel?order=${encodeURIComponent(orderNumber)}&proof=${encodeURIComponent(createCancelProof(orderNumber))}`,
         },
       }),
     })
@@ -102,7 +110,8 @@ export async function POST(req) {
     const approvalUrl = ppData.links?.find(l => l.rel === 'approve')?.href
 
     if (!paypalOrder.ok || !approvalUrl || !ppData.id) {
-      return Response.json({ error: 'PayPal did not return approval URL', details: ppData }, { status: 500 })
+      // Throw so the catch block releases the stock reservation as well.
+      throw new Error('PayPal did not return approval URL')
     }
 
     // 存临时 session（服务端权威价格），支付成功后才创建正式订单
@@ -126,6 +135,18 @@ export async function POST(req) {
 
     return Response.json({ approvalUrl })
   } catch (err) {
+    // From the customer's point of view this checkout never received an approval URL.
+    // Release the local reservation instead of leaving stock locked for up to 2 hours.
+    if (prepared && orderNumber) {
+      try {
+        await releaseFailedPayPalCreation(orderNumber)
+      } catch (releaseError) {
+        console.error('[paypal-create-order] reservation release failed; manual reconciliation required', {
+          orderNumber,
+          error: releaseError?.message,
+        })
+      }
+    }
     if (err?.code === 'INVALID_CHECKOUT_FORM' || err instanceof SyntaxError) return Response.json({ error: 'Please check your contact and delivery details.' }, { status: 400 })
     if (err?.code === 'P0001') return Response.json({ error: 'Stock or promo availability changed. Please review your basket and try again.' }, { status: 409 })
     return errorResponse(err, { tag: 'paypal-create-order' })

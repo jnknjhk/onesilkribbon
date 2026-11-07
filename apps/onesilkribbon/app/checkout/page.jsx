@@ -20,6 +20,9 @@ const PAYMENT_ERROR_MESSAGES = {
   token_mismatch: 'This payment does not match the order it was started from, so we have not completed it. If you have been charged, please contact us with your PayPal receipt and we will sort it out.',
   amount_mismatch: 'The amount received does not match your order total, so we have not completed it. If you have been charged, please contact us with your PayPal receipt and we will sort it out.',
   amount_unreadable: 'We could not verify the amount of your PayPal payment. Please contact us with your PayPal receipt before trying again.',
+  cancelled: 'Your payment was cancelled. Your basket is still saved — you can try again when ready.',
+  already_paid: 'This payment was already completed. Please check your email for the order confirmation before trying again.',
+  cancel_failed: 'We could not confirm the cancellation. Please do not pay again; contact us if you were charged.',
 }
 
 // ─── Country Data ────────────────────────────────────────────────────────────
@@ -94,6 +97,7 @@ function CheckoutContent() {
   const editedFields = useRef(new Set())
   const stepHeading = useRef(null)
   const previousStep = useRef(step)
+  const submittingRef = useRef(false)
   const [continuing, setContinuing] = useState(false)
   const [stockError, setStockError] = useState('')
 
@@ -289,9 +293,11 @@ function CheckoutContent() {
   }
 
   const handleSubmit = () => {
-    if (loading || !shippingSettings || !validate()) return
-    if (paymentMethod === 'stripe') handleStripePayment()
-    else handlePayPalPayment()
+    // loading 是异步 state，快速双击可能在重渲染前进入两次；用 ref 同步挡住第二次提交。
+    if (submittingRef.current || loading || !shippingSettings || !validate()) return
+    submittingRef.current = true
+    const request = paymentMethod === 'stripe' ? handleStripePayment() : handlePayPalPayment()
+    Promise.resolve(request).finally(() => { submittingRef.current = false })
   }
 
   const country = getCountry(form.country)

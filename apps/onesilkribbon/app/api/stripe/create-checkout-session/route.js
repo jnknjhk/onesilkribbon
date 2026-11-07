@@ -7,6 +7,7 @@ import { errorResponse } from '@osr/core/lib/api-error'
 import { saveCheckoutDetailsToAccount } from '@/lib/user-records'
 import { newOrderNumber, orderRecord } from '@/lib/payment-orders'
 import { checkoutForm } from '@/lib/checkout-form'
+import { createCancelProof } from '@/lib/payment-proof'
 import { releaseFailedStripeCreation, refreshCheckoutReservations, prepareStripeOrder, beginStripeCreation } from '@/lib/stripe-reservations'
 
 export async function POST(req) {
@@ -38,7 +39,7 @@ export async function POST(req) {
         product_data: { name: 'One Silk Ribbon Order',
           description: lineItems.map(i => `${i.name} ×${i.qty}`).join(', ').slice(0, 500) } }, quantity: 1 }],
       success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/api/payment-confirmation?order=${orderNumber}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/checkout`,
+      cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/api/stripe/cancel?order=${encodeURIComponent(orderNumber)}&proof=${encodeURIComponent(createCancelProof(orderNumber))}`,
       metadata: { orderNumber, couponCode: totals.couponCode || '' },
       payment_intent_data: { metadata: { orderNumber } },
     }, { idempotencyKey: `checkout/${orderNumber}` })

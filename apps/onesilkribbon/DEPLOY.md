@@ -89,11 +89,21 @@ NEXT_PUBLIC_SITE_URL = https://onesilkribbon.com
 
 ## 第五步：初始化数据库
 
-1. 登录 [supabase.com](https://supabase.com)
-2. 进入你的项目 → **SQL Editor**
-3. 点击 **"New query"**
-4. 复制粘贴 `supabase/schema.sql` 的全部内容
-5. 点击 **"Run"** ✅
+**新环境**按顺序执行：
+
+1. 登录 [supabase.com](https://supabase.com)，进入项目 → **SQL Editor**
+2. 新建查询，执行 `supabase/schema.sql`（可重复执行，只建表/列/索引/策略，不改数据）
+3. 按 `supabase/migrations/MANIFEST.md` 里的顺序，逐个执行迁移文件
+   - 注意：`2026-10-14-inventory-coupons.sql` 必须排在 `2026-10-14-payment-reliability.sql` 之后，不能按文件名排序
+4. 最后执行 `2026-11-06-pii-erasure-and-order-closing.sql`
+
+**已有环境**：
+
+- 先备份数据库；
+- 只执行尚未执行过的迁移（顺序同上）；
+- 不要重复执行已经跑过的迁移来“重建”数据库。
+
+数据库结构变更记录都在 `supabase/migrations/`，不再只依赖 `schema.sql`。
 
 ---
 

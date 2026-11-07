@@ -1,5 +1,6 @@
 // /api/admin/maintenance —— 数据维护（设置 → 数据维护）。
 // 所有清理都要人工点击确认，程序不会自动删任何东西——这些数据删了就回不来。
+// 未付款订单只“关闭 + 释放库存预留”，不物理删除；支付证据和历史订单都保留。
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { verifyAdmin } from '../auth'
 import { errorResponse } from '@osr/core/lib/api-error'
@@ -18,23 +19,38 @@ export async function GET() {
       fetchAll(() => supabaseAdmin.from('orders')
         .select('id, order_number, customer_email, total_gbp, created_at, payment_method')
         .eq('status', 'pending').lt('created_at', cutoff).order('created_at').order('id')),
-      // 过期的 PayPal 临时下单数据：正常付款后会删掉，顾客中途放弃的会留下
+      // 过期的 PayPal 临时下单数据：正常付款后保留用于对账；只有没有支付证据的旧记录可删
       fetchAll(() => supabaseAdmin.from('paypal_sessions')
         .select('id, order_number, created_at, expires_at')
         .lt('expires_at', new Date().toISOString()).order('created_at').order('id')),
       // 没有商品明细的订单：发不了货，要人工核对。
-      // 以前这两条查询没分页，超过 1000 行后会把有明细的订单误报成"没有明细"
       fetchAll(() => supabaseAdmin.from('orders').select('id, order_number, status, total_gbp, customer_email, created_at').order('id')),
       fetchAll(() => supabaseAdmin.from('order_items').select('order_id').order('id')),
     ])
     for (const r of [stalePending, expiredSessions, allOrders, items]) if (r.error) throw r.error
+
     const withItems = new Set(items.data.map(i => i.order_id))
     const missingItems = allOrders.data.filter(o => !withItems.has(o.id) && o.status !== 'pending')
+
+    // 有 payment_checkouts / payment_receipts 的 session 受数据库触发器保护，
+    // 不能删；不要把它们显示成“可以放心删除”。
+    const sessionNumbers = expiredSessions.data.map(s => s.order_number).filter(Boolean)
+    let protectedSessions = new Set()
+    if (sessionNumbers.length > 0) {
+      const [checkouts, receipts] = await Promise.all([
+        supabaseAdmin.from('payment_checkouts').select('order_number').in('order_number', sessionNumbers),
+        supabaseAdmin.from('payment_receipts').select('order_number').in('order_number', sessionNumbers),
+      ])
+      if (checkouts.error) throw checkouts.error
+      if (receipts.error) throw receipts.error
+      protectedSessions = new Set([...(checkouts.data || []), ...(receipts.data || [])].map(r => r.order_number))
+    }
+    const deletableSessions = expiredSessions.data.filter(s => !protectedSessions.has(s.order_number))
 
     return Response.json({
       staleDays: STALE_DAYS,
       stalePending: stalePending.data,
-      expiredSessions: expiredSessions.data,
+      expiredSessions: deletableSessions,
       missingItems,
     })
   } catch (err) {
@@ -42,7 +58,7 @@ export async function GET() {
   }
 }
 
-// body: { action: 'deleteOrders' | 'deleteSessions', ids: [...] }
+// body: { action: 'closeOrders' | 'deleteSessions', ids: [...] }
 export async function POST(req) {
   const admin = await verifyAdmin()
   if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
@@ -53,32 +69,32 @@ export async function POST(req) {
       return Response.json({ error: '没有选中任何记录' }, { status: 400 })
     }
 
-    if (action === 'deleteOrders') {
-      // 只能删待付款订单——已付款/已发货的订单是财务凭证，绝不能从这里删
-      const { data: targets, error: readErr } = await supabaseAdmin.from('orders').select('id, status').in('id', ids)
+    if (action === 'closeOrders' || action === 'deleteOrders') {
+      // 只能关闭待付款订单——已付款/已发货的订单是财务凭证，绝不能从这里动。
+      const { data: targets, error: readErr } = await supabaseAdmin.from('orders')
+        .select('id, order_number, status').in('id', ids)
       if (readErr) throw readErr
       if ((targets || []).some(o => o.status !== 'pending')) {
-        return Response.json({ error: '只能清理待付款订单，选中的里面有已付款或已发货的订单' }, { status: 400 })
+        return Response.json({ error: '只能关闭待付款订单，选中的里面有已付款或已发货的订单' }, { status: 400 })
       }
-      // 删除时再带一次 status = pending：万一刚好在这一刻付了款，这一单不会被删
-      const { data: deleted, error } = await supabaseAdmin.from('orders').delete()
-        .in('id', ids).eq('status', 'pending').select('id')
-      if (error) {
-        // 订单明细有外键约束时需要先删明细
-        if (error.code !== '23503') return errorResponse(error, { tag: 'admin-maintenance-delete-orders' })
-        const { data: stillPending } = await supabaseAdmin.from('orders').select('id').in('id', ids).eq('status', 'pending')
-        const pendingIds = (stillPending || []).map(o => o.id)
-        if (pendingIds.length) {
-          await supabaseAdmin.from('order_items').delete().in('order_id', pendingIds)
-          const { error: e2 } = await supabaseAdmin.from('orders').delete().in('id', pendingIds).eq('status', 'pending')
-          if (e2) return errorResponse(e2, { tag: 'admin-maintenance-delete-orders' })
-        }
-        return Response.json({ success: true, deleted: pendingIds.length })
+      if (!targets?.length) return Response.json({ success: true, closed: 0, blocked: [] })
+
+      // 数据库函数会先检查 payment_receipts；有支付证据的订单会拒绝关闭，
+      // 返回给页面让运营先核对，而不是静默取消一笔可能已经付款的订单。
+      const results = []
+      for (const order of targets) {
+        const { data, error } = await supabaseAdmin.rpc('close_unpaid_order', {
+          p_order_number: order.order_number,
+          p_reason: '后台清理长期未付款订单',
+        })
+        if (error) results.push({ order_number: order.order_number, ok: false, error: error.message })
+        else results.push({ order_number: order.order_number, ok: true, status: data?.status })
       }
-      // 订单删了，没被外键级联删掉的明细一并清理
-      const gone = (deleted || []).map(o => o.id)
-      if (gone.length) await supabaseAdmin.from('order_items').delete().in('order_id', gone)
-      return Response.json({ success: true, deleted: gone.length })
+      return Response.json({
+        success: true,
+        closed: results.filter(r => r.ok).length,
+        blocked: results.filter(r => !r.ok),
+      })
     }
 
     if (action === 'deleteSessions') {

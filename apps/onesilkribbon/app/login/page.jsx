@@ -5,7 +5,7 @@ import { useAuth } from '@osr/core/lib/auth'
 import Link from 'next/link'
 import Image from 'next/image'
 import { safeNextPath } from '@osr/core/lib/safe-next'
-import { createSupabaseBrowserClient } from '@osr/core/lib/supabase'
+import { createSupabaseBrowserClient } from '@osr/core/lib/supabase-browser'
 import { useBodyScrollLock } from '@/lib/use-body-scroll-lock'
 
 function LoginContent() {

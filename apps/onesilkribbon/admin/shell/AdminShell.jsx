@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { createSupabaseBrowserClient } from '@osr/core/lib/supabase'
+import { createSupabaseBrowserClient } from '@osr/core/lib/supabase-browser'
 import { useBodyScrollLock } from '../../lib/use-body-scroll-lock'
 import { AdminConfigProvider } from '../config'
 import { Icon, ToastProvider, Button, cx, styles as s } from '../ui'

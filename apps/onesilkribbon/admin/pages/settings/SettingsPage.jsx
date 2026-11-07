@@ -139,7 +139,12 @@ function Maintenance() {
     setBusy(true)
     try {
       const r = await api('/api/admin/maintenance', { method: 'POST', body: { action: confirm.action, ids: confirm.ids } })
-      toast.success(`已清理 ${r.deleted} 条`)
+      if (confirm.action === 'closeOrders') {
+        toast.success(`已关闭 ${r.closed} 笔未付款订单`)
+        if (r.blocked?.length) toast.error(`${r.blocked.length} 笔无法关闭，请先核对支付状态`)
+      } else {
+        toast.success(`已清理 ${r.deleted} 条`)
+      }
       await load()
     } catch (e) { toast.error('清理失败：' + e.message) }
     setBusy(false); setConfirm(null)
@@ -153,7 +158,7 @@ function Maintenance() {
 
   return (
     <div className={s.stack}>
-      <Notice tone="info">这里列出需要你判断的数据。系统不会自动删除任何东西，所有清理都要你手动确认，删除后无法恢复。</Notice>
+      <Notice tone="info">这里列出需要你判断的数据。系统不会自动删除任何东西，所有操作都要你手动确认；关闭订单不会删除历史记录，删除过期临时数据后无法恢复。</Notice>
 
       <Card title="缺少商品明细的订单" subtitle="不知道顾客买了什么，没法发货。请联系顾客或到支付平台核对。这些是真实交易，不提供删除。"
         actions={<Badge tone={missing.length ? 'danger' : 'success'}>{missing.length}</Badge>} padded={false}>
@@ -167,9 +172,9 @@ function Maintenance() {
           ]} />
       </Card>
 
-      <Card title="长期未付款的订单" subtitle={`顾客点了结账但没付钱，超过 ${data.staleDays ?? 7} 天还是待付款。删掉后订单列表和客户统计更干净。`} padded={false}
+      <Card title="长期未付款的订单" subtitle={`顾客点了结账但没付钱，超过 ${data.staleDays ?? 7} 天还是待付款。关闭后订单记录和支付证据保留，只释放库存预留。`} padded={false}
         actions={selOrders.length > 0
-          ? <Button size="sm" variant="danger" icon="trash" onClick={() => setConfirm({ action: 'deleteOrders', ids: selOrders, title: '删除未付款订单', message: `将永久删除选中的 ${selOrders.length} 笔未付款订单和它们的商品明细，无法恢复。只有仍是"待付款"的订单会被删除。` })}>删除选中的 {selOrders.length} 笔</Button>
+          ? <Button size="sm" variant="danger" onClick={() => setConfirm({ action: 'closeOrders', ids: selOrders, title: '关闭未付款订单', message: `将关闭选中的 ${selOrders.length} 笔待付款订单并释放库存预留。订单、金额和支付证据都会保留，只有仍是"待付款"的订单会被关闭。` })}>关闭选中的 {selOrders.length} 笔</Button>
           : <Badge tone={stale.length ? 'warning' : 'success'}>{stale.length}</Badge>}>
         <DataTable rows={stale} empty={<EmptyState icon="check" title="没有长期未付款的订单" />}
           columns={[
@@ -199,7 +204,8 @@ function Maintenance() {
         </Card>
       )}
 
-      <ConfirmDialog open={!!confirm} title={confirm?.title} message={confirm?.message} danger confirmLabel="删除" loading={busy}
+      <ConfirmDialog open={!!confirm} title={confirm?.title} message={confirm?.message} danger
+        confirmLabel={confirm?.action === 'closeOrders' ? '关闭' : '删除'} loading={busy}
         onCancel={() => setConfirm(null)} onConfirm={run} />
     </div>
   )

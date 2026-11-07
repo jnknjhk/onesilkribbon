@@ -145,3 +145,21 @@ test('legacy payment links await async searchParams and exchange credentials bef
   assert.equal(location, '/api/payment-confirmation?order=OSR-TEST&proof=test-only-proof')
   assert.equal(await OrderConfirmedPage({ searchParams: Promise.resolve({ order: 'OSR-TEST' }) }), 'confirmation')
 })
+
+test('server-only Supabase module is separated from the browser client', () => {
+  const server = core('lib/supabase.js')
+  assert.match(server, /import 'server-only'/)
+  assert.match(server, /SUPABASE_SERVICE_KEY/)
+  assert.doesNotMatch(server, /createSupabaseBrowserClient|createBrowserClient/)
+  assert.ok(fs.existsSync(path.resolve(root, '../../packages/core/lib/supabase-browser.js')))
+  assert.match(core('lib/supabase-browser.js'), /createBrowserClient/)
+  for (const file of [
+    'admin/shell/AdminShell.jsx',
+    'app/login/page.jsx',
+    'app/admin-login/page.jsx',
+    'app/account/reset-password/page.jsx',
+  ]) {
+    assert.match(read(file), /@osr\/core\/lib\/supabase-browser/)
+  }
+  assert.match(core('lib/auth.js'), /from '\.\/supabase-browser'/)
+})

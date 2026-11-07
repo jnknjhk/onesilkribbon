@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { createSupabaseBrowserClient } from '@osr/core/lib/supabase'
+import { createSupabaseBrowserClient } from '@osr/core/lib/supabase-browser'
 import { Suspense } from 'react'
 
 function AdminLoginContent() {

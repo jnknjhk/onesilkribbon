@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, createContext, useContext } from 'react'
-import { createSupabaseBrowserClient } from './supabase'
+import { createSupabaseBrowserClient } from './supabase-browser'
 
 const AuthContext = createContext(null)
 

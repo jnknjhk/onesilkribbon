@@ -240,7 +240,7 @@ function EraseDialog({ email, name, onClose, onDone }) {
     <Modal open title="删除客户" onClose={busy ? undefined : onClose} width={520}
       footer={<>
         <Button onClick={onClose} disabled={busy}>取消</Button>
-        <Button variant="danger" icon="trash" loading={busy} disabled={!plan || blocked || typed.trim() !== '删除'} onClick={run}>永久删除</Button>
+        <Button variant="danger" icon="trash" loading={busy} disabled={!plan || blocked || typed.trim() !== '删除'} onClick={run}>删除客户数据</Button>
       </>}>
       <div className={s.stack}>
         <div><span className={s.cellMain}>{name || email}</span>{name && <span className={s.muted}> · {email}</span>}</div>
@@ -254,13 +254,15 @@ function EraseDialog({ email, name, onClose, onDone }) {
                 <li>登录账号：{sm.accounts ? `${sm.accounts} 个（顾客将无法再登录，账户里的资料一并删除）` : '没有'}</li>
                 <li>保存的地址：{sm.addresses} 条</li>
                 <li>邮件订阅：{sm.subscribed ? '有，会取消' : '没有'}</li>
-                <li>没付款的订单：{sm.deleteOrders} 笔</li>
               </ul>
             </div>
             <div>
               <div className={s.fieldLabel} style={{ marginBottom: 6 }}>会保留，但抹掉个人信息</div>
               <ul style={{ margin: 0, paddingLeft: 20, lineHeight: 1.8, fontSize: 14 }}>
                 <li>付过钱的订单：{sm.keepOrders} 笔（金额、商品、日期、国家、付款编号保留；销售统计不变）</li>
+                <li>待付款订单：{sm.closeOrders} 笔（关闭并释放库存预留，订单和支付证据保留，不删除）</li>
+                {sm.cancelledUnpaid > 0 && <li>已取消未付款订单：{sm.cancelledUnpaid} 笔（保留并脱敏）</li>}
+                <li>支付证据里的姓名、邮箱、地址、电话一并脱敏；金额和支付单号保留用于对账</li>
               </ul>
             </div>
             {sm.skippedAccounts.length > 0 && (

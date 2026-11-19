@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { variantUrl, variantImage, merchantVariantAttributes, skuLabel } from '@/lib/product-variants'
 import { readFineSilkFamily } from '@/lib/fine-silk-ribbons'
+import { readWoodSpoolFamily } from '@/lib/wooden-spools'
 
 // Google Merchant Center 商品数据源（RSS 2.0 / Google Shopping XML）。
 // Match the collection cache so external catalog changes reach the feed promptly.
@@ -36,7 +37,8 @@ function buildItemXml({ product, sku, family }) {
 
   const link = variantUrl(`${SITE_URL}/collections/${product.collection}/${product.slug}`, sku)
   const { color, size } = merchantVariantAttributes(product, sku)
-  const label = family ? size : skuLabel(sku, product)
+  const fixedSize = family?.sizes?.[product.id]
+  const label = family ? (fixedSize ? color : size) : skuLabel(sku, product)
   const title = [product.name, label].filter(Boolean).join(' - ')
   const description = stripHtml(product.description).slice(0, 5000)
   const availability = (sku.stock_qty || 0) > 0 ? 'in_stock' : 'out_of_stock'
@@ -55,9 +57,9 @@ function buildItemXml({ product, sku, family }) {
     ['g:condition', 'new'],
     ...(sku.sku_code ? [['g:mpn', sku.sku_code]] : []),
   ]
-  const colour = family?.colours[product.id] || color
+  const colour = family?.colours?.[product.id] || color
   if (colour) fields.push(['g:color', colour])
-  if (size) fields.push(['g:size', size])
+  if (fixedSize || size) fields.push(['g:size', fixedSize || size])
 
   const fieldsXml = fields
     .map(([tag, value]) => `      <${tag}>${xmlEscape(value)}</${tag}>`)
@@ -68,11 +70,12 @@ function buildItemXml({ product, sku, family }) {
 
 export async function GET() {
   try {
-    const [{ data: products, error }, family] = await Promise.all([
+    const [{ data: products, error }, family, spoolFamily] = await Promise.all([
       supabaseAdmin.from('products')
         .select('id, name, slug, description, collection, images, attribute_config')
         .eq('is_active', true),
       readFineSilkFamily(supabaseAdmin),
+      readWoodSpoolFamily(supabaseAdmin),
     ])
 
     if (error) throw error
@@ -97,7 +100,7 @@ export async function GET() {
 
     const itemsXml = (products || [])
       .flatMap(product => (skusByProduct[product.id] || []).map(sku => buildItemXml({
-        product, sku, family: family?.colours[product.id] ? family : null,
+        product, sku, family: family?.colours[product.id] ? family : (spoolFamily?.sizes[product.id] ? spoolFamily : null),
       })))
       .filter(Boolean)
       .join('\n')

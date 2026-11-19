@@ -1,35 +1,12 @@
-import { merchantVariantAttributes, validSkus, variantUrl } from './product-variants'
+import { merchantVariantAttributes, validSkus } from './product-variants'
+import { FINE_SILK_SPLIT, readProductSplit, splitLegacyTarget } from './product-splits'
 
-export const FINE_SILK_COLLECTION = 'fine-silk-ribbons'
-export const FINE_SILK_SOURCE_SLUG = '2mm-mulberry-silk-ribbon'
-export const FINE_SILK_SETTINGS_KEY = 'fine_silk_ribbon_colours'
+export const FINE_SILK_COLLECTION = FINE_SILK_SPLIT.collection
+export const FINE_SILK_SOURCE_SLUG = FINE_SILK_SPLIT.sourceSlug
 
 const collectionPath = `/collections/${FINE_SILK_COLLECTION}`
-const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i
-
-export async function readFineSilkFamily(db) {
-  const { data, error } = await db.from('settings').select('value').eq('key', FINE_SILK_SETTINGS_KEY).maybeSingle()
-  if (error) throw new Error('Unable to load fine silk ribbon colours.')
-  return data ? JSON.parse(data.value) : null
-}
-
-export async function fineSilkLegacyTarget(db, skuId, { familyOnly = false } = {}) {
-  const family = await readFineSilkFamily(db)
-  if (!family) {
-    return !familyOnly && typeof skuId === 'string' && uuid.test(skuId)
-      ? variantUrl(`${collectionPath}/${FINE_SILK_SOURCE_SLUG}`, { id: skuId })
-      : null
-  }
-  if (typeof skuId !== 'string' || !uuid.test(skuId)) return collectionPath
-
-  const { data, error } = await db.from('product_skus')
-    .select('products!inner(slug,collection)')
-    .eq('id', skuId).eq('is_active', true).gt('price_gbp', 0)
-    .eq('products.is_active', true).eq('products.collection', FINE_SILK_COLLECTION)
-    .in('product_id', Object.keys(family.colours)).maybeSingle()
-  if (error) throw new Error('Unable to resolve the fine silk ribbon link.')
-  return data ? variantUrl(`${collectionPath}/${data.products.slug}`, { id: skuId }) : collectionPath
-}
+export const readFineSilkFamily = db => readProductSplit(db, FINE_SILK_SPLIT)
+export const fineSilkLegacyTarget = (db, skuId, options) => splitLegacyTarget(db, FINE_SILK_SPLIT, skuId, options)
 
 export async function fineSilkColourChoices(db, family) {
   const { data, error } = await db.from('products')

@@ -2,6 +2,7 @@ import { supabaseAdmin as supabaseServer } from '@osr/core/lib/supabase'
 import { permanentRedirect, notFound } from 'next/navigation'
 import { findRenamedProduct } from '@osr/core/lib/product-redirects'
 import { FINE_SILK_SOURCE_SLUG, fineSilkLegacyTarget } from '@/lib/fine-silk-ribbons'
+import { WOOD_SPOOL_SPLIT, splitLegacyTarget } from '@/lib/product-splits'
 
 // 跳转目标会变（商品换系列、改网址），不能按构建时的结果永久缓存
 export const revalidate = 60
@@ -28,6 +29,10 @@ export default async function LegacyProductRedirect({ params, searchParams }) {
 
     if (candidateSlug === FINE_SILK_SOURCE_SLUG) {
       const target = await fineSilkLegacyTarget(supabaseServer, query?.sku, { familyOnly: !product })
+      if (target) permanentRedirect(target)
+    }
+    if (candidateSlug === WOOD_SPOOL_SPLIT.sourceSlug && (!product || product.collection === WOOD_SPOOL_SPLIT.collection)) {
+      const target = await splitLegacyTarget(supabaseServer, WOOD_SPOOL_SPLIT, query?.sku, { familyOnly: !product })
       if (target) permanentRedirect(target)
     }
     if (product) permanentRedirect(`/collections/${product.collection}/${product.slug}`)

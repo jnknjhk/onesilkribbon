@@ -33,7 +33,7 @@ function imageAlt(product, i = 0, total = 1) {
 }
 function fmt(amount) { return '£' + safeNum(amount).toFixed(2) }
 
-export default function ProductClient({ initialProduct, initialSkus, initialSku, initialShippingSettings, slug, related, colours = EMPTY_LIST, colourNote }) {
+export default function ProductClient({ initialProduct, initialSkus, initialSku, initialShippingSettings, slug, related, colours = EMPTY_LIST, colourNote, spoolSizes = EMPTY_LIST }) {
   const router = useRouter()
   const product = initialProduct || null
   const skus = initialSkus || EMPTY_LIST
@@ -139,6 +139,8 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
   const ribbonProduct = ['fine-silk-ribbons', 'hand-frayed-silk-ribbons', 'vintage-inspired-ribbons'].includes(collectionSlug)
   const activeColour = colours.find(colour => colour.id === product.id)
   const selectedSize = activeColour && selectionComplete && selectedSku ? merchantVariantAttributes(product, selectedSku).size : undefined
+  const activeSpoolSize = spoolSizes.find(size => size.id === product.id)
+  const selectedFinish = activeSpoolSize && selectionComplete && selectedSku ? merchantVariantAttributes(product, selectedSku).color : undefined
 
   const handleAttrChange = (attrName, value) => {
     setSelectedAttrs(prev => ({ ...prev, [attrName]: value }))
@@ -275,6 +277,25 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
                           event.preventDefault()
                           router.push(variantUrl(colour.path, { id: targetSku }))
                         } : undefined}>{content}</Link>}
+                    </li>
+                  })}
+                </ul>
+              </nav>
+            )}
+
+            {activeSpoolSize && (
+              <nav className="spool-sizes" aria-label="Choose a wooden spool size">
+                <p>Size · {activeSpoolSize.name}</p>
+                <ul>
+                  {spoolSizes.map(size => {
+                    const targetSku = selectedFinish ? size.finishes[selectedFinish] : null
+                    return <li key={size.id}>
+                      {size.id === product.id
+                        ? <span aria-current="page">{size.name}</span>
+                        : <Link href={size.path} prefetch={false} onNavigate={targetSku ? event => {
+                          event.preventDefault()
+                          router.push(variantUrl(size.path, { id: targetSku }))
+                        } : undefined}>{size.name}</Link>}
                     </li>
                   })}
                 </ul>
@@ -522,6 +543,11 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
+        .spool-sizes { margin-bottom: 24px; }
+        .spool-sizes p { font-size: 11px; letter-spacing: .1em; margin-bottom: 10px; }
+        .spool-sizes ul { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; }
+        .spool-sizes li > * { display: inline-flex; align-items: center; min-height: 44px; padding: 0 10px; border: 1px solid var(--warm); color: var(--ink); font-size: 12px; }
+        .spool-sizes a:hover, .spool-sizes [aria-current] { border-color: var(--ink); }
         .product-colours { margin-bottom: 24px; }
         .product-colours p { font-size: 11px; letter-spacing: .1em; margin-bottom: 10px; }
         .product-colours ul { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; }

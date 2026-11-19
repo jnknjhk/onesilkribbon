@@ -102,11 +102,12 @@ export function structuredSku(sku) {
 }
 export function productGroupSchema(product, skus, url, shippingDetails, returnPolicy, family) {
   const variants = validSkus(skus)
-  const attributes = variants.map(sku => ({ ...merchantVariantAttributes(product, sku), ...(family ? { color: family.colour } : {}) }))
+  const fixedAttributes = { ...(family?.colour ? { color: family.colour } : {}), ...(family?.size ? { size: family.size } : {}) }
+  const attributes = variants.map(sku => ({ ...merchantVariantAttributes(product, sku), ...fixedAttributes }))
   const description = String(product.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
   const excerpt = description.length > 240 ? description.slice(0, 240).replace(/\s+\S*$/, '').trim() : description
   const variesBy = ['color', 'size'].filter(key =>
-    (family && key === 'color') || (attributes.length > 1 && attributes.every(value => value[key]) && new Set(attributes.map(value => value[key])).size > 1)
+    fixedAttributes[key] || (attributes.length > 1 && attributes.every(value => value[key]) && new Set(attributes.map(value => value[key])).size > 1)
   ).map(key => `https://schema.org/${key}`)
   return {
     '@context': 'https://schema.org', '@type': 'ProductGroup',
@@ -117,7 +118,7 @@ export function productGroupSchema(product, skus, url, shippingDetails, returnPo
     ...(variesBy.length ? { variesBy } : {}),
     hasVariant: [...variants.map((s, index) => {
       const image = variantImage(product, s)
-      const label = family ? attributes[index].size : skuLabel(s, product)
+      const label = family ? (family.size ? attributes[index].color : attributes[index].size) : skuLabel(s, product)
       const name = [product.name, label].filter(Boolean).join(' — ')
       return {
         '@type': 'Product', '@id': variantUrl(url, s) + '#product',

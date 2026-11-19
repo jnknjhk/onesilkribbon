@@ -104,10 +104,11 @@ test('confirmed standard catalogue returns reach every offer with a finite windo
 })
 
 let feedModuleVersion = 0
-async function feedXml(feedProduct, feedSkus, family = null) {
+async function feedXml(feedProduct, feedSkus, family = null, spoolFamily = null) {
   const variants = await helper
   globalThis.__seoVariants = variants
   globalThis.__seoFamily = family
+  globalThis.__seoSpoolFamily = spoolFamily
   globalThis.__seoDb = { from: table => ({ select: () => ({
     eq: async () => ({ data: [feedProduct] }),
     in: () => ({ eq: async () => ({ data: feedSkus.map(s => ({ ...s, product_id: feedProduct.id })) }) }),
@@ -117,11 +118,12 @@ async function feedXml(feedProduct, feedSkus, family = null) {
       .replace("import { supabaseAdmin } from '@osr/core/lib/supabase'", 'const supabaseAdmin = globalThis.__seoDb')
       .replace("import { variantUrl, variantImage, merchantVariantAttributes, skuLabel } from '@/lib/product-variants'", 'const { variantUrl, variantImage, merchantVariantAttributes, skuLabel } = globalThis.__seoVariants')
       .replace("import { readFineSilkFamily } from '@/lib/fine-silk-ribbons'", 'const readFineSilkFamily = async () => globalThis.__seoFamily')
+      .replace("import { readWoodSpoolFamily } from '@/lib/wooden-spools'", 'const readWoodSpoolFamily = async () => globalThis.__seoSpoolFamily')
     const { GET } = await load(`${source}\n// isolated fixture ${++feedModuleVersion}`)
     const response = await GET()
     assert.equal(response.status, 200)
     return await response.text()
-  } finally { delete globalThis.__seoDb; delete globalThis.__seoVariants; delete globalThis.__seoFamily }
+  } finally { delete globalThis.__seoDb; delete globalThis.__seoVariants; delete globalThis.__seoFamily; delete globalThis.__seoSpoolFamily }
 }
 
 test('feed advertises matching variant URLs, sizes and prices', async () => {
@@ -148,6 +150,22 @@ test('split colours keep the former merchant group and give each available SKU i
   assert.match(xml, /<g:id>R1<\/g:id>/)
   assert.match(xml, /<g:color>Gold<\/g:color>/)
   assert.ok(xml.includes(`${path}?sku=sku-1`))
+})
+
+test('wooden spool size pages keep the original group, fixed size and both selectable finishes', async () => {
+  const { productGroupSchema } = await helper
+  const spool = { ...product, collection: 'studio-tools', name: 'Artisan Wooden Ribbon Spool – 2.3 × 3 cm', slug: 'artisan-wooden-spool-2-3-x-3cm' }
+  const variants = ['Espresso', 'Original Wood'].map((colour, index) => ({ ...skus[index], colour, length_m: null, width_mm: null }))
+  const url = `https://onesilkribbon.com/collections/studio-tools/${spool.slug}`
+  const family = { id: 'old-spool-group', size: '2.3cm*3cm', sizes: { [spool.id]: '2.3cm*3cm' } }
+  const schema = productGroupSchema(spool, variants, url, undefined, undefined, family)
+  assert.deepEqual(schema.variesBy, ['https://schema.org/color', 'https://schema.org/size'])
+  assert.deepEqual(schema.hasVariant.map(variant => [variant.color, variant.size]), [['Espresso', family.size], ['Original Wood', family.size]])
+  const xml = await feedXml(spool, variants, null, family)
+  assert.match(xml, /<g:item_group_id>old-spool-group<\/g:item_group_id>/)
+  assert.match(xml, /<g:size>2\.3cm\*3cm<\/g:size>/)
+  assert.match(xml, /<g:color>Espresso<\/g:color>/)
+  assert.ok(xml.includes(`${url}?sku=sku-1`))
 })
 
 test('custom COLOR and WIDTH variants expose the missing merchant fields in both JSON-LD and feed', async () => {

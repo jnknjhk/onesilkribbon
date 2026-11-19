@@ -7,6 +7,8 @@ import { safeProductHtml } from '@/lib/product-content'
 import { selectInitialSku, validSkus, productGroupSchema, variantUrl } from '@/lib/product-variants'
 import { FINE_SILK_COLLECTION, FINE_SILK_SOURCE_SLUG, readFineSilkFamily, fineSilkLegacyTarget, fineSilkColourChoices } from '@/lib/fine-silk-ribbons'
 import { fineSilkColourNote } from '@/lib/fine-silk-colour-notes'
+import { WOOD_SPOOL_SPLIT, splitLegacyTarget } from '@/lib/product-splits'
+import { readWoodSpoolFamily, woodSpoolSizeChoices } from '@/lib/wooden-spools'
 import { safeJsonLd } from '@/lib/safe-json-ld'
 import { buildMetaDescription } from '@/lib/seo-meta'
 import { shippingSettingsFromApi } from '@/lib/pricing'
@@ -109,6 +111,10 @@ export default async function ProductPage({ params, searchParams }) {
       const target = await fineSilkLegacyTarget(supabaseServer, query?.sku, { familyOnly: true })
       if (target) permanentRedirect(target)
     }
+    if (slug === WOOD_SPOOL_SPLIT.collection && productSlug === WOOD_SPOOL_SPLIT.sourceSlug) {
+      const target = await splitLegacyTarget(supabaseServer, WOOD_SPOOL_SPLIT, query?.sku, { familyOnly: true })
+      if (target) permanentRedirect(target)
+    }
     // 商品在后台改过网址：旧链接 301 到现在的网址，而不是 404
     const moved = await findRenamedProduct(supabaseServer, productSlug)
     if (moved) permanentRedirect(`/collections/${moved.collection}/${moved.slug}`)
@@ -135,12 +141,22 @@ export default async function ProductPage({ params, searchParams }) {
   const family = slug === FINE_SILK_COLLECTION ? await readFineSilkFamily(supabaseServer) : null
   const colours = family?.colours[product.id] ? await fineSilkColourChoices(supabaseServer, family) : []
   const colourNote = fineSilkColourNote(product.collection, product.slug)
+  const spoolFamily = slug === WOOD_SPOOL_SPLIT.collection ? await readWoodSpoolFamily(supabaseServer) : null
+  const spoolSize = spoolFamily?.sizes[product.id]
+  const spoolSizes = spoolSize ? await woodSpoolSizeChoices(supabaseServer, spoolFamily) : []
   const group = colours.length ? {
     id: family.id,
     name: family.name,
     colour: family.colours[product.id],
     siblingUrls: colours.filter(colour => colour.id !== product.id)
       .map(colour => variantUrl(`${SITE_ORIGIN}${colour.path}`, { id: colour.firstSkuId })),
+  } : null
+  const spoolGroup = spoolSizes.length ? {
+    id: spoolFamily.id,
+    name: spoolFamily.name,
+    size: spoolSize,
+    siblingUrls: spoolSizes.filter(size => size.id !== product.id)
+      .map(size => variantUrl(`${SITE_ORIGIN}${size.path}`, { id: size.firstSkuId })),
   } : null
 
   // 同系列其他商品，给底部"More from this collection"用——只在真的有其他商品时才查/传，
@@ -239,12 +255,12 @@ export default async function ProductPage({ params, searchParams }) {
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: safeJsonLd([
-            productGroupSchema(product, purchasableSkus, productUrl, shippingDetails, returnPolicy, group),
+            productGroupSchema(product, purchasableSkus, productUrl, shippingDetails, returnPolicy, group || spoolGroup),
             { '@context': 'https://schema.org', ...breadcrumb },
           ]) }}
         />
       )}
-      <ProductClient key={`${product.id}:${initialSku?.id || ''}`} initialProduct={{ ...product, descriptionHtml: safeProductHtml(product.description) }} initialSkus={purchasableSkus} initialSku={initialSku} initialShippingSettings={settings} slug={productSlug} related={related} colours={colours} colourNote={colourNote} />
+      <ProductClient key={`${product.id}:${initialSku?.id || ''}`} initialProduct={{ ...product, descriptionHtml: safeProductHtml(product.description) }} initialSkus={purchasableSkus} initialSku={initialSku} initialShippingSettings={settings} slug={productSlug} related={related} colours={colours} colourNote={colourNote} spoolSizes={spoolSizes} />
     </>
   )
 }

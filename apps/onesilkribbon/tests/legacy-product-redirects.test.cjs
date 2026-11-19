@@ -6,7 +6,7 @@ const path = require('node:path')
 const source = fs.readFileSync(path.join(__dirname, '../app/products/[slug]/page.jsx'), 'utf8')
 const current = { slug: '2mm-mulberry-silk-ribbon', collection: 'fine-silk-ribbons', is_active: true }
 
-function harness({ products = [current], moved = {}, failSlug, splitTarget = null } = {}) {
+function harness({ products = [current], moved = {}, failSlug, splitTarget = null, woodTarget = null } = {}) {
   const queries = []
   const supabaseServer = { from(table) {
     assert.equal(table, 'products')
@@ -21,7 +21,7 @@ function harness({ products = [current], moved = {}, failSlug, splitTarget = nul
       },
     }
   } }
-  const render = new Function('supabaseServer', 'permanentRedirect', 'notFound', 'findRenamedProduct', 'FINE_SILK_SOURCE_SLUG', 'fineSilkLegacyTarget',
+  const render = new Function('supabaseServer', 'permanentRedirect', 'notFound', 'findRenamedProduct', 'FINE_SILK_SOURCE_SLUG', 'fineSilkLegacyTarget', 'WOOD_SPOOL_SPLIT', 'splitLegacyTarget',
     source.replace(/^import .*\r?\n/gm, '').replace(/^export const /gm, 'const ').replace('export default async function', 'async function') + '\nreturn LegacyProductRedirect',
   )(
     supabaseServer,
@@ -29,6 +29,7 @@ function harness({ products = [current], moved = {}, failSlug, splitTarget = nul
     () => { throw Object.assign(new Error('Not found'), { notFound: true }) },
     async (_db, slug) => Object.hasOwn(moved, slug) ? moved[slug] : null,
     current.slug, async () => splitTarget,
+    { sourceSlug: 'artisan-wooden-spools', collection: 'studio-tools' }, async () => woodTarget,
   )
   return { render, queries }
 }
@@ -42,6 +43,12 @@ test('confirmed 4mm and 7mm Shopify URLs redirect to the consolidated product wi
     }), error => error.target === '/collections/fine-silk-ribbons/2mm-mulberry-silk-ribbon')
     assert.ok(queries.every(query => query.is_active === true))
   }
+})
+
+test('the old wooden spool URL lands on the selected size after the parent is retired', async () => {
+  const target = '/collections/studio-tools/artisan-wooden-spool-2-3-x-3cm?sku=known'
+  const { render } = harness({ products: [], woodTarget: target })
+  await assert.rejects(render({ params: { slug: 'artisan-wooden-spools' }, searchParams: { sku: 'known' } }), error => error.target === target)
 })
 
 test('known Shopify aliases can reach the split series after the original product is retired', async () => {

@@ -1,10 +1,8 @@
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 
-// 没有这一行，Next.js 会把 sitemap 当成纯静态页在**构建时**生成一次就固定下来：
-// 之后上架新商品、发布新文章，sitemap 里都不会出现，必须重新部署才更新。
-// 实测确认过——发布第一篇文章后 sitemap 仍是 25 条，没有把文章算进去。
-// 与系列页使用同一刷新周期，后台批量上架后新链接会及时出现在站点地图。
-export const revalidate = 60
+// Vercel continued serving the old sitemap after a direct catalogue cutover.
+// Generate this small metadata route from the live catalogue on request.
+export const dynamic = 'force-dynamic'
 
 function modified(value) {
   if (!value) return {}
@@ -33,8 +31,7 @@ export default async function sitemap() {
     supabaseAdmin.from('products').select('slug, collection, updated_at').eq('is_active', true),
     supabaseAdmin.from('journal_posts').select('slug, updated_at').eq('is_published', true),
   ])
-  // Failed regeneration must preserve the previous ISR sitemap, not publish
-  // an apparently successful file with all products or articles missing.
+  // A database failure must not publish an apparently successful empty sitemap.
   if (productResult.error || postResult.error) throw new Error('Unable to generate sitemap')
   const products = productResult.data || []
   const posts = postResult.data || []

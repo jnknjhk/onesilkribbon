@@ -6,7 +6,7 @@ const path = require('node:path')
 const source = fs.readFileSync(path.join(__dirname, '../app/products/[slug]/page.jsx'), 'utf8')
 const current = { slug: '2mm-mulberry-silk-ribbon', collection: 'fine-silk-ribbons', is_active: true }
 
-function harness({ products = [current], moved = {}, failSlug } = {}) {
+function harness({ products = [current], moved = {}, failSlug, splitTarget = null } = {}) {
   const queries = []
   const supabaseServer = { from(table) {
     assert.equal(table, 'products')
@@ -21,13 +21,14 @@ function harness({ products = [current], moved = {}, failSlug } = {}) {
       },
     }
   } }
-  const render = new Function('supabaseServer', 'permanentRedirect', 'notFound', 'findRenamedProduct',
+  const render = new Function('supabaseServer', 'permanentRedirect', 'notFound', 'findRenamedProduct', 'FINE_SILK_SOURCE_SLUG', 'fineSilkLegacyTarget',
     source.replace(/^import .*\r?\n/gm, '').replace(/^export const /gm, 'const ').replace('export default async function', 'async function') + '\nreturn LegacyProductRedirect',
   )(
     supabaseServer,
     target => { throw Object.assign(new Error('Redirect'), { target }) },
     () => { throw Object.assign(new Error('Not found'), { notFound: true }) },
     async (_db, slug) => Object.hasOwn(moved, slug) ? moved[slug] : null,
+    current.slug, async () => splitTarget,
   )
   return { render, queries }
 }
@@ -41,6 +42,12 @@ test('confirmed 4mm and 7mm Shopify URLs redirect to the consolidated product wi
     }), error => error.target === '/collections/fine-silk-ribbons/2mm-mulberry-silk-ribbon')
     assert.ok(queries.every(query => query.is_active === true))
   }
+})
+
+test('known Shopify aliases can reach the split series after the original product is retired', async () => {
+  const target = '/collections/fine-silk-ribbons'
+  const { render } = harness({ products: [], splitTarget: target })
+  await assert.rejects(render({ params: { slug: '4mm-mulberry-silk-ribbon' } }), error => error.target === target)
 })
 
 test('an exact active product wins over the historical alias and uses its actual collection', async () => {

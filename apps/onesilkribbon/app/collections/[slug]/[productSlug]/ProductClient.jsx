@@ -5,7 +5,7 @@ import Link from 'next/link'
 import NextImage from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useCart } from '@/lib/cart'
-import { skuAttributes, matchSku } from '@/lib/product-variants'
+import { skuAttributes, matchSku, merchantVariantAttributes, variantUrl } from '@/lib/product-variants'
 import { shippingDescription } from '@/lib/pricing'
 import { useShippingSettings } from '@/lib/use-shipping-settings'
 import { productOptionGroups, selectionIsComplete, selectedOptionRows } from '@/lib/product-selection'
@@ -33,7 +33,7 @@ function imageAlt(product, i = 0, total = 1) {
 }
 function fmt(amount) { return '£' + safeNum(amount).toFixed(2) }
 
-export default function ProductClient({ initialProduct, initialSkus, initialSku, initialShippingSettings, slug, related }) {
+export default function ProductClient({ initialProduct, initialSkus, initialSku, initialShippingSettings, slug, related, colours = EMPTY_LIST }) {
   const router = useRouter()
   const product = initialProduct || null
   const skus = initialSkus || EMPTY_LIST
@@ -137,6 +137,8 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
   const optionRows = selectedOptionRows(product, selectedSku)
   const canPurchase = hasSelected && selectionComplete && inStock
   const ribbonProduct = ['fine-silk-ribbons', 'hand-frayed-silk-ribbons', 'vintage-inspired-ribbons'].includes(collectionSlug)
+  const activeColour = colours.find(colour => colour.id === product.id)
+  const selectedSize = activeColour && selectionComplete && selectedSku ? merchantVariantAttributes(product, selectedSku).size : undefined
 
   const handleAttrChange = (attrName, value) => {
     setSelectedAttrs(prev => ({ ...prev, [attrName]: value }))
@@ -257,6 +259,25 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
               </p>
             </div>
 
+            {activeColour && (
+              <nav className="product-colours" aria-label="Choose a ribbon colour">
+                <p>Colour · {activeColour.name}</p>
+                <ul>
+                  {colours.map(colour => {
+                    const targetSku = selectedSize ? colour.sizes[selectedSize] : null
+                    const content = colour.image
+                      ? <NextImage src={colour.image} alt="" width={42} height={42} loading="lazy" />
+                      : <span aria-hidden="true">{colour.name.slice(0, 2)}</span>
+                    return <li key={colour.id}>
+                      {colour.id === product.id
+                        ? <span className="current-colour" aria-current="page" aria-label={colour.name} title={colour.name}>{content}</span>
+                        : <Link href={targetSku ? variantUrl(colour.path, { id: targetSku }) : colour.path} prefetch={false} aria-label={colour.name} title={colour.name}>{content}</Link>}
+                    </li>
+                  })}
+                </ul>
+              </nav>
+            )}
+
             {/* 属性下拉框 */}
             {attributeOptions.map((attr, attrIndex) => (
               <div key={attr.name} style={{ marginBottom: 24 }}>
@@ -291,6 +312,8 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
               {hasSelected && selectionComplete ? <>
                 <dl>
                   {optionRows.map(row => <div key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}
+                  {activeColour && selectedSku.length_m && !optionRows.some(row => row.label === 'Length') &&
+                    <div><dt>Length</dt><dd>{selectedSku.length_m}m per spool</dd></div>}
                   <div><dt>Quantity</dt><dd>{qty}</dd></div>
                   <div><dt>Items total</dt><dd>{fmt(price * qty)}</dd></div>
                 </dl>
@@ -495,6 +518,13 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
+        .product-colours { margin-bottom: 24px; }
+        .product-colours p { font-size: 11px; letter-spacing: .1em; margin-bottom: 10px; }
+        .product-colours ul { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; }
+        .product-colours li > * { display: grid; place-items: center; width: 46px; height: 46px; border: 1px solid var(--sand); background: var(--cream); color: var(--ink); }
+        .product-colours img { width: 42px; height: 42px; object-fit: cover; }
+        .product-colours a:hover, .product-colours .current-colour { border-color: var(--ink); }
+        .product-colours a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
         .selection-summary { padding: 20px; margin: 0 0 24px; border: 1px solid var(--sand); background: rgba(255,255,255,.35); overflow-wrap: anywhere; }
         .selection-summary-title { font-size: 11px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; margin-bottom: 14px; color: var(--ink); }
         .selection-summary dl { margin: 0; }

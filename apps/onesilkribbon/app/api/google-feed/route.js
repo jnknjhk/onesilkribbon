@@ -1,10 +1,10 @@
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { variantUrl, variantImage, merchantVariantAttributes, skuLabel } from '@/lib/product-variants'
+import { readFineSilkFamily } from '@/lib/fine-silk-ribbons'
 
 // Google Merchant Center 商品数据源（RSS 2.0 / Google Shopping XML）。
-// Google 每天会来抓取这个接口一次左右，不需要每次请求都是全新数据，
-// 用 ISR 缓存一小时，避免每次抓取都全量查库。
-export const revalidate = 3600
+// Match the collection cache so external catalog changes reach the feed promptly.
+export const revalidate = 60
 // GET handlers no longer opt into the full-route cache by default in Next 15.
 export const dynamic = 'force-static'
 
@@ -29,13 +29,14 @@ function stripHtml(html) {
   return String(html ?? '').replace(/<[^>]+>/g, '').trim()
 }
 
-function buildItemXml({ product, sku }) {
+function buildItemXml({ product, sku, family }) {
   if (!Number.isFinite(Number(sku.price_gbp)) || Number(sku.price_gbp) <= 0) return ''
   const image = variantImage(product, sku)
   if (!image) return '' // 没有图片的变体，Google 一定会拒收，不如干脆不提交这一条
 
   const link = variantUrl(`${SITE_URL}/collections/${product.collection}/${product.slug}`, sku)
-  const label = skuLabel(sku, product)
+  const { color, size } = merchantVariantAttributes(product, sku)
+  const label = family ? size : skuLabel(sku, product)
   const title = [product.name, label].filter(Boolean).join(' - ')
   const description = stripHtml(product.description).slice(0, 5000)
   const availability = (sku.stock_qty || 0) > 0 ? 'in_stock' : 'out_of_stock'
@@ -43,7 +44,7 @@ function buildItemXml({ product, sku }) {
 
   const fields = [
     ['g:id', sku.sku_code || sku.id],
-    ['g:item_group_id', product.id],
+    ['g:item_group_id', family?.id || product.id],
     ['title', title],
     ['g:description', description],
     ['link', link],
@@ -54,8 +55,8 @@ function buildItemXml({ product, sku }) {
     ['g:condition', 'new'],
     ...(sku.sku_code ? [['g:mpn', sku.sku_code]] : []),
   ]
-  const { color, size } = merchantVariantAttributes(product, sku)
-  if (color) fields.push(['g:color', color])
+  const colour = family?.colours[product.id] || color
+  if (colour) fields.push(['g:color', colour])
   if (size) fields.push(['g:size', size])
 
   const fieldsXml = fields
@@ -67,10 +68,12 @@ function buildItemXml({ product, sku }) {
 
 export async function GET() {
   try {
-    const { data: products, error } = await supabaseAdmin
-      .from('products')
-      .select('id, name, slug, description, collection, images, attribute_config')
-      .eq('is_active', true)
+    const [{ data: products, error }, family] = await Promise.all([
+      supabaseAdmin.from('products')
+        .select('id, name, slug, description, collection, images, attribute_config')
+        .eq('is_active', true),
+      readFineSilkFamily(supabaseAdmin),
+    ])
 
     if (error) throw error
 
@@ -93,7 +96,9 @@ export async function GET() {
     }
 
     const itemsXml = (products || [])
-      .flatMap(product => (skusByProduct[product.id] || []).map(sku => buildItemXml({ product, sku })))
+      .flatMap(product => (skusByProduct[product.id] || []).map(sku => buildItemXml({
+        product, sku, family: family?.colours[product.id] ? family : null,
+      })))
       .filter(Boolean)
       .join('\n')
 

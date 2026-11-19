@@ -104,9 +104,10 @@ test('confirmed standard catalogue returns reach every offer with a finite windo
 })
 
 let feedModuleVersion = 0
-async function feedXml(feedProduct, feedSkus) {
+async function feedXml(feedProduct, feedSkus, family = null) {
   const variants = await helper
   globalThis.__seoVariants = variants
+  globalThis.__seoFamily = family
   globalThis.__seoDb = { from: table => ({ select: () => ({
     eq: async () => ({ data: [feedProduct] }),
     in: () => ({ eq: async () => ({ data: feedSkus.map(s => ({ ...s, product_id: feedProduct.id })) }) }),
@@ -115,11 +116,12 @@ async function feedXml(feedProduct, feedSkus) {
     const source = read('app/api/google-feed/route.js')
       .replace("import { supabaseAdmin } from '@osr/core/lib/supabase'", 'const supabaseAdmin = globalThis.__seoDb')
       .replace("import { variantUrl, variantImage, merchantVariantAttributes, skuLabel } from '@/lib/product-variants'", 'const { variantUrl, variantImage, merchantVariantAttributes, skuLabel } = globalThis.__seoVariants')
+      .replace("import { readFineSilkFamily } from '@/lib/fine-silk-ribbons'", 'const readFineSilkFamily = async () => globalThis.__seoFamily')
     const { GET } = await load(`${source}\n// isolated fixture ${++feedModuleVersion}`)
     const response = await GET()
     assert.equal(response.status, 200)
     return await response.text()
-  } finally { delete globalThis.__seoDb; delete globalThis.__seoVariants }
+  } finally { delete globalThis.__seoDb; delete globalThis.__seoVariants; delete globalThis.__seoFamily }
 }
 
 test('feed advertises matching variant URLs, sizes and prices', async () => {
@@ -128,6 +130,24 @@ test('feed advertises matching variant URLs, sizes and prices', async () => {
   assert.match(xml, /\?sku=sku-2<\/link>/)
   assert.match(xml, /<g:price>25.00 GBP<\/g:price>/)
   assert.match(xml, /<g:size>5mm × 10m<\/g:size>/)
+})
+
+test('split colours keep the former merchant group and give each available SKU its new landing page', async () => {
+  const { productGroupSchema } = await helper
+  const colourProduct = { ...product, name: 'Gold Mulberry Silk Ribbon', slug: 'mulberry-silk-ribbon-gold' }
+  const path = `https://onesilkribbon.com/collections/fine-silk-ribbons/${colourProduct.slug}`
+  const sibling = 'https://onesilkribbon.com/collections/fine-silk-ribbons/mulberry-silk-ribbon-pink?sku=pink'
+  const family = { id: 'original-group', name: 'Mulberry Silk Ribbon', colour: 'Gold', colours: { [colourProduct.id]: 'Gold' }, siblingUrls: [sibling] }
+  const schema = productGroupSchema(colourProduct, skus, path, undefined, undefined, family)
+  assert.equal(schema.productGroupID, family.id)
+  assert.equal(schema.url, undefined)
+  assert.equal(schema.hasVariant[0].offers.url, `${path}?sku=sku-1`)
+  assert.deepEqual(schema.hasVariant.at(-1), { '@type': 'Product', url: sibling })
+  const xml = await feedXml(colourProduct, skus, family)
+  assert.match(xml, /<g:item_group_id>original-group<\/g:item_group_id>/)
+  assert.match(xml, /<g:id>R1<\/g:id>/)
+  assert.match(xml, /<g:color>Gold<\/g:color>/)
+  assert.ok(xml.includes(`${path}?sku=sku-1`))
 })
 
 test('custom COLOR and WIDTH variants expose the missing merchant fields in both JSON-LD and feed', async () => {

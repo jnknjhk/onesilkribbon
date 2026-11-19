@@ -100,23 +100,25 @@ export function structuredSku(sku) {
   const valid = value => typeof value === 'string' && /^[\x21-\x7e]{1,50}$/.test(value)
   return valid(sku.sku_code) ? sku.sku_code : valid(sku.id) ? sku.id : undefined
 }
-export function productGroupSchema(product, skus, url, shippingDetails, returnPolicy) {
+export function productGroupSchema(product, skus, url, shippingDetails, returnPolicy, family) {
   const variants = validSkus(skus)
-  const attributes = variants.map(sku => merchantVariantAttributes(product, sku))
+  const attributes = variants.map(sku => ({ ...merchantVariantAttributes(product, sku), ...(family ? { color: family.colour } : {}) }))
   const description = String(product.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
   const excerpt = description.length > 240 ? description.slice(0, 240).replace(/\s+\S*$/, '').trim() : description
   const variesBy = ['color', 'size'].filter(key =>
-    attributes.length > 1 && attributes.every(value => value[key]) && new Set(attributes.map(value => value[key])).size > 1
+    (family && key === 'color') || (attributes.length > 1 && attributes.every(value => value[key]) && new Set(attributes.map(value => value[key])).size > 1)
   ).map(key => `https://schema.org/${key}`)
   return {
-    '@context': 'https://schema.org', '@type': 'ProductGroup', '@id': url + '#product-group',
-    name: product.name, description,
-    url, productGroupID: product.id, brand: { '@type': 'Brand', name: 'One Silk Ribbon' },
+    '@context': 'https://schema.org', '@type': 'ProductGroup',
+    ...(family ? {} : { '@id': url + '#product-group', url }),
+    name: family?.name || product.name, description,
+    productGroupID: family?.id || product.id, brand: { '@type': 'Brand', name: 'One Silk Ribbon' },
     image: Array.isArray(product.images) ? product.images : [],
     ...(variesBy.length ? { variesBy } : {}),
-    hasVariant: variants.map((s, index) => {
+    hasVariant: [...variants.map((s, index) => {
       const image = variantImage(product, s)
-      const name = [product.name, skuLabel(s, product)].filter(Boolean).join(' — ')
+      const label = family ? attributes[index].size : skuLabel(s, product)
+      const name = [product.name, label].filter(Boolean).join(' — ')
       return {
         '@type': 'Product', '@id': variantUrl(url, s) + '#product',
         name, description: [name, excerpt].filter(Boolean).join('. '),
@@ -134,6 +136,6 @@ export function productGroupSchema(product, skus, url, shippingDetails, returnPo
           shippingDetails, hasMerchantReturnPolicy: returnPolicy,
         },
       }
-    }),
+    }), ...(family?.siblingUrls || []).map(siblingUrl => ({ '@type': 'Product', url: siblingUrl }))],
   }
 }

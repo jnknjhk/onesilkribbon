@@ -4,7 +4,8 @@ import { permanentRedirect, notFound } from 'next/navigation'
 import ProductClient from './ProductClient'
 import { findRenamedProduct } from '@osr/core/lib/product-redirects'
 import { safeProductHtml } from '@/lib/product-content'
-import { selectInitialSku, validSkus, productGroupSchema } from '@/lib/product-variants'
+import { selectInitialSku, validSkus, productGroupSchema, variantUrl } from '@/lib/product-variants'
+import { FINE_SILK_COLLECTION, FINE_SILK_SOURCE_SLUG, readFineSilkFamily, fineSilkLegacyTarget, fineSilkColourChoices } from '@/lib/fine-silk-ribbons'
 import { safeJsonLd } from '@/lib/safe-json-ld'
 import { buildMetaDescription } from '@/lib/seo-meta'
 import { shippingSettingsFromApi } from '@/lib/pricing'
@@ -102,6 +103,10 @@ export default async function ProductPage({ params, searchParams }) {
   // 商品不存在——之前这里不管 product 是不是 null 都照样往下渲染，只是 ProductClient
   // 里显示一个"Product not found"的样子，HTTP 状态码还是 200，不是真的 404
   if (!product) {
+    if (slug === FINE_SILK_COLLECTION && productSlug === FINE_SILK_SOURCE_SLUG) {
+      const target = await fineSilkLegacyTarget(supabaseServer, query?.sku, { familyOnly: true })
+      if (target) permanentRedirect(target)
+    }
     // 商品在后台改过网址：旧链接 301 到现在的网址，而不是 404
     const moved = await findRenamedProduct(supabaseServer, productSlug)
     if (moved) permanentRedirect(`/collections/${moved.collection}/${moved.slug}`)
@@ -125,6 +130,15 @@ export default async function ProductPage({ params, searchParams }) {
   if (skuError) throw new Error('Unable to load product options. Please try again.')
   const purchasableSkus = validSkus(skus)
   const initialSku = selectInitialSku(purchasableSkus, typeof query?.sku === 'string' ? query.sku : '')
+  const family = slug === FINE_SILK_COLLECTION ? await readFineSilkFamily(supabaseServer) : null
+  const colours = family?.colours[product.id] ? await fineSilkColourChoices(supabaseServer, family) : []
+  const group = colours.length ? {
+    id: family.id,
+    name: family.name,
+    colour: family.colours[product.id],
+    siblingUrls: colours.filter(colour => colour.id !== product.id)
+      .map(colour => variantUrl(`${SITE_ORIGIN}${colour.path}`, { id: colour.firstSkuId })),
+  } : null
 
   // 同系列其他商品，给底部"More from this collection"用——只在真的有其他商品时才查/传，
   // 页面侧再判断一次是否为空来决定要不要渲染整个区块
@@ -222,12 +236,12 @@ export default async function ProductPage({ params, searchParams }) {
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: safeJsonLd([
-            productGroupSchema(product, purchasableSkus, productUrl, shippingDetails, returnPolicy),
+            productGroupSchema(product, purchasableSkus, productUrl, shippingDetails, returnPolicy, group),
             { '@context': 'https://schema.org', ...breadcrumb },
           ]) }}
         />
       )}
-      <ProductClient key={`${product.id}:${initialSku?.id || ''}`} initialProduct={{ ...product, descriptionHtml: safeProductHtml(product.description) }} initialSkus={purchasableSkus} initialSku={initialSku} initialShippingSettings={settings} slug={productSlug} related={related} />
+      <ProductClient key={`${product.id}:${initialSku?.id || ''}`} initialProduct={{ ...product, descriptionHtml: safeProductHtml(product.description) }} initialSkus={purchasableSkus} initialSku={initialSku} initialShippingSettings={settings} slug={productSlug} related={related} colours={colours} />
     </>
   )
 }

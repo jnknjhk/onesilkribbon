@@ -33,7 +33,7 @@ function imageAlt(product, i = 0, total = 1) {
 }
 function fmt(amount) { return '£' + safeNum(amount).toFixed(2) }
 
-export default function ProductClient({ initialProduct, initialSkus, initialSku, initialShippingSettings, slug, related, colours = EMPTY_LIST }) {
+export default function ProductClient({ initialProduct, initialSkus, initialSku, initialShippingSettings, slug, related, colours = EMPTY_LIST, colourNote }) {
   const router = useRouter()
   const product = initialProduct || null
   const skus = initialSkus || EMPTY_LIST
@@ -271,7 +271,10 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
                     return <li key={colour.id}>
                       {colour.id === product.id
                         ? <span className="current-colour" aria-current="page" aria-label={colour.name} title={colour.name}>{content}</span>
-                        : <Link href={targetSku ? variantUrl(colour.path, { id: targetSku }) : colour.path} prefetch={false} aria-label={colour.name} title={colour.name}>{content}</Link>}
+                        : <Link href={colour.path} prefetch={false} aria-label={colour.name} title={colour.name} onNavigate={targetSku ? event => {
+                          event.preventDefault()
+                          router.push(variantUrl(colour.path, { id: targetSku }))
+                        } : undefined}>{content}</Link>}
                     </li>
                   })}
                 </ul>
@@ -397,6 +400,7 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
             {tab === 'description' && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, alignItems: 'start' }} className="desc-grid">
                 <div style={{ fontSize: 15, fontWeight: 400, lineHeight: 2.2, color: 'var(--taupe)' }}>
+                  {colourNote && <p style={{ marginBottom: 16 }}>{colourNote}</p>}
                   {safe(product.description) ? (
                     <div dangerouslySetInnerHTML={{ __html: product.descriptionHtml || '' }} />
                   ) : (

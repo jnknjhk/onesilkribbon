@@ -1,13 +1,13 @@
 import { supabaseAdmin } from '@osr/core/lib/supabase'
+import { FINE_SILK_CONTENT_UPDATED_AT, fineSilkColourNote } from '@/lib/fine-silk-colour-notes'
 
 // Vercel continued serving the old sitemap after a direct catalogue cutover.
 // Generate this small metadata route from the live catalogue on request.
 export const dynamic = 'force-dynamic'
 
-function modified(value) {
-  if (!value) return {}
-  const date = new Date(value)
-  return Number.isFinite(date.getTime()) ? { lastModified: date } : {}
+function modified(...values) {
+  const latest = Math.max(...values.filter(Boolean).map(value => new Date(value).getTime()).filter(Number.isFinite))
+  return Number.isFinite(latest) ? { lastModified: new Date(latest) } : {}
 }
 
 export default async function sitemap() {
@@ -38,7 +38,7 @@ export default async function sitemap() {
 
   const productPages = (products || []).map(p => ({
     url: `${baseUrl}/collections/${p.collection}/${p.slug}`,
-    ...modified(p.updated_at),
+    ...modified(p.updated_at, fineSilkColourNote(p.collection, p.slug) && FINE_SILK_CONTENT_UPDATED_AT),
     changeFrequency: 'weekly',
     priority: 0.8,
   }))
@@ -51,6 +51,10 @@ export default async function sitemap() {
   const collectionsWithProducts = [...new Set((products || []).map(p => p.collection))].filter(Boolean)
   const collectionPages = collectionsWithProducts.map(slug => ({
     url: `${baseUrl}/collections/${slug}`,
+    ...modified(
+      slug === 'fine-silk-ribbons' && FINE_SILK_CONTENT_UPDATED_AT,
+      ...products.filter(product => product.collection === slug).map(product => product.updated_at),
+    ),
     changeFrequency: 'weekly',
     priority: 0.8,
   }))

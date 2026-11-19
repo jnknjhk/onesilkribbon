@@ -14,7 +14,7 @@ export const metadata = {
 }
 
 const choices = [
-  { title: 'Embroidery and miniature clothing', href: '/collections/fine-silk-ribbons', label: 'Fine silk ribbon',
+  { title: 'Embroidery and miniature clothing', href: '/collections/fine-silk-ribbons', label: 'Browse mulberry silk embroidery ribbon by colour',
     text: 'For a small motif, narrow trim or a bow on miniature clothing, start by measuring the area you want to cover. Our fine mulberry silk ribbon comes in 2mm–13mm widths on 10m spools. Compare the selected width with your project rather than judging scale from a close-up photograph.' },
   { title: 'Bouquets, invitations and wrapping', href: '/collections/hand-frayed-silk-ribbons', label: 'Hand-frayed silk ribbon',
     text: 'A hand-frayed edge gives a softly textured outline. When choosing for a bouquet, consider the width of the handle, the size of the arrangement and how long the ribbon tails should hang. For stationery, make a sample around the complete paper stack, including any envelope or finishing details.' },

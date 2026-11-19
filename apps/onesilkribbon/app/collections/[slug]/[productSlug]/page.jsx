@@ -6,6 +6,7 @@ import { findRenamedProduct } from '@osr/core/lib/product-redirects'
 import { safeProductHtml } from '@/lib/product-content'
 import { selectInitialSku, validSkus, productGroupSchema, variantUrl } from '@/lib/product-variants'
 import { FINE_SILK_COLLECTION, FINE_SILK_SOURCE_SLUG, readFineSilkFamily, fineSilkLegacyTarget, fineSilkColourChoices } from '@/lib/fine-silk-ribbons'
+import { fineSilkColourNote } from '@/lib/fine-silk-colour-notes'
 import { safeJsonLd } from '@/lib/safe-json-ld'
 import { buildMetaDescription } from '@/lib/seo-meta'
 import { shippingSettingsFromApi } from '@/lib/pricing'
@@ -60,7 +61,8 @@ export async function generateMetadata({ params }) {
   // 而且商品描述第一行往往是「色号 | 品类名」，跟 <title> 完全重复，
   // 白白吃掉 40 多个字符的摘要空间。buildMetaDescription 会跳过标题回声、
   // 归一化换行，并在句子或词边界收尾。
-  const description = buildMetaDescription(product.description, {
+  const colourNote = fineSilkColourNote(product.collection, product.slug)
+  const description = buildMetaDescription(colourNote || product.description, {
     productName: product.name,
     fallback: `Explore ${product.name} from One Silk Ribbon. Check available options, prices and delivery information on the product page.`,
   })
@@ -132,6 +134,7 @@ export default async function ProductPage({ params, searchParams }) {
   const initialSku = selectInitialSku(purchasableSkus, typeof query?.sku === 'string' ? query.sku : '')
   const family = slug === FINE_SILK_COLLECTION ? await readFineSilkFamily(supabaseServer) : null
   const colours = family?.colours[product.id] ? await fineSilkColourChoices(supabaseServer, family) : []
+  const colourNote = fineSilkColourNote(product.collection, product.slug)
   const group = colours.length ? {
     id: family.id,
     name: family.name,
@@ -241,7 +244,7 @@ export default async function ProductPage({ params, searchParams }) {
           ]) }}
         />
       )}
-      <ProductClient key={`${product.id}:${initialSku?.id || ''}`} initialProduct={{ ...product, descriptionHtml: safeProductHtml(product.description) }} initialSkus={purchasableSkus} initialSku={initialSku} initialShippingSettings={settings} slug={productSlug} related={related} colours={colours} />
+      <ProductClient key={`${product.id}:${initialSku?.id || ''}`} initialProduct={{ ...product, descriptionHtml: safeProductHtml(product.description) }} initialSkus={purchasableSkus} initialSku={initialSku} initialShippingSettings={settings} slug={productSlug} related={related} colours={colours} colourNote={colourNote} />
     </>
   )
 }

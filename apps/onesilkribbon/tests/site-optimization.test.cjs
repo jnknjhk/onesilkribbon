@@ -12,19 +12,30 @@ test('sitemap keeps real dates and rejects a database outage instead of silently
   globalThis.__sitemapDb = { from: table => ({ select: () => ({ eq: async () => failed
     ? { data: null, error: { message: 'private database failure' } }
     : { data: table === 'products'
-      ? [{ slug: 'ribbon', collection: 'silk', updated_at: '2026-01-02' }, { slug: 'bow', collection: 'silk', updated_at: 'invalid' }]
+      ? [
+        { slug: 'ribbon', collection: 'silk', updated_at: '2026-01-02' },
+        { slug: 'bow', collection: 'silk', updated_at: 'invalid' },
+        { slug: 'mulberry-silk-ribbon-cloud-white', collection: 'fine-silk-ribbons', updated_at: '2026-10-01' },
+      ]
       : [{ slug: 'story', updated_at: null }, { slug: 'halloween-silk-ribbon-ideas', updated_at: '2026-10-28T04:05:00.000Z' }] } }) }) }
   try {
+    const notesModule = 'data:text/javascript;base64,' + Buffer.from(read('lib/fine-silk-colour-notes.js')).toString('base64')
     const { default: sitemap } = await load(read('app/sitemap.js')
-      .replace("import { supabaseAdmin } from '@osr/core/lib/supabase'", 'const supabaseAdmin = globalThis.__sitemapDb'))
+      .replace("import { supabaseAdmin } from '@osr/core/lib/supabase'", 'const supabaseAdmin = globalThis.__sitemapDb')
+      .replace('@/lib/fine-silk-colour-notes', notesModule))
     const result = await sitemap()
     assert.equal(result.find(row => row.url.endsWith('/silk/ribbon')).lastModified.toISOString(), '2026-01-02T00:00:00.000Z')
+    assert.equal(result.find(row => row.url.endsWith('/collections/silk')).lastModified.toISOString(), '2026-01-02T00:00:00.000Z')
+    const { FINE_SILK_CONTENT_UPDATED_AT } = await import(notesModule)
+    for (const suffix of ['/collections/fine-silk-ribbons', '/mulberry-silk-ribbon-cloud-white']) {
+      assert.equal(result.find(row => row.url.endsWith(suffix)).lastModified.toISOString().slice(0, 10), FINE_SILK_CONTENT_UPDATED_AT)
+    }
     assert.ok(result.some(row => row.url.endsWith('/journal/story')))
     assert.equal(result.filter(row => row.url.endsWith('/collections/silk')).length, 1)
     const halloween = result.filter(row => row.url.endsWith('/journal/halloween-silk-ribbon-ideas'))
     assert.equal(halloween.length, 1)
     assert.equal(halloween[0].lastModified.toISOString(), '2026-10-28T04:05:00.000Z')
-    assert.equal(result.filter(row => row.lastModified).length, 2)
+    assert.equal(result.filter(row => row.lastModified).length, 5)
     failed = true
     await assert.rejects(sitemap, /Unable to generate sitemap/)
   } finally { delete globalThis.__sitemapDb }

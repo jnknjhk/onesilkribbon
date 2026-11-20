@@ -174,3 +174,16 @@ test('PayPal denied or declined capture releases a pending reservation', async (
     assert.deepEqual(h.rpc, [{ name: 'release_failed_paypal_capture', args: { p_paypal_order_id: 'PP1' } }])
   }
 })
+
+test('PayPal approval webhook captures only a pending matching PayPal order', async () => {
+  const event = { event_type: 'CHECKOUT.ORDER.APPROVED', resource: { id: 'PP1' } }
+  const ready = paypalRoute(event, { order: { status:'pending', payment_method:'paypal' } })
+  assert.equal((await ready.POST(ready.req())).status, 200)
+  assert.deepEqual(ready.recovered, [['OSR-1','PP1']])
+  for (const options of [{ session:null }, {order:{status:'cancelled',payment_method:'paypal'}},
+    {order:{status:'pending',payment_method:'stripe'}}, {verify:'FAILURE'}]) {
+    const ignored = paypalRoute(event, options)
+    assert.equal((await ignored.POST(ignored.req())).status, options.verify ? 400 : 200)
+    assert.deepEqual(ignored.recovered, [])
+  }
+})

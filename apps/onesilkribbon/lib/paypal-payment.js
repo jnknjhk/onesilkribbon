@@ -78,7 +78,15 @@ export async function recoverPayPal(orderNumber, token, { capture = true, notify
   }
   // Always retrieve first: an earlier request may have captured successfully before timing out.
   let data = await readProvider()
-  if (data.status !== 'COMPLETED' && capture && data.status === 'APPROVED') {
+  if (data.status === 'APPROVED' && capture) {
+    const units = data.purchase_units
+    const amount = units?.[0]?.amount
+    const expectedPence = Math.round(Number(saved?.total_gbp ?? parse(session.totals)?.total) * 100)
+    if (data.id !== token || units?.length !== 1 || units[0].reference_id !== orderNumber ||
+        amount?.currency_code !== 'GBP' || !(expectedPence > 0) ||
+        Math.round(Number(amount.value) * 100) !== expectedPence) {
+      throw new Error('Approved PayPal order identity or amount mismatch')
+    }
     // Serialize capture eligibility against cancellation before making the external call.
     const { error: captureError } = await supabaseAdmin.rpc('begin_paypal_capture', { p_order_number: orderNumber })
     if (captureError) throw captureError

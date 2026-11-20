@@ -6,7 +6,7 @@ import { supabaseAdmin } from '@osr/core/lib/supabase'
 // 日志没记上是小问题，因为记日志失败反而让调用方报错才是大问题。
 export async function logEmail({ kind, to, subject, orderNumber, status, error, providerId }) {
   try {
-    await supabaseAdmin.from('email_log').insert({
+    const { error: writeError } = await supabaseAdmin.from('email_log').insert({
       kind,
       to_email:     Array.isArray(to) ? to.join(', ') : String(to || ''),
       subject:      subject || null,
@@ -15,6 +15,7 @@ export async function logEmail({ kind, to, subject, orderNumber, status, error, 
       error:        error ? String(error).slice(0, 500) : null,
       provider_id:  providerId || null,
     })
+    if (writeError) throw writeError
   } catch (e) {
     console.error('[logEmail] 写入失败（不影响发信）:', e.message)
   }

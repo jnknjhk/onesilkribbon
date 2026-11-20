@@ -126,7 +126,7 @@ function paypalBindings(overrides = {}) {
   const session={paypal_order_id:'PP1',items:JSON.stringify(items),form:'{}',totals:'{}'}
   return {
     supabaseAdmin:{ rpc:async()=>({error:null}), from(table){ const q={select(){return q},eq(){return q},maybeSingle:async()=>({data:
-      table==='paypal_sessions'?session:table==='payment_checkouts'?{order_number:'pp-order'}:{status:'pending'}})};return q } },
+      table==='paypal_sessions'?session:table==='payment_checkouts'?{order_number:'pp-order'}:{status:'pending',total_gbp:'20.00'}})};return q } },
     recordPayment:async()=>{},completeOrder:async()=>{},deliverNotifications:async()=>{},
     fetch:async url=>Response.json(url.endsWith('token')?{access_token:'access'}:{
       id:'PP1',status:'COMPLETED',purchase_units:[{reference_id:'pp-order',payments:{captures:[{
@@ -156,7 +156,7 @@ test('PayPal capture response lost after payment: retrieve state and recover',as
   const recover=loadRoute('lib/paypal-payment.js',paypalBindings({
     fetch:async(url,opts)=>{
       if(url.endsWith('/capture')){captures++;paid=true;throw Error('connection lost')}
-      if(!url.endsWith('token')&&!paid)return Response.json({id:'PP1',status:'APPROVED'})
+      if(!url.endsWith('token')&&!paid)return Response.json({id:'PP1',status:'APPROVED',purchase_units:[{reference_id:'pp-order',amount:{value:'20.00',currency_code:'GBP'}}]})
       return defaults.fetch(url,opts)
     },completeOrder:async()=>{completed++},
   }),'recoverPayPal')
@@ -210,4 +210,22 @@ test('Stripe binding failure expires the session and never returns its URL',asyn
   const response=await POST({json:async()=>({items,form:{email:'customer@example.com'}})})
   assert.equal(response.status,503);assert.equal(expired,1);assert.equal((await response.json()).url,undefined)
   assert.match(cancelUrl,/\/api\/stripe\/cancel\?order=binding&proof=cancel-proof/)
+})
+
+test('PayPal never captures an approved order before validating identity, currency and amount', async () => {
+  const unit = {reference_id:'pp-order',amount:{value:'20.00',currency_code:'GBP'}}
+  const approved = {id:'PP1',status:'APPROVED',purchase_units:[unit]}
+  for (const data of [{...approved,id:'WRONG'}, {...approved,purchase_units:[{...unit,reference_id:'other'}]},
+    {...approved,purchase_units:[{...unit,amount:{value:'19.99',currency_code:'GBP'}}]},
+    {...approved,purchase_units:[{...unit,amount:{value:'20.00',currency_code:'USD'}}]}]) {
+    let capture = 0
+    const recover = loadRoute('lib/paypal-payment.js',paypalBindings({
+      fetch: async url => {
+        if (url.endsWith('/capture')) capture++
+        return Response.json(url.endsWith('/token') ? {access_token:'access'} : data)
+      },
+    }),'recoverPayPal')
+    await assert.rejects(recover('pp-order','PP1'), /identity or amount mismatch/)
+    assert.equal(capture,0)
+  }
 })

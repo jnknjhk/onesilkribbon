@@ -2,6 +2,7 @@
 // 订单详情：有自己的网址（刷新不丢、能发给别人），顶部固定的操作栏只显示当前状态下该做的事。
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import EmailDeliveryStatus from '../EmailDeliveryStatus'
 import { api } from '../../lib/api'
 import { money, dateTime } from '../../lib/format'
 import { ORDER_STATUS, ORDER_TABS, CAN } from '../../lib/status'
@@ -212,15 +213,16 @@ function Timeline({ order, events, emails }) {
     order.delivered_at && { at: order.delivered_at, title: '已送达' },
     order.cancelled_at && { at: order.cancelled_at, title: '订单已取消', meta: order.cancel_reason },
     order.status === 'refunded' && { at: null, title: '已退款', meta: order.refund_reason },
-    ...(emails || []).map(m => ({ at: m.created_at, title: `${EMAIL_KIND[m.kind] || m.kind}${m.status === 'failed' ? '（发送失败）' : ''}`, meta: m.status === 'failed' ? m.error : m.to_email, failed: m.status === 'failed', email: true })),
+    ...(emails || []).map(m => ({ at: m.created_at, title: `${EMAIL_KIND[m.kind] || m.kind}${m.status === 'failed' ? '（发送失败）' : ''}`, meta: m.status === 'failed' ? m.error : m.to_email, failed: m.status === 'failed', email: m })),
   ].filter(Boolean).sort((a, b) => (a.at ? new Date(a.at) : Infinity) - (b.at ? new Date(b.at) : Infinity))
 
   return (
     <ul className={s.timeline}>
       {steps.map((st, i) => (
-        <li key={i} className={cx(!st.email && s.timelineDone)}>
+        <li key={st.email?.id || i} className={cx(!st.email && s.timelineDone)}>
           <div className={cx(s.timelineTitle, st.failed && s.textDanger)}>{st.title}</div>
           <div className={s.timelineMeta}>{st.at ? dateTime(st.at) : ''}{st.meta ? `${st.at ? ' · ' : ''}${st.meta}` : ''}</div>
+          {st.email && !st.failed && <EmailDeliveryStatus mail={st.email} />}
         </li>
       ))}
     </ul>

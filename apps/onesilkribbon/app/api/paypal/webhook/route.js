@@ -96,6 +96,21 @@ export async function POST(req) {
   }
 
   try {
+    if (event.event_type === 'CHECKOUT.ORDER.APPROVED') {
+      const paypalOrderId = event.resource?.id
+      const session = await sessionForPayPalOrder(paypalOrderId)
+      if (!session) return received()
+
+      const { data: order, error } = await supabaseAdmin.from('orders')
+        .select('status,payment_method').eq('order_number', session.order_number).maybeSingle()
+      if (error) throw error
+      if (order?.payment_method === 'paypal' && order.status === 'pending') {
+        // Use the same verified, idempotent capture path as the buyer's return.
+        await recoverPayPal(session.order_number, paypalOrderId)
+      }
+      return received()
+    }
+
     if (event.event_type === 'PAYMENT.CAPTURE.COMPLETED') {
       const paypalOrderId = event.resource?.supplementary_data?.related_ids?.order_id
       const session = await sessionForPayPalOrder(paypalOrderId)

@@ -73,7 +73,7 @@ async function orderDetail(number) {
   const [itemsRes, eventsRes, emailsRes] = await Promise.all([
     supabaseAdmin.from('order_items').select('*').eq('order_id', order.id),
     supabaseAdmin.from('tracking_events').select('*').eq('order_id', order.id).order('event_time', { ascending: true }),
-    supabaseAdmin.from('email_log').select('id, kind, to_email, subject, status, error, created_at')
+    supabaseAdmin.from('email_log').select('id, kind, to_email, subject, status, error, created_at, provider_id')
       .eq('order_number', order.order_number).order('created_at', { ascending: true }),
   ])
   if (itemsRes.error) return errorResponse(itemsRes.error, { tag: 'admin-order-items' })

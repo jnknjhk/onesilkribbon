@@ -304,3 +304,24 @@ test('confirmation resend preserves the saved discount and stops if reading item
   assert.equal(sent[0].totals.discount,'5')
   assert.equal(sent[0].items[0].skuDesc,'Soft Pink')
 })
+
+test('mail status checks live delivery for an authenticated saved record without exposing provider data', async () => {
+  const filename='apps/onesilkribbon/admin/api/emails.js'
+  const id='a0000000-0000-4000-8000-000000000001'
+  const db=database(()=>({data:{provider_id:'resend-id'}}))
+  const requests=[]
+  const bindings={supabaseAdmin:db, errorResponse:safeError, process:{env:{RESEND_API_KEY:'test-key'}},
+    fetch:async (url)=>{requests.push(url);return Response.json({last_event:'bounced',to:['private@example.test']})}}
+  const request={url:'https://example.test/api/admin/emails?deliveryId='+id}
+  const denied=load(filename,{...bindings,verifyAdmin:async()=>false},'GET')
+  assert.equal((await denied(request)).status,401)
+  assert.equal(requests.length,0)
+  const allowed=load(filename,{...bindings,verifyAdmin:async()=>true},'GET')
+  assert.equal((await allowed({url:'https://example.test/api/admin/emails?deliveryId=resend-id'})).status,400)
+  const result=await allowed(request)
+  assert.deepEqual(await result.json(),{event:'bounced'})
+  assert.equal(result.headers.get('cache-control'),'private, no-store')
+  assert.deepEqual(requests,['https://api.resend.com/emails/resend-id'])
+  assert.deepEqual(db.calls[0].filters,[['id',id]])
+  assert.equal(db.calls[0].operation,'read')
+})

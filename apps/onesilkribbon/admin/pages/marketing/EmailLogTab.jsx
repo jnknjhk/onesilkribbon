@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import EmailDeliveryStatus from '../EmailDeliveryStatus'
 import { dateTime } from '../../lib/format'
 import { useListRequest } from '../../lib/use-list-request'
 import {
@@ -50,7 +51,7 @@ export default function EmailLogTab({ get, set }) {
         </Select>
         <Select value={status} onChange={e => set({ status: e.target.value, page: 1 })} style={{ width: 130 }}>
           <option value="">全部状态</option>
-          <option value="sent">已发送</option>
+          <option value="sent">发信服务已接收</option>
           <option value="failed">发送失败</option>
         </Select>
       </div>
@@ -69,7 +70,7 @@ export default function EmailLogTab({ get, set }) {
               ? <Link href={`/admin/orders/${encodeURIComponent(m.order_number)}`} className={s.mono}>{m.order_number}</Link> : '—') },
             { key: 'st', header: '状态', render: m => (m.status === 'failed'
               ? <span title={m.error || ''}><Badge tone="danger">发送失败</Badge>{m.error && <div className={s.cellSub} style={{ maxWidth: 220 }}>{m.error}</div>}</span>
-              : <Badge tone="success">已发送</Badge>) },
+              : <EmailDeliveryStatus key={m.id} mail={m} />) },
             { key: 't', header: '时间', align: 'right', render: m => <span className={s.muted}>{dateTime(m.created_at)}</span> },
           ]} />
         {data && <Pager page={page} totalPages={data.totalPages} total={data.total} unit="封" onChange={p => set({ page: p })} />}

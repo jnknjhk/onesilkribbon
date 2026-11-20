@@ -40,7 +40,7 @@ const COUNTRIES = [
   { code:'BE', name:'Belgium',         dialCode:'+32',  continent:'Europe',       postcodeReg:/^[0-9]{4}$/,                                   postcodeTip:'1000',       phoneReg:/^[0-9]{8,10}$/,  noPostcode:false },
   { code:'AT', name:'Austria',         dialCode:'+43',  continent:'Europe',       postcodeReg:/^[0-9]{4}$/,                                   postcodeTip:'1010',       phoneReg:/^[0-9]{7,13}$/,  noPostcode:false },
   { code:'DK', name:'Denmark',         dialCode:'+45',  continent:'Europe',       postcodeReg:/^[0-9]{4}$/,                                   postcodeTip:'1050',       phoneReg:/^[0-9]{8}$/,     noPostcode:false },
-  { code:'IE', name:'Ireland',         dialCode:'+353', continent:'Europe',       postcodeReg:/^[A-Z][0-9]{2}\s*[A-Z0-9]{4}$/i,               postcodeTip:'D01 F5P2',   phoneReg:/^[0-9]{9,10}$/,  noPostcode:false },
+  { code:'IE', name:'Ireland',         dialCode:'+353', continent:'Europe',       postcodeReg:/^(?:[A-Z][0-9]{2}|D6W)\s*[A-Z0-9]{4}$/i,               postcodeTip:'D01 F5P2',   phoneReg:/^[0-9]{9,10}$/,  noPostcode:false },
   { code:'CH', name:'Switzerland',     dialCode:'+41',  continent:'Europe',       postcodeReg:/^[0-9]{4}$/,                                   postcodeTip:'8001',       phoneReg:/^[0-9]{9,10}$/,  noPostcode:false },
   { code:'CN', name:'China',           dialCode:'+86',  continent:'Asia Pacific', postcodeReg:/^[0-9]{6}$/,                                   postcodeTip:'100000',     phoneReg:/^1[3-9][0-9]{9}$/,noPostcode:false },
   { code:'HK', name:'Hong Kong',       dialCode:'+852', continent:'Asia Pacific', postcodeReg:/^.*$/,                                         postcodeTip:'(none)',     phoneReg:/^[0-9]{8}$/,     noPostcode:true  },

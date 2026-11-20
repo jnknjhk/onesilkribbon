@@ -102,6 +102,7 @@ NEXT_PUBLIC_SITE_URL = https://onesilkribbon.com
 1. 登录 [developer.paypal.com](https://developer.paypal.com) → 你的 App → **Webhooks**
 2. 添加 Webhook，URL 填入：`https://onesilkribbon.com/api/paypal/webhook`
 3. 选择事件：
+   - `CHECKOUT.ORDER.APPROVED`
    - `PAYMENT.CAPTURE.COMPLETED`
    - `PAYMENT.CAPTURE.DENIED`
    - `PAYMENT.CAPTURE.DECLINED`

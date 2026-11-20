@@ -76,3 +76,11 @@ test('status endpoint verifies scoped cookie, reports pending and never leaks cu
     assert.equal((await GET(new Request('https://example.com/api/order-status?order=OSR-TEST'))).status, 400)
   } finally { delete globalThis.__statusDb; delete globalThis.__statusProofs }
 })
+
+test('the Irish checkout accepts Dublin 6W and standard routing keys', () => {
+  const source = fs.readFileSync(path.join(__dirname,'../app/checkout/page.jsx'),'utf8')
+  const pattern = source.match(/code:'IE'[^\n]+postcodeReg:\/(.*?)\/i/)[1]
+  const valid = new RegExp(pattern,'i')
+  for (const value of ['D6W A1B2','d6wa1b2','D01 F5P2']) assert.equal(valid.test(value),true)
+  for (const value of ['D7W A1B2','A6W A1B2','D6W']) assert.equal(valid.test(value),false)
+})

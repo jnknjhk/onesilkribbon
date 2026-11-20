@@ -70,15 +70,25 @@ test('Stripe confirmation checks provider identity, amount, paid status and loca
 
 test('PayPal callback issues proof only after successful recovery and never puts it in Location',async()=>{
   let fail=false
+  const deferred = []
   const {GET}=load(read('app/api/paypal/capture/route.js'),{
-    confirmationResponse,recoverPayPal:async()=>{if(fail)throw Error('pending')},
+    confirmationResponse,
+    recoverPayPal: async (_, __, options) => {
+      assert.deepEqual(options, { notify: false })
+      if (fail) throw Error('pending')
+    },
+    after: task => deferred.push(task),
+    deliverNotifications: async () => { throw Error('mail service unavailable') },
     errorResponse:()=>Response.json({error:'retry'},{status:503}),
   },'GET')
   const req=new Request('https://onesilkribbon.com/api/paypal/capture?token=PP-TEST&order=OSR-TEST')
   const result=await GET(req)
   assert.equal(result.status,303);assert.doesNotMatch(result.headers.get('location'),/proof|token|PP-TEST/)
+  assert.equal(deferred.length, 1)
+  await assert.rejects(deferred[0](), /mail service unavailable/)
   fail=true
   assert.equal((await GET(req)).status,503)
+  assert.equal(deferred.length, 1)
 })
 
 test('Stripe outages show retry guidance without issuing a cookie or falsely rejecting a payment',async()=>{

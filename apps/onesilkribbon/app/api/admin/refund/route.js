@@ -22,7 +22,7 @@ export async function POST(req) {
       p_reason: String(reason || (manual ? '已在支付平台手动退款' : '')).slice(0, 2000),
     })
     if (beginError) throw beginError
-    if (!manual && !request.completed_at) {
+    if (!manual && !request.completed_at && request.provider_status !== 'succeeded') {
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
       let intent = order.payment_intent_id
       if (intent?.startsWith('cs_')) intent = (await stripe.checkout.sessions.retrieve(intent)).payment_intent

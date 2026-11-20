@@ -108,18 +108,11 @@ export async function POST(req) {
 
     if (['PAYMENT.CAPTURE.DENIED', 'PAYMENT.CAPTURE.DECLINED', 'PAYMENT.CAPTURE.FAILED'].includes(event.event_type)) {
       const paypalOrderId = event.resource?.supplementary_data?.related_ids?.order_id
-      const session = await sessionForPayPalOrder(paypalOrderId)
-      if (session?.order_number) {
-        const { data: order, error } = await supabaseAdmin.from('orders')
-          .select('status').eq('order_number', session.order_number).maybeSingle()
+      if (paypalOrderId) {
+        const { error } = await supabaseAdmin.rpc('release_failed_paypal_capture', {
+          p_paypal_order_id: paypalOrderId,
+        })
         if (error) throw error
-        if (order?.status === 'pending') {
-          const { error: releaseError } = await supabaseAdmin.rpc('release_checkout_reservation', {
-            p_order_number: session.order_number,
-            p_reason: 'PayPal 付款失败',
-          })
-          if (releaseError) throw releaseError
-        }
       }
       return received()
     }

@@ -44,7 +44,7 @@ before(async()=>{
     create table newsletter_subscribers(id uuid primary key default gen_random_uuid(),email text);
     grant all on orders,order_items,newsletter_subscribers to public,anon,authenticated;
     create policy "Old dashboard allow all" on orders for all using(true) with check(true);
-    create table paypal_sessions(id uuid primary key default gen_random_uuid(),order_number text);
+    create table paypal_sessions(id uuid primary key default gen_random_uuid(),order_number text,paypal_order_id text);
     insert into products values('${product}','Silk',true);
     insert into product_skus values('${sku}','${product}',100,10,true),('${lastSku}','${product}',1,10,true);
     insert into coupons values('ONCE','One use','percentage',10,0,1,0,true,null);
@@ -55,6 +55,9 @@ before(async()=>{
   }
   const security=fs.readFileSync(path.join(__dirname,'../supabase/migrations/2026-10-16-audit-security.sql'),'utf8')
   await db.exec(security);await db.exec(security)
+  for (const name of ['2026-11-07-payment-refunds.sql','2026-11-20-payment-recovery-fixes.sql']) {
+    await db.exec(fs.readFileSync(path.join(__dirname,'../supabase/migrations',name),'utf8'))
+  }
 })
 after(async()=>{await db?.close()})
 test('two checkouts competing for the last item: only one gets a reservation',async()=>{
@@ -292,4 +295,45 @@ test('cannot release Stripe reservation while provider still reports a payable l
   },'cancelUnpaidOrder')
   await assert.rejects(cancel({status:'pending',payment_method:'stripe',payment_intent_id:'cs_test'},'test'))
   assert.equal(releases,0)
+})
+
+test('terminal PayPal failure releases a capture reservation once, unless verified payment exists', async () => {
+  const initial = await stock()
+  for (const orderNumber of ['declined-capture', 'declined-with-receipt']) {
+    await db.query('select prepare_payment_checkout($1::jsonb,$2::jsonb)', [
+      JSON.stringify({ ...record(orderNumber,[item()]), payment_method:'paypal', managedCapture:true }),
+      JSON.stringify([item()]),
+    ])
+    await db.query('insert into paypal_sessions(order_number,paypal_order_id) values ($1,$1)', [orderNumber])
+    await db.query('select begin_paypal_capture($1)', [orderNumber])
+  }
+  await db.query("insert into payment_receipts(provider,payment_id,order_number,amount_pence,currency,evidence) values ('paypal','cap_paid','declined-with-receipt',2000,'GBP','{}')")
+  for (const orderNumber of ['declined-capture', 'declined-capture', 'declined-with-receipt']) {
+    await db.query('select release_failed_paypal_capture($1)', [orderNumber])
+  }
+  const { rows } = await db.query("select o.status, r.state from orders o join checkout_reservations r using(order_number) where o.order_number like 'declined-%' order by o.order_number")
+  assert.deepEqual(rows, [
+    { status:'cancelled', state:'released' },
+    { status:'pending', state:'capturing' },
+  ])
+  assert.equal(await stock(), initial-2)
+  const permission = await db.query("select has_function_privilege('anon','release_failed_paypal_capture(text)','execute') as allowed")
+  assert.equal(permission.rows[0].allowed, false)
+})
+
+test('refund webhook arriving first preserves and applies the requested restock exactly once', async () => {
+  const initial = await stock()
+  await prepare('refund-webhook-first')
+  const paid = await complete('refund-webhook-first','pi_webhook_first')
+  const orderId = paid.rows[0].result.id
+  await db.query("select begin_order_refund($1,false,true,'Requested return')", [orderId])
+  await db.query("select record_external_refund('stripe','re_webhook_first','refund-webhook-first','pi_webhook_first',2000,'GBP',true)")
+  assert.equal(await stock(), initial-2)
+  const pending = await db.query('select completed_at from refund_requests where order_id=$1', [orderId])
+  assert.equal(pending.rows[0].completed_at, null)
+  const finished = await db.query('select finish_order_refund($1) as result', [orderId])
+  assert.equal(finished.rows[0].result.restocked.ok, 2)
+  assert.equal(finished.rows[0].result.order.refund_reason, 'Requested return')
+  await db.query('select finish_order_refund($1)', [orderId])
+  assert.equal(await stock(), initial)
 })

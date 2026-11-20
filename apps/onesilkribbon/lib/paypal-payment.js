@@ -32,7 +32,7 @@ export async function getPayPalOrder(token) {
   return result.json()
 }
 
-export async function recoverPayPal(orderNumber, token, { capture = true } = {}) {
+export async function recoverPayPal(orderNumber, token, { capture = true, notify = true } = {}) {
   const { data: session, error: readError } = await supabaseAdmin.from('paypal_sessions')
     .select('*').eq('order_number', orderNumber).maybeSingle()
   if (readError) throw readError
@@ -102,6 +102,6 @@ export async function recoverPayPal(orderNumber, token, { capture = true } = {})
   await recordPayment({ provider: 'paypal', paymentId: payment.id, orderNumber,
     amountPence, currency: payment.amount?.currency_code, evidence: data })
   await completeOrder('paypal', payment.id)
-  await deliverNotifications(orderNumber)
+  if (notify) await deliverNotifications(orderNumber)
   // Keep the session and evidence for reconciliation; never delete after partial failure.
 }

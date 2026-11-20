@@ -67,6 +67,9 @@ export default function OrderDetail({ number }) {
         )}
         {!erased && <ButtonLink icon="mail" href={`/admin/marketing?tab=email&order=${encodeURIComponent(order.order_number)}`}>给顾客发邮件</ButtonLink>}
         {!erased && CAN.resend(order.status) && <Button variant="ghost" icon="send" onClick={() => setModal('resend')}>重发确认邮件</Button>}
+        {!erased && ['shipped', 'delivered'].includes(order.status) && order.tracking_number && order.tracking_carrier && (
+          <Button variant="ghost" icon="send" onClick={() => setModal('resend-shipping')}>重发发货通知</Button>
+        )}
         <span style={{ flex: 1 }} />
         {CAN.refund(order.status) && <Button variant="dangerGhost" icon="refund" onClick={() => setModal('refund')}>退款</Button>}
         {CAN.cancel(order.status) && <Button variant="dangerGhost" icon="x" onClick={() => setModal('cancel')}>取消订单</Button>}
@@ -158,6 +161,16 @@ export default function OrderDetail({ number }) {
         onConfirm={async () => {
           try { await api('/api/admin/resend-order-email', { method: 'POST', body: { orderId: order.id } }); toast.success('确认邮件已重新发送'); done() }
           catch (e) { toast.error('发送失败：' + e.message) }
+        }} />
+      <ConfirmDialog open={modal === 'resend-shipping'} title="重发发货通知"
+        message={`将使用订单中保存的物流信息，发送发货通知给 ${order.customer_email}。`} confirmLabel="发送"
+        onCancel={() => setModal(null)}
+        onConfirm={async () => {
+          try {
+            await api('/api/admin/resend-shipping-email', { method: 'POST', body: { orderId: order.id } })
+            toast.success('发货通知已重新发送')
+            done()
+          } catch (e) { toast.error('发送失败：' + e.message) }
         }} />
       <ConfirmDialog open={modal === 'deliver'} title="确认已送达" confirmLabel="确认送达"
         message="物流没有自动回传签收时，用这个手动把订单标记为已送达。"
@@ -253,7 +266,7 @@ function ShipModal({ order, onClose, onDone }) {
                 orderNumber: order.order_number, trackingNumber: value.trackingNumber.trim(),
                 carrier: carrierName(value), trackingUrl: value.trackingUrl.trim(),
               } })
-              if (res.emailSent === false) toast.error('已标记发货，但通知邮件没发出去（可在邮件记录里查看原因）')
+              if (res.emailSent === false) toast.error('已标记发货，但通知邮件没发出去。可使用「重发发货通知」重试。')
               else toast.success(editing ? '快递信息已更新，已重新通知顾客' : '已发货，已通知顾客')
               if (res.historySaved === false) toast.error('发货信息已保存，但物流历史记录未保存，请核对；无需重复发货')
               onDone()

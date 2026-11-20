@@ -1,4 +1,6 @@
 import Stripe from 'stripe'
+import { after } from 'next/server'
+import { recordPayment, completeOrder, deliverNotifications } from '@/lib/payment-orders'
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { confirmationResponse } from '@/lib/confirmation-response'
 import { paymentProofDetails, checkoutReference } from '@/lib/payment-proof'
@@ -26,13 +28,19 @@ export async function GET(req) {
   try {
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY,{timeout:15000,maxNetworkRetries:1})
     const session = await stripe.checkout.sessions.retrieve(sessionId)
-    const {data:saved,error} = await supabaseAdmin.from('orders').select('payment_method,payment_intent_id,total_gbp')
+    const {data:saved,error} = await supabaseAdmin.from('orders').select('payment_method,payment_intent_id,total_gbp,status')
       .eq('order_number',order).maybeSingle()
     const paymentId = typeof session.payment_intent==='string' ? session.payment_intent : session.payment_intent?.id
     if (error) return pending()
-    if (!saved || saved.payment_method!=='stripe' || session.metadata?.orderNumber!==order ||
+    if (!saved || !paymentId || saved.payment_method!=='stripe' || session.metadata?.orderNumber!==order ||
       session.payment_status!=='paid' || session.currency!=='gbp' || session.amount_total!==Math.round(Number(saved.total_gbp)*100) ||
       ![session.id,paymentId].includes(saved.payment_intent_id)) return failure()
-    return confirmationResponse(req,order,checkoutReference(sessionId))
+    if (saved.status === 'pending') {
+      await recordPayment({ provider: 'stripe', paymentId, orderNumber: order,
+        amountPence: session.amount_total, currency: 'GBP', evidence: { recovered_session: session } })
+      await completeOrder('stripe', paymentId)
+    }
+    after(() => deliverNotifications(order))
+    return confirmationResponse(req, order, checkoutReference(sessionId))
   } catch (error) { return error?.code==='resource_missing' ? failure() : pending() }
 }

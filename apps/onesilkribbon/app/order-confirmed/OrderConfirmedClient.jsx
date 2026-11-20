@@ -37,13 +37,13 @@ function OrderConfirmedContent() {
     if (status !== 'confirmed') return
     let active = true
     const cleanBasket = async () => { try {
-      const saved = JSON.parse(sessionStorage.getItem('osr-checkout-basket') || 'null')
-      if (!saved?.sessionId || !checkoutRef) return
-      const digest = await crypto.subtle.digest('SHA-256',new TextEncoder().encode(saved.sessionId))
+      const snapshot = sessionStorage.getItem('osr-checkout-basket')
+      const saved = JSON.parse(snapshot || 'null')
+      const providerReference = saved?.sessionId || saved?.token
+      if (!providerReference || !checkoutRef) return
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(providerReference))
       const reference = [...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,'0')).join('')
-      const stripeMatch = reference === checkoutRef
-      if (!stripeMatch) return
-      if (!active) return
+      if (!active || reference !== checkoutRef || sessionStorage.getItem('osr-checkout-basket') !== snapshot) return
       if (JSON.stringify(useCart.getState().items) === JSON.stringify(saved.items)) useCart.getState().clearCart()
       sessionStorage.removeItem('osr-checkout-basket')
     } catch {} }

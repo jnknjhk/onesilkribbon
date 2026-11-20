@@ -39,5 +39,5 @@ export const CAN = {
   deliver: s => s === 'shipped',
   refund:  s => s === 'paid' || s === 'shipped' || s === 'delivered',
   cancel:  s => s === 'pending',                    // 已付款的订单走退款，不能直接"取消"
-  resend:  s => s !== 'pending',
+  resend:  s => REVENUE_STATUSES.includes(s),
 }

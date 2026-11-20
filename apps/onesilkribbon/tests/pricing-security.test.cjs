@@ -8,6 +8,7 @@ function load(file, bindings, names) {
     .replace(/^import .*$/gm, '').replace(/export /g, '')
   return new Function(...Object.keys(bindings), source + `;return {${names}}`)(...Object.values(bindings))
 }
+const { skuAttributes } = load('lib/product-variants.js', {}, 'skuAttributes')
 const money = load('lib/pricing.js', {}, 'gbpToPence,penceToGBP,calculateTotals,cartSubtotalPence,couponDiscountPence,SHIPPING_RATE,FREE_SHIPPING_THRESHOLD')
 function pricingMock(overrides = {}) {
   const rows = {
@@ -22,7 +23,7 @@ function pricingMock(overrides = {}) {
     const query = { select() { return query }, eq() { return query }, in: async () => result(), single: async () => result() }
     return query
   } }
-  return load('lib/order-pricing.js', { ...money, supabaseAdmin }, 'computeAuthoritativeOrder').computeAuthoritativeOrder
+  return load('lib/order-pricing.js', { ...money, supabaseAdmin, skuAttributes }, 'computeAuthoritativeOrder').computeAuthoritativeOrder
 }
 test('currency rounds decimal ties away from zero and sums exact decimals', () => {
   assert.equal(money.gbpToPence('1.005'), 101)
@@ -124,5 +125,41 @@ test('search alias cannot broaden literal matches; long queries and database fai
   assert.equal(empty.calls.length, 0)
   for (const options of [{ error: true }, { reject: true }]) {
     assert.deepEqual(await (await searchMock(options).GET({ url: 'https://example.test/?q=silk' })).json(), [])
+  }
+})
+
+test('order pricing saves custom SKU options from the catalogue, including legacy defaults', async () => {
+  const price = pricingMock({
+    products: [{ id:'product', name:'Silk', is_active:true, attribute_config:[{ name:'COLOUR' }] }],
+    product_skus: [{ id:'sku', product_id:'product', price_gbp:'12.00', stock_qty:1, is_active:true,
+      colour:'默认', attributes:{ COLOUR:' Soft Pink ' } }],
+  })
+  const result = await price({ items:[{ skuId:'sku', qty:1, skuDesc:'Wrong colour' }] })
+  assert.equal(result.lineItems[0].skuDesc, 'Soft Pink')
+})
+
+test('both checkout providers return a quote without reserving stock when the displayed amount changes', async () => {
+  const price = pricingMock()
+  const { checkoutPriceChange } = load('lib/order-pricing.js', {}, 'checkoutPriceChange')
+  const items = [{ skuId:'sku', qty:1 }]
+  const current = await price({items})
+  assert.equal(checkoutPriceChange(current.totals, current), null)
+  for (const file of ['app/api/paypal/create-order/route.js','app/api/stripe/create-checkout-session/route.js']) {
+    let prepared = 0
+    const { POST } = load(file, {
+      checkoutForm: form => form,
+      refreshCheckoutReservations: async () => {},
+      getAuthUser: async () => null,
+      computeAuthoritativeOrder: price,
+      checkoutPriceChange,
+      newOrderNumber: () => { prepared++; throw Error('Unexpected payment setup') },
+    }, 'POST')
+    const response = await POST({ json: async () => ({items,form:{},totals:{...current.totals,total:'0.50'}}) })
+    assert.equal(response.status,409)
+    const body = await response.json()
+    assert.equal(body.code,'checkout_price_changed')
+    assert.deepEqual(body.totals,current.totals)
+    assert.deepEqual(body.lineItems,[{skuId:'sku',price:'1.01'}])
+    assert.equal(prepared,0)
   }
 })

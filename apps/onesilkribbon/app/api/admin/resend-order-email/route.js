@@ -1,3 +1,5 @@
+import { isErased } from '@/admin/lib/erasure'
+import { CAN } from '@/admin/lib/status'
 import { verifyAdmin } from '@/admin/auth'
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { sendOrderConfirmation } from '@/lib/email'
@@ -8,16 +10,23 @@ export async function POST(req) {
   if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    const { orderId } = await req.json()
+    const { orderId } = await req.json().catch(() => ({})) || {}
+    if (typeof orderId !== 'string' || !orderId || orderId.length > 100) {
+      return Response.json({ error: '请提供有效的订单 ID' }, { status: 400 })
+    }
 
-    const { data: order } = await supabaseAdmin
-      .from('orders').select('*').eq('id', orderId).single()
+    const { data: order, error: orderError } = await supabaseAdmin
+      .from('orders').select('*').eq('id', orderId).maybeSingle()
+    if (orderError) throw orderError
     if (!order) return Response.json({ error: 'Order not found' }, { status: 404 })
+    if (isErased(order) || !CAN.resend(order.status)) return Response.json({ error: '该订单无法重发确认邮件' }, { status: 409 })
 
-    const { data: orderItems } = await supabaseAdmin
+    const { data: orderItems, error: itemsError } = await supabaseAdmin
       .from('order_items').select('*').eq('order_id', orderId)
 
-    const items = (orderItems || []).map(i => ({
+    if (itemsError) throw itemsError
+    if (!orderItems?.length) return Response.json({ error: '此订单缺少商品明细，无法重发确认邮件' }, { status: 409 })
+    const items = orderItems.map(i => ({
       name:    i.product_name,
       skuDesc: i.sku_description || '',
       price:   parseFloat(i.unit_price_gbp),
@@ -39,6 +48,7 @@ export async function POST(req) {
     const totals = {
       subtotal:    order.subtotal_gbp,
       shipping:    order.shipping_gbp,
+      discount:    order.discount_gbp,
       total:       order.total_gbp,
       freeShipping: parseFloat(order.shipping_gbp) === 0,
     }

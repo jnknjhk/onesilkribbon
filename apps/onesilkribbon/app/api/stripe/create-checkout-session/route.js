@@ -1,7 +1,7 @@
 import Stripe from 'stripe'
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { gbpToPence } from '@/lib/pricing'
-import { computeAuthoritativeOrder } from '@/lib/order-pricing'
+import { computeAuthoritativeOrder, checkoutPriceChange } from '@/lib/order-pricing'
 import { getAuthUser } from '@osr/core/lib/get-auth-user'
 import { errorResponse } from '@osr/core/lib/api-error'
 import { saveCheckoutDetailsToAccount } from '@/lib/user-records'
@@ -14,13 +14,17 @@ export async function POST(req) {
   let orderNumber, stripe, session
   let prepared = false, attempted = false
   try {
-    const { items, form: rawForm, coupon } = (await req.json()) || {}
+    const { items, form: rawForm, coupon, totals: reviewedTotals } = (await req.json()) || {}
     const form = checkoutForm(rawForm)
     await refreshCheckoutReservations()
     const user = await getAuthUser(req)
     const priced = await computeAuthoritativeOrder({ items, couponCode: coupon?.code })
     if (!priced.ok) return Response.json({ error: priced.error, unavailable: priced.unavailable }, { status: 409 })
     const { lineItems, totals } = priced
+    if (reviewedTotals !== undefined) {
+      const change = checkoutPriceChange(reviewedTotals, priced)
+      if (change) return change
+    }
     orderNumber = newOrderNumber()
     // The order, every item, and its recovery snapshot commit BEFORE a payable URL exists.
     // Leave headroom above Stripe's 30-minute minimum for DB/network latency.
@@ -54,7 +58,7 @@ export async function POST(req) {
       throw error || new Error('Checkout binding failed')
     }
     await saveCheckoutDetailsToAccount({ userId: user?.id, form })
-    return Response.json({ url: session.url })
+    return Response.json({ url: session.url, sessionId: session.id })
   } catch (err) {
     if (prepared) {
       try { await releaseFailedStripeCreation({ orderNumber, stripe, session, attempted, error: err }) }

@@ -10,6 +10,7 @@ const ACTIONS = {
   'product.delete':          { label: '删除商品', tone: 'danger' },
   'customer.erase':          { label: '删除客户', tone: 'danger' },
   'order.refund':            { label: '退款',     tone: 'danger' },
+  'order.resend_shipping_email': { label: '重发发货通知', tone: 'info' },
   'order.ship':              { label: '发货',     tone: 'info' },
   'settings.update':         { label: '修改设置', tone: 'warning' },
   'maintenance.close_orders':{ label: '关闭未付款订单', tone: 'warning' },

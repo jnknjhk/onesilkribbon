@@ -1,3 +1,4 @@
+import { skuAttributes } from '@/lib/product-variants'
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { calculateTotals, gbpToPence, penceToGBP, cartSubtotalPence, couponDiscountPence, SHIPPING_RATE, FREE_SHIPPING_THRESHOLD } from '@/lib/pricing'
 
@@ -27,7 +28,7 @@ export async function computeAuthoritativeOrder({ items, couponCode, shippingSet
 
   const { data: skus, error } = await supabaseAdmin
     .from('product_skus')
-    .select('id, product_id, price_gbp, stock_qty, is_active, colour, width_mm, length_m')
+    .select('id, product_id, price_gbp, stock_qty, is_active, colour, width_mm, length_m, attributes, sku_code')
     .in('id', skuIds)
 
   if (error) {
@@ -35,7 +36,7 @@ export async function computeAuthoritativeOrder({ items, couponCode, shippingSet
   }
 
   const { data: products, error: productError } = await supabaseAdmin.from('products')
-    .select('id,name,is_active').in('id', [...new Set((skus || []).map(s => s.product_id))])
+    .select('id,name,is_active,slug,attribute_config').in('id', [...new Set((skus || []).map(s => s.product_id))])
   if (productError) return { ok: false, error: 'Could not verify products, please try again' }
   const productMap = Object.fromEntries((products || []).map(p => [p.id, p]))
 
@@ -61,11 +62,14 @@ export async function computeAuthoritativeOrder({ items, couponCode, shippingSet
       continue
     }
 
+    const chosenAttributes = Object.values(skuAttributes(product, sku))
+      .map(value => typeof value === 'string' || typeof value === 'number' ? String(value).trim() : '')
+      .filter(value => value && !/^(默认|default)$/i.test(value))
     lineItems.push({
       skuId: sku.id,
       productId: sku.product_id,
       name: product.name,
-      skuDesc: [sku.width_mm ? `${sku.width_mm}mm` : '', sku.colour, sku.length_m ? `${sku.length_m}m` : ''].filter(Boolean).join(' · '),
+      skuDesc: [...new Set(chosenAttributes)].join(' · '),
       qty,
       price: sku.price_gbp, // Preserve the database decimal for exact arithmetic.
     })
@@ -135,4 +139,15 @@ export async function computeAuthoritativeOrder({ items, couponCode, shippingSet
   totals.couponCode = appliedCouponCode
 
   return { ok: true, lineItems, totals }
+}
+
+export function checkoutPriceChange(reviewed, { totals, lineItems }) {
+  const fields = ['subtotal', 'discount', 'shipping', 'total']
+  if (fields.every(field => reviewed?.[field] === totals[field])) return null
+  return Response.json({
+    code: 'checkout_price_changed',
+    error: 'Your prices or delivery charges changed. Review the updated total, then place your order again.',
+    totals,
+    lineItems: lineItems.map(({ skuId, price }) => ({ skuId, price })),
+  }, { status: 409 })
 }

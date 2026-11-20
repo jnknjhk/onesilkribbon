@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '@osr/core/lib/supabase'
-import { computeAuthoritativeOrder } from '@/lib/order-pricing'
+import { computeAuthoritativeOrder, checkoutPriceChange } from '@/lib/order-pricing'
 import { getAuthUser } from '@osr/core/lib/get-auth-user'
 import { errorResponse } from '@osr/core/lib/api-error'
 import { newOrderNumber, orderRecord, prepareOrder } from '@/lib/payment-orders'
@@ -31,7 +31,7 @@ export async function POST(req) {
   let orderNumber
   let prepared = false
   try {
-    const { items, form: rawForm, coupon } = (await req.json()) || {}
+    const { items, form: rawForm, coupon, totals: reviewedTotals } = (await req.json()) || {}
     const form = checkoutForm(rawForm)
     await refreshCheckoutReservations()
     // userId 绝不信任客户端传的值，从 token/cookie 里解析出真正登录的用户
@@ -45,6 +45,10 @@ export async function POST(req) {
     }
     const { lineItems: orderLineItems, totals } = priced
 
+    if (reviewedTotals !== undefined) {
+      const change = checkoutPriceChange(reviewedTotals, priced)
+      if (change) return change
+    }
     orderNumber = newOrderNumber()
 
     const itemsTotal     = Number(totals.subtotal)
@@ -82,7 +86,7 @@ export async function POST(req) {
           },
           items: orderLineItems.map(i => ({
             name: i.name,
-            description: i.skuDesc || '',
+            description: (i.skuDesc || '').slice(0, 127),
             quantity: String(i.qty),
             unit_amount: { currency_code: 'GBP', value: parseFloat(i.price).toFixed(2) },
             category: 'PHYSICAL_GOODS',
@@ -100,6 +104,7 @@ export async function POST(req) {
         }],
         application_context: {
           brand_name: 'One Silk Ribbon',
+          shipping_preference: 'SET_PROVIDED_ADDRESS',
           return_url: `${process.env.NEXT_PUBLIC_SITE_URL}/api/paypal/capture?order=${orderNumber}`,
           cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/api/paypal/cancel?order=${encodeURIComponent(orderNumber)}&proof=${encodeURIComponent(createCancelProof(orderNumber))}`,
         },
@@ -133,7 +138,7 @@ export async function POST(req) {
 
     if (saveError) throw saveError
 
-    return Response.json({ approvalUrl })
+    return Response.json({ approvalUrl, checkoutToken: ppData.id })
   } catch (err) {
     // From the customer's point of view this checkout never received an approval URL.
     // Release the local reservation instead of leaving stock locked for up to 2 hours.

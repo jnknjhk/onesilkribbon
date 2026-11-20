@@ -49,13 +49,22 @@ test('legacy proof migration preserves original expiration rather than extending
 
 test('Stripe confirmation checks provider identity, amount, paid status and local binding before cookie',async()=>{
   const session={id:'cs_test_abcdefghijklmnopqrstuvwxyz',payment_intent:'pi_test',currency:'gbp',amount_total:2000,payment_status:'paid',metadata:{orderNumber:'OSR-TEST'}}
-  let saved={payment_method:'stripe',payment_intent_id:session.id,total_gbp:20}
+  let saved={payment_method:'stripe',payment_intent_id:session.id,total_gbp:20,status:'pending'}
+  const recovered = []
+  const deferred = []
   const supabaseAdmin={from(){const q={select(){return q},eq(){return q},maybeSingle:async()=>({data:saved})};return q}}
   const {GET}=load(read('app/api/payment-confirmation/route.js'),{
     ...proofs,confirmationResponse,supabaseAdmin,Stripe:class{checkout={sessions:{retrieve:async()=>session}}},
+    recordPayment: async receipt => recovered.push(receipt.paymentId),
+    completeOrder: async (provider, id) => recovered.push(provider + '/' + id),
+    after: task => deferred.push(task),
+    deliverNotifications: async () => { throw Error('mail service unavailable') },
   },'GET')
   const req=new Request('https://onesilkribbon.com/api/payment-confirmation?order=OSR-TEST&session_id='+session.id)
   assert.equal((await GET(req)).status,303)
+  assert.deepEqual(recovered, ['pi_test', 'stripe/pi_test'])
+  assert.equal(deferred.length, 1)
+  await assert.rejects(deferred[0](), /mail service unavailable/)
   for(const mutation of [{amount_total:1},{payment_status:'unpaid'},{currency:'usd'},{metadata:{orderNumber:'OTHER'}}]){
     const original={...session};Object.assign(session,mutation)
     const response=await GET(req)
@@ -72,7 +81,7 @@ test('PayPal callback issues proof only after successful recovery and never puts
   let fail=false
   const deferred = []
   const {GET}=load(read('app/api/paypal/capture/route.js'),{
-    confirmationResponse,
+    ...proofs, confirmationResponse,
     recoverPayPal: async (_, __, options) => {
       assert.deepEqual(options, { notify: false })
       if (fail) throw Error('pending')
@@ -84,6 +93,8 @@ test('PayPal callback issues proof only after successful recovery and never puts
   const req=new Request('https://onesilkribbon.com/api/paypal/capture?token=PP-TEST&order=OSR-TEST')
   const result=await GET(req)
   assert.equal(result.status,303);assert.doesNotMatch(result.headers.get('location'),/proof|token|PP-TEST/)
+  const cookie = result.cookies.get(proofs.confirmationCookieName('OSR-TEST'))
+  assert.equal(proofs.paymentProofDetails(cookie.value,'OSR-TEST').checkoutReference, proofs.checkoutReference('PP-TEST'))
   assert.equal(deferred.length, 1)
   await assert.rejects(deferred[0](), /mail service unavailable/)
   fail=true

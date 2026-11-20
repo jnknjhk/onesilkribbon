@@ -239,13 +239,15 @@ test('started Stripe attempt cannot be reclaimed by local cleanup or unstarted g
 
 function pricing({qty=2,active=true}={}) {
   const source=fs.readFileSync(path.join(__dirname,'../lib/order-pricing.js'),'utf8')
-    .replace(/^import .*$/gm,'').replace('export async function','async function')
+    .replace(/^import .*$/gm,'').replace(/^export /gm,'')
   const mock={rpc:async()=>({error:null}),from(table){const q={select(){return q},in:async()=>({data:table==='products'
     ?[{id:product,name:'Real product',is_active:active}]
     :[{id:sku,product_id:product,price_gbp:10,stock_qty:qty,is_active:true,width_mm:7,colour:'Blue',length_m:10}]})};return q}}
   const moneySource=fs.readFileSync(path.join(__dirname,'../lib/pricing.js'),'utf8').replace(/^export /gm,'')
   const money=new Function(moneySource+';return {calculateTotals,gbpToPence,penceToGBP,cartSubtotalPence,couponDiscountPence,SHIPPING_RATE,FREE_SHIPPING_THRESHOLD}')()
-  const bindings={supabaseAdmin:mock,...money}
+  const variantsSource=fs.readFileSync(path.join(__dirname,'../lib/product-variants.js'),'utf8').replace(/^export /gm,'')
+  const skuAttributes=new Function(variantsSource+';return skuAttributes')()
+  const bindings={supabaseAdmin:mock,skuAttributes,...money}
   return new Function(...Object.keys(bindings),source+';return computeAuthoritativeOrder')(...Object.values(bindings))
 }
 test('pricing merges duplicate lines and uses database product identity',async()=>{

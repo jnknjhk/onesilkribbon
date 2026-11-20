@@ -100,6 +100,7 @@ function CheckoutContent() {
   const submittingRef = useRef(false)
   const [continuing, setContinuing] = useState(false)
   const [stockError, setStockError] = useState('')
+  const [updatedQuote, setUpdatedQuote] = useState(null)
 
   useEffect(() => {
     if (previousStep.current === step) return
@@ -215,7 +216,8 @@ function CheckoutContent() {
   }
 
   const discountAmount = coupon ? coupon.discountAmount : 0
-  const totals = {
+  const quote = updatedQuote?.basket === items && updatedQuote.couponCode === (coupon?.code || '') ? updatedQuote : null
+  const totals = quote?.totals || {
     ...calculateTotals(subtotalValue, shippingSettings, discountAmount),
     discount: discountAmount.toFixed(2),
     couponCode: coupon?.code || '',
@@ -242,6 +244,11 @@ function CheckoutContent() {
     setStep('payment')
   }
 
+  const showNewQuote = data => {
+    setUpdatedQuote({ basket: items, couponCode: coupon?.code || '', totals: data.totals, lineItems: data.lineItems })
+    setPaymentRequestError(data.error)
+  }
+
   const handlePayPalPayment = async () => {
     setLoading(true); setStockError(''); setPaymentRequestError('')
     try {
@@ -250,14 +257,15 @@ function CheckoutContent() {
       const res = await fetch('/api/paypal/create-order', { method:'POST', headers, body: JSON.stringify({ items, form, totals, coupon }) })
       if (res.status === 409) {
         const data = await res.json()
-        setStockError(data.error || 'Some items are no longer available.')
+        if (data.code === 'checkout_price_changed') showNewQuote(data)
+        else setStockError(data.error || 'Some items are no longer available.')
         setLoading(false)
         return
       }
       if (!res.ok) throw new Error('Checkout unavailable')
-      const { approvalUrl } = await res.json()
+      const { approvalUrl, checkoutToken } = await res.json()
       if (approvalUrl) {
-        try { sessionStorage.setItem('osr-checkout-basket', JSON.stringify({ items, token: new URL(approvalUrl).searchParams.get('token') })) } catch {}
+        try { sessionStorage.setItem('osr-checkout-basket', JSON.stringify({ items, token: checkoutToken || new URL(approvalUrl).searchParams.get('token') })) } catch {}
         window.location.href = approvalUrl
       }
       else throw new Error('Checkout link unavailable')
@@ -275,14 +283,15 @@ function CheckoutContent() {
       const res = await fetch('/api/stripe/create-checkout-session', { method:'POST', headers, body: JSON.stringify({ items, form, totals, coupon }) })
       if (res.status === 409) {
         const data = await res.json()
-        setStockError(data.error || 'Some items are no longer available.')
+        if (data.code === 'checkout_price_changed') showNewQuote(data)
+        else setStockError(data.error || 'Some items are no longer available.')
         setLoading(false)
         return
       }
       if (!res.ok) throw new Error('Checkout unavailable')
-      const { url } = await res.json()
+      const { url, sessionId } = await res.json()
       if (url) {
-        try { sessionStorage.setItem('osr-checkout-basket', JSON.stringify({ items, sessionId: new URL(url).pathname.split('/').pop() })) } catch {}
+        try { sessionStorage.setItem('osr-checkout-basket', JSON.stringify({ items, sessionId: sessionId || new URL(url).pathname.split('/').pop() })) } catch {}
         window.location.href = url
       }
       else throw new Error('Checkout link unavailable')
@@ -444,7 +453,7 @@ function CheckoutContent() {
                     <p style={{ fontSize:13, color:'var(--ink)', marginBottom:4, fontFamily:'var(--font-display)', fontWeight:400 }}>{item.name}</p>
                     <p style={{ fontSize:11, color:'var(--taupe)' }}>{item.skuDesc}</p>
                   </div>
-                  <p style={{ fontFamily:'var(--font-display)', fontSize:16, color:'var(--deep)' }}>{formatGBP(item.price * item.qty)}</p>
+                  <p style={{ fontFamily:'var(--font-display)', fontSize:16, color:'var(--deep)' }}>{formatGBP((quote?.lineItems.find(line => line.skuId === item.skuId)?.price ?? item.price) * item.qty)}</p>
                 </div>
               ))}
             </div>
@@ -467,7 +476,7 @@ function CheckoutContent() {
 
             <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
               <SummaryRow label="Subtotal (tax included)" value={formatGBP(totals.subtotal)} />
-              {coupon && <SummaryRow label={`Promo: ${coupon.code}`} value={`-${formatGBP(discountAmount)}`} highlight />}
+              {coupon && <SummaryRow label={`Promo: ${coupon.code}`} value={`-${formatGBP(totals.discount)}`} highlight />}
               <SummaryRow
                 label="Shipping"
                 value={!shippingSettings ? '—' : totals.freeShipping ? 'Free' : formatGBP(totals.shipping)}

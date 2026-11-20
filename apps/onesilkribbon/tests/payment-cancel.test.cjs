@@ -121,7 +121,7 @@ test('checkout blocks a second submit before React re-renders', () => {
 test('PayPal create-order releases the reservation when no approval URL can be returned', async () => {
   const make = ({ orderResponse = Response.json({ id: 'PP1', links: [{ rel: 'approve', href: 'https://paypal.test/approve' }] }), insertError = null } = {}) => {
     const released = []
-    let cancelUrl = ''
+    let checkoutContext
     const POST = load('app/api/paypal/create-order/route.js', {
       supabaseAdmin: { from: () => ({ insert: async () => ({ error: insertError }) }) },
       computeAuthoritativeOrder: async () => ({
@@ -140,11 +140,11 @@ test('PayPal create-order releases the reservation when no approval URL can be r
       refreshCheckoutReservations: async () => {},
       fetch: async (url, options) => {
         if (String(url).endsWith('/v1/oauth2/token')) return Response.json({ access_token: 'token' })
-        cancelUrl = JSON.parse(options.body).application_context.cancel_url
+        checkoutContext = JSON.parse(options.body).application_context
         return orderResponse
       },
     }, 'POST')
-    return { POST, released, cancelUrl: () => cancelUrl }
+    return { POST, released, checkoutContext: () => checkoutContext }
   }
   const request = () => ({ json: async () => ({ items: [], form: {} }) })
 
@@ -161,7 +161,8 @@ test('PayPal create-order releases the reservation when no approval URL can be r
   h = make()
   response = await h.POST(request())
   assert.equal(response.status, 200)
-  assert.equal((await response.json()).approvalUrl, 'https://paypal.test/approve')
+  assert.deepEqual(await response.json(), { approvalUrl: 'https://paypal.test/approve', checkoutToken: 'PP1' })
+  assert.equal(h.checkoutContext().shipping_preference, 'SET_PROVIDED_ADDRESS')
   assert.deepEqual(h.released, [])
-  assert.match(h.cancelUrl(), /\/api\/paypal\/cancel\?order=OSR-2026-TEST&proof=cancel-proof/)
+  assert.match(h.checkoutContext().cancel_url, /\/api\/paypal\/cancel\?order=OSR-2026-TEST&proof=cancel-proof/)
 })

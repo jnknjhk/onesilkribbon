@@ -270,3 +270,37 @@ test('customer order page shows recoverable failures and ignores cancelled late 
   assert.equal(cancelled.states[0], null)
   assert.equal(cancelled.states[5], '')
 })
+
+test('shipping email can be resent from saved shipment data without changing the order or tracking history', async () => {
+  const sent = []
+  const saved = { ...order, status:'shipped', tracking_number:'SAVED123', tracking_carrier:'Royal Mail', tracking_url:null }
+  const db = database(() => ({data:saved}))
+  const POST = load('apps/onesilkribbon/app/api/admin/resend-shipping-email/route.js', {
+    verifyAdmin: async () => true, supabaseAdmin:db, isErased:()=>false,
+    errorResponse:safeError, recordAdminAction:async()=>{},
+    sendShippingNotification: async payload => sent.push(payload),
+  }, 'POST')
+  const response = await POST({json:async()=>({orderId:saved.id,trackingNumber:'FORGED'})})
+  assert.equal(response.status,200)
+  assert.equal(sent[0].trackingNumber,'SAVED123')
+  assert.ok(db.calls.every(call => call.operation==='read' && call.table==='orders'))
+})
+
+test('confirmation resend preserves the saved discount and stops if reading items fails', async () => {
+  const sent = []
+  let itemsFail = true
+  const saved = { ...order, subtotal_gbp:'20', discount_gbp:'5', total_gbp:'15' }
+  const db = database(call => call.table==='orders' ? {data:saved} : itemsFail ? {error:Error('read failed')} :
+    {data:[{product_name:'Silk',sku_description:'Soft Pink',unit_price_gbp:'20',quantity:1}]})
+  const POST = load('apps/onesilkribbon/app/api/admin/resend-order-email/route.js', {
+    ...status, verifyAdmin:async()=>true, supabaseAdmin:db, isErased:()=>false, errorResponse:safeError,
+    sendOrderConfirmation:async payload=> sent.push(payload),
+  }, 'POST')
+  const request = {json:async()=>({orderId:saved.id})}
+  assert.equal((await POST(request)).status,500)
+  assert.equal(sent.length,0)
+  itemsFail=false
+  assert.equal((await POST(request)).status,200)
+  assert.equal(sent[0].totals.discount,'5')
+  assert.equal(sent[0].items[0].skuDesc,'Soft Pink')
+})

@@ -2,6 +2,7 @@ import { after } from 'next/server'
 import { deliverNotifications } from '@/lib/payment-orders'
 import { errorResponse } from '@osr/core/lib/api-error'
 import { recoverPayPal } from '@/lib/paypal-payment'
+import { checkoutReference } from '@/lib/payment-proof'
 import { confirmationResponse } from '@/lib/confirmation-response'
 
 export async function GET(req) {
@@ -15,5 +16,5 @@ export async function GET(req) {
       message: 'Payment verification is pending. Please refresh this page to retry. Do not pay again. Your order details have been retained.' })
   }
   after(() => deliverNotifications(orderNumber))
-  return confirmationResponse(req,orderNumber)
+  return confirmationResponse(req, orderNumber, checkoutReference(token))
 }

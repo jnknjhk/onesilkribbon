@@ -196,7 +196,7 @@ function purchaseHandlers({ canPurchase = true, quantity = 2, buyingNow = false 
   const source = read('app/collections/[slug]/[productSlug]/ProductClient.jsx')
   const block = source.slice(source.indexOf('  const buildCartItem'), source.indexOf('  const navImg'))
   const methods = compile(block, {
-    canPurchase, qty: quantity, buyingNow, selectedSku: sku, product, selectedAttrs: sku.attributes,
+    canPurchase, orderQty: quantity, stockQty: 3, buyingNow, selectedSku: sku, product, selectedAttrs: sku.attributes,
     safe: String, safeNum: Number, images: ['ribbon.jpg'],
     addItem: item => calls.push(['basket', item]), trackProductEvent: (...args) => calls.push(['analytics', ...args]),
     setAdded() {}, setBuyingNow() {}, clearTimeout() {}, setTimeout() {}, addedTimer: { current: null },

@@ -71,8 +71,9 @@ export async function POST(req) {
     return Response.json({ error: 'Missing PayPal signature headers' }, { status: 400 })
   }
 
+  let token
   try {
-    const token = await getAccessToken()
+    token = await getAccessToken()
     const verification = await fetch(`${BASE}/v1/notifications/verify-webhook-signature`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -141,12 +142,36 @@ export async function POST(req) {
 
       const amountPence = Math.round(Number(resource.amount?.value) * 100)
       const currency = String(resource.amount?.currency_code || '').toUpperCase()
-      if (!Number.isSafeInteger(amountPence) || amountPence <= 0 || !/^[A-Z]{3}$/.test(currency)) {
+      if (!Number.isSafeInteger(amountPence) || amountPence <= 0 || currency !== 'GBP') {
         return received()
       }
       const order = await orderForCapture(captureId)
       if (!order) return received()
-      const full = amountPence >= Math.round(Number(order.total_gbp) * 100)
+      const orderTotal = Math.round(Number(order.total_gbp) * 100)
+      const totalRefunded = resource.seller_payable_breakdown?.total_refunded_amount
+      const cumulativePence = Math.round(Number(totalRefunded?.value) * 100)
+      let full = amountPence >= orderTotal
+      if (!full) {
+        if (totalRefunded?.currency_code === currency &&
+            Number.isSafeInteger(cumulativePence) && cumulativePence >= amountPence) {
+          full = cumulativePence >= orderTotal
+        } else {
+          // Some refund callbacks omit the running total. Read the capture before
+          // recording the refund ID, so a transient lookup failure can be retried.
+          const response = await fetch(BASE + '/v2/payments/captures/' + encodeURIComponent(captureId), {
+            headers: { Authorization: 'Bearer ' + token },
+            signal: AbortSignal.timeout(15000),
+          })
+          if (!response.ok) throw new Error('PayPal refund reconciliation lookup failed')
+          const capture = await response.json()
+          if (capture.id !== captureId || capture.amount?.currency_code !== currency ||
+              Math.round(Number(capture.amount.value) * 100) !== orderTotal ||
+              !['COMPLETED', 'PARTIALLY_REFUNDED', 'REFUNDED'].includes(capture.status)) {
+            throw new Error('PayPal refund capture identity or status mismatch')
+          }
+          full = capture.status === 'REFUNDED'
+        }
+      }
       await recordExternalRefund({
         provider: 'paypal',
         refundId: String(resource.id || `${captureId}:${amountPence}`),

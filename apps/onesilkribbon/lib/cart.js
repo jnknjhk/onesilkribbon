@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
+export const basketQuantityLimit = stockQty => Number.isSafeInteger(stockQty) && stockQty >= 0 ? stockQty : 99
+
 export const useCart = create(
   persist(
     (set, get) => ({
@@ -14,25 +16,24 @@ export const useCart = create(
       addItem: (item) => {
         const items = get().items
         const existing = items.find(i => i.skuId === item.skuId)
-        if (existing) {
-          set({ items: items.map(i =>
-            i.skuId === item.skuId ? { ...i, qty: i.qty + item.qty } : i
-          )})
-        } else {
-          set({ items: [...items, item] })
-        }
-        set({ isOpen: true })
+        const stockQty = item.stockQty ?? existing?.stockQty
+        const qty = (existing?.qty ?? 0) + item.qty
+        if (!Number.isSafeInteger(item.qty) || item.qty < 1 || qty > basketQuantityLimit(stockQty)) return false
+        const nextItems = existing
+          ? items.map(i => i.skuId === item.skuId ? { ...i, stockQty, qty } : i)
+          : [...items, item]
+        set({ items: nextItems, isOpen: true })
+        return true
       },
 
       removeItem: (skuId) =>
         set(s => ({ items: s.items.filter(i => i.skuId !== skuId) })),
 
       updateQty: (skuId, qty) => {
+        if (!Number.isSafeInteger(qty)) return
         if (qty < 1) return get().removeItem(skuId)
-        const MAX_QTY = 99
-        const safeQty = Math.min(qty, MAX_QTY)
         set(s => ({ items: s.items.map(i =>
-          i.skuId === skuId ? { ...i, qty: safeQty } : i
+          i.skuId === skuId && (qty < i.qty || qty <= basketQuantityLimit(i.stockQty)) ? { ...i, qty } : i
         )}))
       },
 

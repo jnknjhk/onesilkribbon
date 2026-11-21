@@ -86,29 +86,27 @@ export async function POST(req) {
   if (['charge.refunded', 'refund.created', 'refund.updated'].includes(event.type)) {
     try {
       const object = event.data.object
-      const refunds = event.type === 'charge.refunded'
-        ? (Array.isArray(object.refunds?.data) && object.refunds.data.length
+      const isCharge = event.type === 'charge.refunded'
+      const orderHint = isCharge ? object.metadata?.orderNumber : null
+      const refunds = isCharge
+        ? (Array.isArray(object.refunds?.data) && object.refunds.has_more === false && object.refunds.data.length
             ? object.refunds.data
-            : object.refunded
-              ? [{ id: `charge:${object.id}`, amount: object.amount_refunded, currency: object.currency, status: 'succeeded', payment_intent: object.payment_intent }]
-              : [])
+            : stripe.refunds.list({ charge: object.id, limit: 100 }))
         : [object]
-      const orderHint = event.type === 'charge.refunded' ? object.metadata?.orderNumber : null
 
-      for (const refund of refunds) {
-        if (!refund || (refund.status && refund.status !== 'succeeded')) continue
-        const paymentIntent = typeof refund.payment_intent === 'string' ? refund.payment_intent : refund.payment_intent?.id
+      for await (const refund of refunds) {
+        if (!refund?.id?.startsWith('re_') || refund.status !== 'succeeded') continue
+        const intent = refund.payment_intent || (isCharge ? object.payment_intent : null)
+        const paymentIntent = typeof intent === 'string' ? intent : intent?.id
         const order = await stripeOrderForPayment(paymentIntent, orderHint)
         if (!order) continue
         const amountPence = Number(refund.amount)
         if (!Number.isSafeInteger(amountPence) || amountPence <= 0) continue
         const currency = String(refund.currency || object.currency || 'gbp').toUpperCase()
-        const full = event.type === 'charge.refunded'
-          ? object.refunded === true
-          : amountPence >= Math.round(Number(order.total_gbp) * 100)
+        const full = amountPence >= Math.round(Number(order.total_gbp) * 100)
         await recordExternalRefund({
           provider: 'stripe',
-          refundId: String(refund.id || object.id),
+          refundId: refund.id,
           orderNumber: order.order_number,
           paymentId: paymentIntent || null,
           amountPence,

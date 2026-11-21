@@ -8,8 +8,11 @@ import { useAuth } from '@osr/core/lib/auth'
 import { formatGBP, calculateTotals, shippingSettingsFromApi } from '@/lib/pricing'
 import { accountRequest } from '@/lib/account-request'
 import { mergeCheckoutAutofill } from '@/lib/checkout-autofill'
+import { hasCheckoutTrunkZero, splitCheckoutPhone } from '@/lib/checkout-phone'
+import { checkoutRequestKey, saveCheckoutDraft, takeCheckoutDraft } from '@/lib/checkout-browser'
 
 const PAYMENT_ERROR_MESSAGES = {
+  paypal_declined: 'PayPal declined this payment. You can try again or choose card payment.',
   not_completed: 'Your PayPal payment was not completed. You have not been charged — please try again.',
   session_missing: 'We could not find your order session. If you were charged, please contact us with your PayPal receipt.',
   order_save_failed: 'Your payment may have gone through, but we could not save your order. Please contact us before trying again.',
@@ -51,6 +54,7 @@ const COUNTRIES = [
 const CONTINENTS = ['Popular','Europe','Asia Pacific','Middle East']
 const getCountry = code => COUNTRIES.find(c => c.code === code) || COUNTRIES[0]
 const DIAL_CODES = [...new Map(COUNTRIES.map(c => [c.dialCode, c])).values()]
+const dialCodes = DIAL_CODES.map(c => c.dialCode)
 const validEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim())
 
 function Field({ id, label, type='text', half=false, autoComplete, value, error, touch, onChange, onBlur }) {
@@ -71,6 +75,8 @@ function CheckoutContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const paymentError = searchParams.get('payment_error')
+  const paymentMessage = paymentError && (Object.hasOwn(PAYMENT_ERROR_MESSAGES, paymentError)
+    ? PAYMENT_ERROR_MESSAGES[paymentError] : PAYMENT_ERROR_MESSAGES.exception)
   const { items, getSubtotal, clearCart } = useCart()
   const { user } = useAuth()
   const subtotalValue = getSubtotal ? getSubtotal() : 0
@@ -98,6 +104,7 @@ function CheckoutContent() {
   const stepHeading = useRef(null)
   const previousStep = useRef(step)
   const submittingRef = useRef(false)
+  const fallbackRequest = useRef(null)
   const [continuing, setContinuing] = useState(false)
   const [stockError, setStockError] = useState('')
   const [updatedQuote, setUpdatedQuote] = useState(null)
@@ -122,6 +129,16 @@ function CheckoutContent() {
     return () => { active = false; clearTimeout(timeout); controller.abort() }
   }, [])
 
+  useEffect(() => {
+    if (!paymentError) return
+    try {
+      const draft = takeCheckoutDraft()
+      if (!draft) return
+      for (const field of Object.keys(draft)) editedFields.current.add(field)
+      setForm(prev => ({ ...prev, ...draft }))
+    } catch {}
+  }, [paymentError])
+
   // ── 登录用户自动预填默认地址 ──────────────────────────────────────────────
   useEffect(() => {
     if (!user || prefilledUser.current === user.id) return
@@ -136,8 +153,8 @@ function CheckoutContent() {
           email: user.email, firstName: def?.first_name, lastName: def?.last_name,
           line1: def?.line1, line2: def?.line2, city: def?.city,
           postcode: def?.postcode, country: def?.country,
-          dialCode: def?.country ? getCountry(def.country).dialCode : undefined,
-          phone: def?.phone,
+          ...(def?.phone ? splitCheckoutPhone(def.phone, getCountry(def.country).dialCode, dialCodes)
+            : { dialCode: def?.country ? getCountry(def.country).dialCode : undefined }),
         }, editedFields.current))
       })
       .catch(() => {}) // Email is already filled; manual details remain usable.
@@ -148,6 +165,7 @@ function CheckoutContent() {
   if (items.length === 0) {
     return (
       <div style={{ paddingTop:160, textAlign:'center', minHeight:'70vh' }}>
+        {paymentMessage && <p role="alert" style={{ color:'#B91C1C', marginBottom:20 }}>{paymentMessage}</p>}
         <p style={{ fontFamily:'var(--font-display)', fontSize:32, fontStyle:'italic', color:'var(--taupe)', marginBottom:32 }}>Your basket is empty</p>
         <Link href="/collections">
           <button className="btn-primary" style={{ width:'auto', padding:'16px 48px' }}>Continue Shopping</button>
@@ -185,7 +203,12 @@ function CheckoutContent() {
       else if (!value.trim()) err = 'Required'
       else if (!c.postcodeReg.test(value.trim())) err = `Invalid postcode — e.g. ${c.postcodeTip}`
     }
-    if (field === 'phone') { if (!value.trim()) err = 'Phone number is required'; else if (!c.phoneReg.test(value.trim().replace(/\s/g,''))) err = 'Invalid phone number' }
+    if (field === 'phone') {
+      const { dialCode, phone } = splitCheckoutPhone(value, form.dialCode, dialCodes)
+      const region = c.dialCode === dialCode ? c : DIAL_CODES.find(country => country.dialCode === dialCode)
+      if (!value.trim()) err = 'Phone number is required'
+      else if (!region || !(region.phoneReg.test(phone) || (hasCheckoutTrunkZero(dialCode) && region.phoneReg.test('0' + phone)))) err = 'Invalid phone number'
+    }
     setErrors(p => ({ ...p, [field]: err }))
     return !err
   }
@@ -249,15 +272,32 @@ function CheckoutContent() {
     setPaymentRequestError(data.error)
   }
 
+  const preparePaymentRequest = async () => {
+    const contact = splitCheckoutPhone(form.phone, form.dialCode, dialCodes)
+    const data = { items, form: { ...form, ...contact }, totals, coupon }
+    const material = JSON.stringify([paymentMethod, user?.id, data])
+    let attempt
+    try { attempt = await checkoutRequestKey(material) }
+    catch {
+      if (fallbackRequest.current?.material !== material) {
+        fallbackRequest.current = { material, requestKey: crypto.randomUUID() }
+      }
+      attempt = { requestKey: fallbackRequest.current.requestKey }
+    }
+    return { body: JSON.stringify({ ...data, requestKey: attempt.requestKey }), attempt }
+  }
+
   const handlePayPalPayment = async () => {
     setLoading(true); setStockError(''); setPaymentRequestError('')
     try {
       const headers = { 'Content-Type':'application/json' }
+      const { body, attempt } = await preparePaymentRequest()
       if (user?.accessToken) headers.Authorization = `Bearer ${user.accessToken}`
-      const res = await fetch('/api/paypal/create-order', { method:'POST', headers, body: JSON.stringify({ items, form, totals, coupon }) })
-      if (res.status === 409) {
+      const res = await fetch('/api/paypal/create-order', { method:'POST', headers, body })
+      if (res.status === 400 || res.status === 409) {
         const data = await res.json()
         if (data.code === 'checkout_price_changed') showNewQuote(data)
+        else if (res.status === 400 || data.code?.startsWith('checkout_')) setPaymentRequestError(data.error)
         else setStockError(data.error || 'Some items are no longer available.')
         setLoading(false)
         return
@@ -265,7 +305,8 @@ function CheckoutContent() {
       if (!res.ok) throw new Error('Checkout unavailable')
       const { approvalUrl, checkoutToken } = await res.json()
       if (approvalUrl) {
-        try { sessionStorage.setItem('osr-checkout-basket', JSON.stringify({ items, token: checkoutToken || new URL(approvalUrl).searchParams.get('token') })) } catch {}
+        try { saveCheckoutDraft(form) } catch {}
+        try { sessionStorage.setItem('osr-checkout-basket', JSON.stringify({ items, attempt, token: checkoutToken || new URL(approvalUrl).searchParams.get('token') })) } catch {}
         window.location.href = approvalUrl
       }
       else throw new Error('Checkout link unavailable')
@@ -279,11 +320,13 @@ function CheckoutContent() {
     setLoading(true); setStockError(''); setPaymentRequestError('')
     try {
       const headers = { 'Content-Type':'application/json' }
+      const { body, attempt } = await preparePaymentRequest()
       if (user?.accessToken) headers.Authorization = `Bearer ${user.accessToken}`
-      const res = await fetch('/api/stripe/create-checkout-session', { method:'POST', headers, body: JSON.stringify({ items, form, totals, coupon }) })
-      if (res.status === 409) {
+      const res = await fetch('/api/stripe/create-checkout-session', { method:'POST', headers, body })
+      if (res.status === 400 || res.status === 409) {
         const data = await res.json()
         if (data.code === 'checkout_price_changed') showNewQuote(data)
+        else if (res.status === 400 || data.code?.startsWith('checkout_')) setPaymentRequestError(data.error)
         else setStockError(data.error || 'Some items are no longer available.')
         setLoading(false)
         return
@@ -291,7 +334,8 @@ function CheckoutContent() {
       if (!res.ok) throw new Error('Checkout unavailable')
       const { url, sessionId } = await res.json()
       if (url) {
-        try { sessionStorage.setItem('osr-checkout-basket', JSON.stringify({ items, sessionId: sessionId || new URL(url).pathname.split('/').pop() })) } catch {}
+        try { saveCheckoutDraft(form) } catch {}
+        try { sessionStorage.setItem('osr-checkout-basket', JSON.stringify({ items, attempt, sessionId: sessionId || new URL(url).pathname.split('/').pop() })) } catch {}
         window.location.href = url
       }
       else throw new Error('Checkout link unavailable')
@@ -317,9 +361,9 @@ function CheckoutContent() {
 
         {/* Left */}
         <div>
-          {paymentError && (
-            <div style={{ background:'#FEF2F2', border:'1px solid #FCA5A5', padding:'14px 16px', marginBottom:24, fontSize:13, color:'#B91C1C', lineHeight:1.6 }}>
-              {PAYMENT_ERROR_MESSAGES[paymentError] || PAYMENT_ERROR_MESSAGES.exception}
+          {paymentMessage && (
+            <div role="alert" style={{ background:'#FEF2F2', border:'1px solid #FCA5A5', padding:'14px 16px', marginBottom:24, fontSize:13, color:'#B91C1C', lineHeight:1.6 }}>
+              {paymentMessage}
             </div>
           )}
           <a className="checkout-summary-link" href="#checkout-summary">View order summary · {shippingSettings ? formatGBP(totals.total) : 'Calculating…'}</a>

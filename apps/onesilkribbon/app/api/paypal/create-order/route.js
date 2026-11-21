@@ -7,6 +7,7 @@ import { checkoutForm } from '@/lib/checkout-form'
 import { createCancelProof } from '@/lib/payment-proof'
 import { releaseFailedPayPalCreation } from '@/lib/paypal-payment'
 import { refreshCheckoutReservations } from '@/lib/stripe-reservations'
+import { claimCheckout, saveCheckoutReply, discardCheckoutClaim } from '@/lib/checkout-requests'
 
 const PAYPAL_BASE = process.env.PAYPAL_MODE === 'live'
   ? 'https://api-m.paypal.com'
@@ -30,8 +31,9 @@ async function getPayPalToken() {
 export async function POST(req) {
   let orderNumber
   let prepared = false
+  let claimKey, preparationStarted = false, boundReply = false
   try {
-    const { items, form: rawForm, coupon, totals: reviewedTotals } = (await req.json()) || {}
+    const { items, form: rawForm, coupon, totals: reviewedTotals, requestKey } = (await req.json()) || {}
     const form = checkoutForm(rawForm)
     await refreshCheckoutReservations()
     // userId 绝不信任客户端传的值，从 token/cookie 里解析出真正登录的用户
@@ -39,6 +41,10 @@ export async function POST(req) {
     const userId = authUser?.id || null
 
     // 服务端重新核算价格与库存，绝不信任客户端传来的 totals/price
+    orderNumber = newOrderNumber()
+    const claim = await claimCheckout({ provider: 'paypal', requestKey, form, items, coupon, reviewedTotals, userId, orderNumber })
+    if (claim.response) return claim.response
+    claimKey = claim.key
     const priced = await computeAuthoritativeOrder({ items, couponCode: coupon?.code })
     if (!priced.ok) {
       return Response.json({ error: priced.error, unavailable: priced.unavailable }, { status: 409 })
@@ -49,7 +55,6 @@ export async function POST(req) {
       const change = checkoutPriceChange(reviewedTotals, priced)
       if (change) return change
     }
-    orderNumber = newOrderNumber()
 
     const itemsTotal     = Number(totals.subtotal)
     const discountAmount = parseFloat(totals.discount) || 0
@@ -57,6 +62,7 @@ export async function POST(req) {
     const grandTotal     = parseFloat(totals.total)
 
     // Persist the complete order before creating a payable provider order.
+    preparationStarted = true
     await prepareOrder(orderRecord({ orderNumber, form,
       totals: { ...totals, subtotal: itemsTotal.toFixed(2) }, userId, provider: 'paypal' }), orderLineItems)
     prepared = true
@@ -120,6 +126,7 @@ export async function POST(req) {
     }
 
     // 存临时 session（服务端权威价格），支付成功后才创建正式订单
+    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
     const { error: saveError } = await supabaseAdmin.from('paypal_sessions').insert({
       order_number:    orderNumber,
       paypal_order_id: ppData.id,
@@ -133,16 +140,19 @@ export async function POST(req) {
         couponCode:  totals.couponCode || '',
       }),
       user_id:         userId || null,
-      expires_at:      new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+      expires_at:      expiresAt,
     })
 
     if (saveError) throw saveError
 
-    return Response.json({ approvalUrl, checkoutToken: ppData.id })
+    const reply = { approvalUrl, checkoutToken: ppData.id }
+    boundReply = true
+    await saveCheckoutReply(claimKey, orderNumber, reply, expiresAt)
+    return Response.json(reply)
   } catch (err) {
     // From the customer's point of view this checkout never received an approval URL.
     // Release the local reservation instead of leaving stock locked for up to 2 hours.
-    if (prepared && orderNumber) {
+    if (prepared && !boundReply) {
       try {
         await releaseFailedPayPalCreation(orderNumber)
       } catch (releaseError) {
@@ -153,7 +163,13 @@ export async function POST(req) {
       }
     }
     if (err?.code === 'INVALID_CHECKOUT_FORM' || err instanceof SyntaxError) return Response.json({ error: 'Please check your contact and delivery details.' }, { status: 400 })
+    if (!prepared && err?.code === 'P0001') preparationStarted = false
     if (err?.code === 'P0001') return Response.json({ error: 'Stock or promo availability changed. Please review your basket and try again.' }, { status: 409 })
     return errorResponse(err, { tag: 'paypal-create-order' })
+  } finally {
+    if (claimKey && !preparationStarted) {
+      try { await discardCheckoutClaim(claimKey, orderNumber) }
+      catch { console.error('Checkout request cleanup failed', orderNumber) }
+    }
   }
 }

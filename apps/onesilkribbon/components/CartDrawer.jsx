@@ -1,6 +1,6 @@
 'use client'
 import React from 'react'
-import { useCart } from '@/lib/cart'
+import { useCart, basketQuantityLimit } from '@/lib/cart'
 import { formatGBP, calculateTotals, shippingSettingsFromApi } from '@/lib/pricing'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -169,7 +169,7 @@ function CartItem({ item, onRemove, onQtyChange }) {
           <div className="cart-quantity" style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--warm)' }}>
             <button aria-label={`Decrease quantity of ${item.name}`} onClick={() => onQtyChange(item.qty - 1)} style={{ width: 36, height: 36, background: 'none', border: 'none', color: 'var(--deep)', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
             <span style={{ width: 28, textAlign: 'center', fontSize: 13 }}>{item.qty}</span>
-            <button aria-label={`Increase quantity of ${item.name}`} onClick={() => onQtyChange(item.qty + 1)} style={{ width: 36, height: 36, background: 'none', border: 'none', color: 'var(--deep)', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+            <button aria-label={`Increase quantity of ${item.name}`} disabled={item.qty >= basketQuantityLimit(item.stockQty)} onClick={() => onQtyChange(item.qty + 1)} style={{ width: 36, height: 36, background: 'none', border: 'none', color: 'var(--deep)', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <p style={{ fontFamily: 'var(--font-display)', fontSize: 16, color: 'var(--ink)' }}>{formatGBP(item.price * item.qty)}</p>

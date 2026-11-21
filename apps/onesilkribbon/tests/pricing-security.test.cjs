@@ -147,12 +147,15 @@ test('both checkout providers return a quote without reserving stock when the di
   for (const file of ['app/api/paypal/create-order/route.js','app/api/stripe/create-checkout-session/route.js']) {
     let prepared = 0
     const { POST } = load(file, {
+      claimCheckout: async () => ({ key: "checkout-key" }), saveCheckoutReply: async () => {}, discardCheckoutClaim: async () => {},
+      newOrderNumber: () => 'quote-test',
       checkoutForm: form => form,
       refreshCheckoutReservations: async () => {},
       getAuthUser: async () => null,
       computeAuthoritativeOrder: price,
       checkoutPriceChange,
-      newOrderNumber: () => { prepared++; throw Error('Unexpected payment setup') },
+      prepareOrder: async () => { prepared++ },
+      prepareStripeOrder: async () => { prepared++ },
     }, 'POST')
     const response = await POST({ json: async () => ({items,form:{},totals:{...current.totals,total:'0.50'}}) })
     assert.equal(response.status,409)

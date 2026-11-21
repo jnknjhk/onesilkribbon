@@ -24,6 +24,7 @@
 | 15 | `2026-11-08-admin-backoffice.sql` | 订单状态计数、库存搜索、媒体用途查询、客户删除事务 |
 | 16 | `2026-11-08-admin-audit-log.sql` | 后台敏感操作审计表 |
 | 17 | `2026-11-20-payment-recovery-fixes.sql` | PayPal 失败后释放预占，Stripe 退款回调保留后台库存回补 |
+| 18 | `2026-11-21-checkout-requests.sql` | 结账请求去重及 Stripe 分笔退款对账 |
 
 ## 安全说明
 

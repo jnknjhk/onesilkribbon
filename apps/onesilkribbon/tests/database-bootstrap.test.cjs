@@ -20,6 +20,8 @@ const migrations = [
   '2026-11-07-customer-identity.sql',
   '2026-11-07-payment-refunds.sql',
   '2026-11-07-admin-dashboard.sql',
+  '2026-11-20-payment-recovery-fixes.sql',
+  '2026-11-21-checkout-requests.sql',
 ]
 
 const read = file => fs.readFileSync(path.join(__dirname, '..', 'supabase', file), 'utf8')
@@ -99,4 +101,27 @@ test('schema.sql and the new additive migrations are repeatable', async () => {
   await db.exec(read('migrations/2026-11-06-baseline-completion.sql'))
   await db.exec(read('migrations/2026-11-06-pii-erasure-and-order-closing.sql'))
   assert.ok((await rows("select to_regclass('public.customer_summary') as value"))[0].value)
+})
+
+test('checkout claims are unique across requests and private to the service', async () => {
+  const results = await Promise.allSettled(['first', 'second'].map(order =>
+    db.query("insert into checkout_requests(request_key, order_number) values ('same-key', $1)", [order])))
+  assert.equal(results.filter(result => result.status === 'fulfilled').length, 1)
+  assert.equal(results.find(result => result.status === 'rejected').reason.code, '23505')
+  assert.deepEqual(await rows(`select has_table_privilege('anon','checkout_requests','select') as guest,
+    has_table_privilege('authenticated','checkout_requests','select') as customer`), [{ guest: false, customer: false }])
+})
+
+test('Stripe retries preserve canonical refund IDs and count each partial refund once', async () => {
+  await db.exec(`insert into orders(order_number,customer_email,status,subtotal_gbp,total_gbp,
+    payment_method,shipping_name,shipping_line1,shipping_city,shipping_postcode)
+    values ('partial-stripe','buyer@example.test','paid',20,20,'stripe','Buyer','1 Road','London','SW1A 2AA')`)
+  const record = async (id, amount) => (await db.query(`select record_external_refund(
+    'stripe',$1,'partial-stripe','pi_stripe',$2,'GBP',false) as result`, [id, amount])).rows[0].result
+  assert.equal((await record('re_first', 1200)).order_status, 'paid')
+  assert.equal((await record('re_first', 1200)).already, true)
+  assert.equal((await record('re_second', 800)).order_status, 'refunded')
+  assert.equal((await record('re_second', 800)).already, true)
+  assert.deepEqual(await rows(`select count(*)::int as count, sum(amount_pence)::int as amount
+    from payment_refunds where order_number='partial-stripe'`), [{ count: 2, amount: 2000 }])
 })

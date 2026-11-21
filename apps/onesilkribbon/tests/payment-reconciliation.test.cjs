@@ -37,7 +37,13 @@ function stripeRoute(event, options = {}) {
   const refunds = []
   const rpc = []
   const POST = loadRoute('app/api/stripe/webhook/route.js', {
-    Stripe: class { webhooks = { constructEvent: () => event } },
+    Stripe: class {
+      webhooks = { constructEvent: () => event }
+      refunds = { list: async function* ({ charge }) {
+        assert.equal(charge, 'ch_1')
+        yield* options.listedRefunds || []
+      } }
+    },
     supabaseAdmin: stripeDb({ order: options.order || { order_number: 'OSR-1', total_gbp: 20, status: 'paid', payment_method: 'stripe' }, receipt: options.receipt, rpc }),
     recordPayment: async () => {},
     recordExternalRefund: async refund => { refunds.push(refund) },
@@ -56,10 +62,12 @@ test('Stripe full refund records the refund and marks the order refunded', async
     data: { object: {
       id: 'ch_1', payment_intent: 'pi_1', amount_refunded: 2000, currency: 'gbp',
       refunded: true, metadata: { orderNumber: 'OSR-1' },
-      refunds: { data: [{ id: 're_1', amount: 2000, currency: 'gbp', status: 'succeeded', payment_intent: 'pi_1' }] },
     } },
   }
-  const h = stripeRoute(event)
+  const h = stripeRoute(event, { listedRefunds: [
+    { id: 're_1', amount: 2000, currency: 'gbp', status: 'succeeded', payment_intent: 'pi_1' },
+    { id: 're_pending', amount: 100, currency: 'gbp', status: 'pending' },
+  ] })
   assert.equal((await h.POST({ text: async () => '', headers: new Headers() })).status, 200)
   assert.deepEqual(h.refunds, [{
     provider: 'stripe', refundId: 're_1', orderNumber: 'OSR-1', paymentId: 'pi_1',
@@ -109,7 +117,7 @@ function paypalDb({ session = { order_number: 'OSR-1' }, order = { order_number:
   }
 }
 
-function paypalRoute(event, { verify = 'SUCCESS', ...options } = {}) {
+function paypalRoute(event, { verify = 'SUCCESS', captureResponse, ...options } = {}) {
   const recovered = []
   const refunds = []
   const rpc = []
@@ -122,6 +130,7 @@ function paypalRoute(event, { verify = 'SUCCESS', ...options } = {}) {
     fetch: async url => {
       fetchCalls++
       if (String(url).endsWith('/v1/oauth2/token')) return Response.json({ access_token: 'token' })
+      if (String(url).includes('/v2/payments/captures/')) return captureResponse
       return Response.json({ verification_status: verify })
     },
   })
@@ -186,4 +195,32 @@ test('PayPal approval webhook captures only a pending matching PayPal order', as
     assert.equal((await ignored.POST(ignored.req())).status, options.verify ? 400 : 200)
     assert.deepEqual(ignored.recovered, [])
   }
+})
+
+test('PayPal refunds use cumulative totals while recording only the individual refund amount', async () => {
+  for (const [total, full] of [['8.00', false], ['20.00', true]]) {
+    const h = paypalRoute({event_type:'PAYMENT.CAPTURE.REFUNDED', resource:{
+      id:'RE-2',status:'COMPLETED', amount:{value:'8.00',currency_code:'GBP'},
+      seller_payable_breakdown:{total_refunded_amount:{value:total,currency_code:'GBP'}},
+      supplementary_data:{related_ids:{capture_id:'CAP1'}},
+    }})
+    assert.equal((await h.POST(h.req())).status,200)
+    assert.equal(h.refunds[0].full,full)
+    assert.equal(h.refunds[0].amountPence,800)
+    assert.equal(h.fetchCalls(),2)
+  }
+})
+
+test('PayPal refund with no cumulative total verifies the capture or retries without recording', async () => {
+  const event={event_type:'PAYMENT.CAPTURE.REFUNDED', resource:{
+    id:'RE-2',status:'COMPLETED',amount:{value:'8.00',currency_code:'GBP'},
+    supplementary_data:{related_ids:{capture_id:'CAP1'}},
+  }}
+  const confirmed=paypalRoute(event,{captureResponse:Response.json({id:'CAP1',status:'REFUNDED',amount:{value:'20.00',currency_code:'GBP'}})})
+  assert.equal((await confirmed.POST(confirmed.req())).status,200)
+  assert.equal(confirmed.refunds[0].full,true)
+  assert.equal(confirmed.refunds[0].amountPence,800)
+  const unavailable=paypalRoute(event,{captureResponse:Response.json({}, {status:503})})
+  assert.equal((await unavailable.POST(unavailable.req())).status,503)
+  assert.deepEqual(unavailable.refunds,[])
 })

@@ -143,3 +143,15 @@ test('tracking uses POST, validates input and never accepts an email URL lookup'
   assert.match(read('app/track-order/page.jsx'),/method:'POST'/)
   assert.doesNotMatch(read('app/track-order/page.jsx'),/api\/tracking\?order=/)
 })
+
+test('confirmed PayPal decline returns to checkout without a receipt cookie or credentials in the URL', async () => {
+  const {GET}=load(read('app/api/paypal/capture/route.js'),{
+    recoverPayPal:async()=>({status:'declined'}),
+    after:()=>assert.fail('No confirmation email on a declined payment'),
+  },'GET')
+  const result=await GET(new Request('https://onesilkribbon.com/api/paypal/capture?token=PP-TEST&order=OSR-TEST'))
+  assert.equal(result.status,303)
+  assert.equal(result.headers.get('location'),'https://onesilkribbon.com/checkout?payment_error=paypal_declined')
+  assert.equal(result.headers.has('set-cookie'),false)
+  assert.equal(result.headers.get('referrer-policy'),'no-referrer')
+})

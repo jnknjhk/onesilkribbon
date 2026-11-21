@@ -51,3 +51,17 @@ test('basket changes still persist across reloads while drawer state stays trans
   assert.equal(restored.getState().items[0].qty, 4)
   assert.equal(restored.getState().isOpen, true)
 }))
+
+test('known stock limits additions and updates without discarding existing basket items', () => withStorage(async () => {
+  const cart = makeCart()
+  await cart.persist.rehydrate()
+  const { addItem, updateQty } = cart.getState()
+  assert.equal(addItem({ ...item, stockQty:3, qty:2 }),false)
+  assert.equal(cart.getState().items[0].qty,2)
+  assert.equal(addItem({ ...item, stockQty:3, qty:1 }),true)
+  assert.equal(addItem({ ...item, stockQty:3, qty:1 }),false)
+  updateQty(item.skuId,4)
+  assert.equal(cart.getState().items[0].qty,3)
+  updateQty(item.skuId,2)
+  assert.equal(cart.getState().items[0].qty,2)
+}))

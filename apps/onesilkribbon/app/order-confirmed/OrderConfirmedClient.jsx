@@ -3,6 +3,7 @@ import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useCart } from '@/lib/cart'
+import { CHECKOUT_DRAFT_KEY } from '@/lib/checkout-browser'
 
 function OrderConfirmedContent() {
   const params = useSearchParams()
@@ -46,6 +47,10 @@ function OrderConfirmedContent() {
       if (!active || reference !== checkoutRef || sessionStorage.getItem('osr-checkout-basket') !== snapshot) return
       if (JSON.stringify(useCart.getState().items) === JSON.stringify(saved.items)) useCart.getState().clearCart()
       sessionStorage.removeItem('osr-checkout-basket')
+      sessionStorage.removeItem(CHECKOUT_DRAFT_KEY)
+      if (saved.attempt?.storageKey && localStorage.getItem(saved.attempt.storageKey) === saved.attempt.requestKey) {
+        localStorage.removeItem(saved.attempt.storageKey)
+      }
     } catch {} }
     cleanBasket()
     return () => { active = false }

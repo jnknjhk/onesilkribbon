@@ -54,7 +54,7 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
   const addedTimer = useRef(null)
   const thumbnailStrip = useRef(null)
   useEffect(() => () => clearTimeout(addedTimer.current), [])
-  const { addItem } = useCart()
+  const { addItem, items: basketItems } = useCart()
 
   // Move only the thumbnail strip; scrolling the document here would pull a
   // mobile customer away from the photo or the selected product options.
@@ -131,11 +131,15 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
   const collectionName = collectionSlug.replace(/-/g, ' ')
   const price = selectedSku ? safeNum(selectedSku.price_gbp) : 0
   const minPrice = skus.length > 0 ? Math.min(...skus.map(s => safeNum(s.price_gbp)).filter(p => p > 0)) : 0
-  const inStock = selectedSku ? safeNum(selectedSku.stock_qty) > 0 : false
+  const stockQty = selectedSku ? safeNum(selectedSku.stock_qty) : 0
+  const inStock = stockQty > 0
+  const inBasket = basketItems?.find(item => item.skuId === selectedSku?.id)?.qty || 0
+  const availableQty = Math.max(0, stockQty - inBasket)
+  const orderQty = Math.min(qty, Math.max(1, availableQty))
   const hasSelected = !!selectedSku
 
   const optionRows = selectedOptionRows(product, selectedSku)
-  const canPurchase = hasSelected && selectionComplete && inStock
+  const canPurchase = hasSelected && selectionComplete && availableQty > 0
   const ribbonProduct = ['fine-silk-ribbons', 'hand-frayed-silk-ribbons', 'vintage-inspired-ribbons'].includes(collectionSlug)
   const activeColour = colours.find(colour => colour.id === product.id)
   const selectedSize = activeColour && selectionComplete && selectedSku ? merchantVariantAttributes(product, selectedSku).size : undefined
@@ -148,7 +152,7 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
   }
 
   const buildCartItem = () => {
-    if (!canPurchase || !Number.isSafeInteger(qty) || qty < 1) return null
+    if (!canPurchase || !Number.isSafeInteger(orderQty) || orderQty < 1) return null
     const attrDesc = Object.values(selectedAttrs).filter(Boolean).join(' · ')
     return {
       skuId: safe(selectedSku.id),
@@ -158,7 +162,8 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
       colour: safe(selectedSku.colour),
       colourHex: safe(selectedSku.colour_hex),
       price: safeNum(selectedSku.price_gbp),
-      qty,
+      qty: orderQty,
+      stockQty,
       image: images[0] || null,
     }
   }
@@ -166,7 +171,7 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
   const handleAdd = () => {
     const item = buildCartItem()
     if (!item) return
-    addItem(item)
+    if (addItem(item) === false) return
     trackProductEvent('add_to_cart', product, selectedSku, item.qty)
     setAdded(true)
     clearTimeout(addedTimer.current)
@@ -178,8 +183,8 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
     if (buyingNow) return
     const item = buildCartItem()
     if (!item) return
+    if (addItem(item) === false) return
     setBuyingNow(true)
-    addItem(item)
     trackProductEvent('add_to_cart', product, selectedSku, item.qty)
     router.push('/checkout')
   }
@@ -338,8 +343,8 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
                   {optionRows.map(row => <div key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}
                   {activeColour && selectedSku.length_m && !optionRows.some(row => row.label === 'Length') &&
                     <div><dt>Length</dt><dd>{selectedSku.length_m}m per spool</dd></div>}
-                  <div><dt>Quantity</dt><dd>{qty}</dd></div>
-                  <div><dt>Items total</dt><dd>{fmt(price * qty)}</dd></div>
+                  <div><dt>Quantity</dt><dd>{orderQty}</dd></div>
+                  <div><dt>Items total</dt><dd>{fmt(price * orderQty)}</dd></div>
                 </dl>
                 <p className="selection-summary-note">{ribbonProduct ? 'Check the listed length for your selected option; width and length are different measurements.' : 'Check the dimensions and what is included in the product description.'}</p>
               </> : <p className="selection-summary-note">Choose each option above to confirm your selection.</p>}
@@ -359,9 +364,9 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
             {/* Qty + Add to Basket */}
             <div className="product-buy-controls" style={{ display: 'flex', height: 50 }}>
               <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--warm)', borderRight: 'none' }}>
-                <button aria-label="Decrease quantity" onClick={() => setQty(q => Math.max(1, q - 1))} style={{ width: 44, height: '100%', background: 'none', border: 'none', fontSize: 18, color: 'var(--ink)', cursor: 'pointer' }}>−</button>
-                <span style={{ width: 32, textAlign: 'center', fontSize: 13 }}>{qty}</span>
-                <button aria-label="Increase quantity" onClick={() => setQty(q => q + 1)} style={{ width: 44, height: '100%', background: 'none', border: 'none', fontSize: 18, color: 'var(--ink)', cursor: 'pointer' }}>+</button>
+                <button aria-label="Decrease quantity" disabled={orderQty <= 1} onClick={() => setQty(orderQty - 1)} style={{ width: 44, height: '100%', background: 'none', border: 'none', fontSize: 18, color: 'var(--ink)', cursor: 'pointer' }}>−</button>
+                <span style={{ width: 32, textAlign: 'center', fontSize: 13 }}>{orderQty}</span>
+                <button aria-label="Increase quantity" disabled={!canPurchase || orderQty >= availableQty} onClick={() => setQty(orderQty + 1)} style={{ width: 44, height: '100%', background: 'none', border: 'none', fontSize: 18, color: 'var(--ink)', cursor: 'pointer' }}>+</button>
               </div>
               <button onClick={handleAdd} disabled={!canPurchase} style={{
                 flex: 1, background: added ? 'var(--gold)' : 'var(--ink)', color: '#fff', border: 'none',
@@ -369,7 +374,7 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
                 cursor: canPurchase ? 'pointer' : 'not-allowed',
                 opacity: !canPurchase ? 0.5 : 1, transition: 'background .28s',
               }}>
-                {added ? '✓  Added to Basket' : !hasSelected || !selectionComplete ? 'Please Select Options' : !inStock ? 'Sold Out' : 'Add to Basket'}
+                {added ? '✓  Added to Basket' : !hasSelected || !selectionComplete ? 'Please Select Options' : !inStock ? 'Sold Out' : !availableQty ? 'All Available Stock in Basket' : 'Add to Basket'}
               </button>
             </div>
 

@@ -1,3 +1,4 @@
+import { formatCheckoutPhone } from '@/lib/checkout-phone'
 import { randomUUID } from 'crypto'
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { sendOrderConfirmation, sendOwnerNotification } from '@/lib/email'
@@ -12,7 +13,7 @@ export function orderRecord({ orderNumber, form, totals, userId, provider }) {
     shipping_name: `${form.firstName} ${form.lastName}`, shipping_line1: form.line1,
     shipping_line2: form.line2 || null, shipping_city: form.city,
     shipping_postcode: form.postcode || '', shipping_country: form.country,
-    phone: form.phone ? `${form.dialCode || ''} ${form.phone}`.trim() : null,
+    phone: formatCheckoutPhone(form),
     payment_method: provider, couponCode: totals.couponCode || '', managedCapture: true,
   }
 }

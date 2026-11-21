@@ -1,3 +1,4 @@
+import { formatCheckoutPhone } from '@/lib/checkout-phone'
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 
 // 注册客户的档案与地址落库。
@@ -77,7 +78,7 @@ export async function saveCheckoutDetailsToAccount({ userId, form }) {
     const { data: profile } = await supabaseAdmin
       .from('user_profiles').select('first_name, last_name, phone').eq('id', userId).maybeSingle()
 
-    const phone = form.phone ? `${form.dialCode || ''} ${form.phone}`.trim() : null
+    const phone = formatCheckoutPhone(form)
     const patch = {}
     if (!profile?.first_name && form.firstName) patch.first_name = form.firstName
     if (!profile?.last_name  && form.lastName)  patch.last_name  = form.lastName

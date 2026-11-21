@@ -123,6 +123,7 @@ test('PayPal create-order releases the reservation when no approval URL can be r
     const released = []
     let checkoutContext
     const POST = load('app/api/paypal/create-order/route.js', {
+      claimCheckout: async () => ({ key: "checkout-key" }), saveCheckoutReply: async () => {}, discardCheckoutClaim: async () => {},
       supabaseAdmin: { from: () => ({ insert: async () => ({ error: insertError }) }) },
       computeAuthoritativeOrder: async () => ({
         ok: true,

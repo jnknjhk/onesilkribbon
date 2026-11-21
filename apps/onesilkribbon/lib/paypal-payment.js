@@ -49,6 +49,9 @@ export async function recoverPayPal(orderNumber, token, { capture = true, notify
   const { data: saved, error: savedError } = await supabaseAdmin.from('orders').select('*')
     .eq('order_number', orderNumber).maybeSingle()
   if (savedError) throw savedError
+  if (capture && saved?.status === 'cancelled' && saved.cancel_reason === 'PayPal 付款失败') {
+    return { status: 'declined' }
+  }
   const { data: snapshot, error: snapshotError } = await supabaseAdmin.from('payment_checkouts')
     .select('order_number').eq('order_number', orderNumber).maybeSingle()
   if (snapshotError) throw snapshotError
@@ -78,7 +81,7 @@ export async function recoverPayPal(orderNumber, token, { capture = true, notify
   }
   // Always retrieve first: an earlier request may have captured successfully before timing out.
   let data = await readProvider()
-  if (data.status === 'APPROVED' && capture) {
+  if (data.status === 'APPROVED' && capture && !data.purchase_units?.some(unit => unit.payments?.captures?.length)) {
     const units = data.purchase_units
     const amount = units?.[0]?.amount
     const expectedPence = Math.round(Number(saved?.total_gbp ?? parse(session.totals)?.total) * 100)
@@ -101,11 +104,22 @@ export async function recoverPayPal(orderNumber, token, { capture = true, notify
   }
   const units = data.purchase_units || []
   const captures = units.flatMap(u => u.payments?.captures || [])
-  if (data.id !== token || data.status !== 'COMPLETED' || units.length !== 1 ||
-      units[0].reference_id !== orderNumber || captures.length !== 1 || captures[0].status !== 'COMPLETED') {
+  if (data.id !== token || units.length !== 1 || units[0].reference_id !== orderNumber || captures.length !== 1) {
     throw new Error('PayPal payment not completed or identity mismatch')
   }
   const payment = captures[0]
+  if (capture && ['DECLINED', 'DENIED', 'FAILED'].includes(payment.status)) {
+    const { error } = await supabaseAdmin.rpc('release_failed_paypal_capture', { p_paypal_order_id: token })
+    if (error) throw error
+    const { data: resolved, error: resolutionError } = await supabaseAdmin.from('orders')
+      .select('status').eq('order_number', orderNumber).maybeSingle()
+    if (resolutionError) throw resolutionError
+    // A concurrent verified receipt prevents the release. Keep that case pending.
+    if (resolved?.status === 'cancelled') return { status: 'declined' }
+  }
+  if (data.status !== 'COMPLETED' || payment.status !== 'COMPLETED') {
+    throw new Error('PayPal payment not completed')
+  }
   const amountPence = Math.round(Number(payment.amount?.value) * 100)
   await recordPayment({ provider: 'paypal', paymentId: payment.id, orderNumber,
     amountPence, currency: payment.amount?.currency_code, evidence: data })

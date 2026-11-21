@@ -104,6 +104,7 @@ function loadRoute(file, bindings, exported = 'POST') {
 test('Stripe never creates a payable link if order preparation fails', async () => {
   let providerCalls=0
   const POST=loadRoute('app/api/stripe/create-checkout-session/route.js', {
+    claimCheckout: async () => ({ key: "checkout-key" }), saveCheckoutReply: async () => {}, discardCheckoutClaim: async () => {},
     Stripe: class { constructor(){providerCalls++} }, getAuthUser:async()=>null,
     checkoutForm:x=>x,refreshCheckoutReservations:async()=>{},
     computeAuthoritativeOrder:async()=>({ok:true,lineItems:items,totals:{total:20}}),
@@ -167,6 +168,7 @@ test('PayPal session save failure never returns approval URL',async()=>{
   const defaults=paypalBindings()
   let released=0
   const POST=loadRoute('app/api/paypal/create-order/route.js',{
+    claimCheckout: async () => ({ key: "checkout-key" }), saveCheckoutReply: async () => {}, discardCheckoutClaim: async () => {},
     ...defaults,getAuthUser:async()=>null,newOrderNumber:()=> 'pp-order',orderRecord:()=>({}),prepareOrder:async()=>{},
     checkoutForm:x=>x,refreshCheckoutReservations:async()=>{},createCancelProof:()=> 'cancel-proof',
     releaseFailedPayPalCreation:async()=>{released++},
@@ -198,6 +200,7 @@ test('Stripe binding failure expires the session and never returns its URL',asyn
   let expired=0
   let cancelUrl=''
   const POST=loadRoute('app/api/stripe/create-checkout-session/route.js',{
+    claimCheckout: async () => ({ key: "checkout-key" }), saveCheckoutReply: async () => {}, discardCheckoutClaim: async () => {},
     Stripe:class {checkout={sessions:{create:async(params)=>{cancelUrl=params.cancel_url;return {id:'cs1',url:'https://stripe.example/pay'}},expire:async()=>{expired++}}}},
     supabaseAdmin:{from(){const q={insert:async()=>({}),update(){return q},eq(){return q},select(){return q},single:async()=>({error:Error('write failed')})};return q}},
     checkoutForm:x=>x,refreshCheckoutReservations:async()=>{},beginStripeCreation:async()=>{},
@@ -227,5 +230,85 @@ test('PayPal never captures an approved order before validating identity, curren
     }),'recoverPayPal')
     await assert.rejects(recover('pp-order','PP1'), /identity or amount mismatch/)
     assert.equal(capture,0)
+  }
+})
+
+test('PayPal declines only after the bound capture is terminal and the reservation is resolved', async () => {
+  const initial = paypalBindings()
+  for (const [status, cancelled] of [['DECLINED',true],['DECLINED',false],['PENDING',true]]) {
+    const calls=[]
+    const recover=loadRoute('lib/paypal-payment.js',paypalBindings({
+      supabaseAdmin:{
+        ...initial.supabaseAdmin,
+        from(table){
+          if(table!=='orders')return initial.supabaseAdmin.from(table)
+          const query={select(){return query},eq(){return query},maybeSingle:async()=>({data:{status:cancelled?'cancelled':'pending'}})}
+          return query
+        },
+        rpc:async(name,args)=>{calls.push([name,args]);return {}},
+      },
+      fetch:async url=>{
+        assert.ok(!url.endsWith('/capture'))
+        return Response.json(url.endsWith('/token')?{access_token:'access'}:{
+          id:'PP1',status:'APPROVED',purchase_units:[{reference_id:'pp-order',payments:{captures:[{status}]}}],
+        })
+      },
+      recordPayment:async()=>assert.fail('Payment must not be recorded'),
+      deliverNotifications:async()=>assert.fail('No confirmation emails'),
+    }),'recoverPayPal')
+    if(status==='DECLINED' && cancelled)assert.deepEqual(await recover('pp-order','PP1'),{status:'declined'})
+    else await assert.rejects(recover('pp-order','PP1'),/not completed/)
+    assert.deepEqual(calls,status==='DECLINED'?[['release_failed_paypal_capture',{p_paypal_order_id:'PP1'}]]:[])
+  }
+})
+
+test('checkout request retries replay one bound link and cancelled orders can be retried', async () => {
+  const requests = new Map()
+  const orders = new Map()
+  const db = {
+    from(table) {
+      const records = table === 'orders' ? orders : requests
+      const filters = {}
+      let update
+      const query = {
+        insert: async row => {
+          if (records.has(row.request_key)) return { error: { code: '23505' } }
+          records.set(row.request_key, row)
+          return {}
+        },
+        select: () => query,
+        update: values => { update = values; return query },
+        eq: (column, value) => { filters[column] = value; return query },
+        maybeSingle: async () => {
+          const row = records.get(filters.request_key || filters.order_number)
+          if (!row || (update && row.order_number !== filters.order_number)) return { data: null }
+          if (update) Object.assign(row, update)
+          return { data: row }
+        },
+        single: async () => query.maybeSingle(),
+      }
+      return query
+    },
+  }
+  const { claimCheckout, saveCheckoutReply } = loadRoute('lib/checkout-requests.js', {
+    createHmac: require('node:crypto').createHmac, supabaseAdmin: db, process: { env: { SUPABASE_SERVICE_KEY: 'test-key' } },
+  }, '{ claimCheckout, saveCheckoutReply }')
+  for (const provider of ['stripe', 'paypal']) {
+    const request = { provider, requestKey: require('node:crypto').randomUUID(), form: { email: 'guest@example.test' } }
+    const [first, second] = await Promise.all([
+      claimCheckout({ ...request, orderNumber: provider + '-1' }),
+      claimCheckout({ ...request, orderNumber: provider + '-2' }),
+    ])
+    assert.ok(first.key)
+    assert.equal(second.response.status, 409)
+    const order = { status: 'pending' }
+    orders.set(provider + '-1', order)
+    const reply = { url: 'https://example.test/existing' }
+    await saveCheckoutReply(first.key, provider + '-1', reply, new Date(Date.now() + 60000).toISOString())
+    assert.deepEqual(await (await claimCheckout(request)).response.json(), reply)
+    order.status = 'paid'
+    assert.equal((await (await claimCheckout(request)).response.json()).code, 'checkout_already_completed')
+    order.status = 'cancelled'
+    assert.equal((await claimCheckout({ ...request, orderNumber: provider + '-3' })).key, first.key)
   }
 })

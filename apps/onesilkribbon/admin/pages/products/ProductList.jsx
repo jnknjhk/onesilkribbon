@@ -74,7 +74,8 @@ export default function ProductList({ data, loading, reload, get, set }) {
               <div style={{ display: 'flex', gap: 12, alignItems: 'center', minWidth: 0 }}>
                 {p.images?.[0] ? <img src={p.images[0]} alt="" className={s.thumb} /> : <span className={s.thumb} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)' }}><Icon name="image" size={18} /></span>}
                 <div style={{ minWidth: 0 }}>
-                  <div className={s.cellMain}>{p.name}{p.is_featured && <Icon name="star" size={13} style={{ marginLeft: 6, color: 'var(--brand)', verticalAlign: '-1px' }} />}</div>
+                  <div className={s.cellMain}>{p.internal_name || p.name}{p.is_featured && <Icon name="star" size={13} style={{ marginLeft: 6, color: 'var(--brand)', verticalAlign: '-1px' }} />}</div>
+                  {p.internal_name && <div className={s.cellSub}>{p.name}</div>}
                   <div className={s.cellSub}>{collectionLabel(cfg, p.collection)}</div>
                 </div>
               </div>

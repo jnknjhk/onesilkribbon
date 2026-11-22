@@ -10,6 +10,7 @@ import { cleanSearch, pageRange, readSettings, isMissingRpc } from './_helpers'
 import { parseStockQuantity } from '../lib/stock-quantity'
 import { revalidateCatalog } from '../lib/revalidate'
 import { recordAdminAction } from '../lib/audit'
+import { canAccessInternalProductNames } from '../lib/internal-product-names'
 
 const DEFAULT_LOW_STOCK = 3
 
@@ -38,15 +39,26 @@ function summarizeProduct(product, skus, threshold) {
   }
 }
 
-async function productList(searchParams, threshold) {
+async function productList(searchParams, threshold, includeInternalNames) {
   const { page, pageSize, from, to } = pageRange(searchParams)
   const q = cleanSearch(searchParams.get('q'))
   const collection = searchParams.get('collection') || ''
   const status = searchParams.get('status') || ''
 
+  const fields = 'id, name, slug, collection, images, is_active, is_featured, created_at'
+  const internalFields = q
+    ? ', internal:product_internal_names(internal_name), alias_match:product_internal_names()'
+    : ', internal:product_internal_names(internal_name)'
   let query = supabase.from('products')
-    .select('id, name, slug, collection, images, is_active, is_featured, created_at', { count: 'exact' })
-  if (q) query = query.or(`name.ilike.%${q}%,slug.ilike.%${q}%`)
+    .select(fields + (includeInternalNames ? internalFields : ''), { count: 'exact' })
+  if (q) {
+    const filters = [`name.ilike.%${q}%`, `slug.ilike.%${q}%`]
+    if (includeInternalNames) {
+      query = query.ilike('alias_match.internal_name', `%${q}%`)
+      filters.push('alias_match.not.is.null')
+    }
+    query = query.or(filters.join(','))
+  }
   if (collection) query = query.eq('collection', collection)
   if (status === 'active') query = query.eq('is_active', true)
   if (status === 'inactive') query = query.eq('is_active', false)
@@ -68,7 +80,10 @@ async function productList(searchParams, threshold) {
   for (const sku of skus) (byProduct[sku.product_id] ||= []).push(sku)
   const total = count || 0
   return Response.json({
-    products: (data || []).map(p => summarizeProduct(p, byProduct[p.id], threshold)),
+    products: (data || []).map(({ internal, alias_match: _match, ...product }) => summarizeProduct(
+      includeInternalNames ? { ...product, internal_name: internal?.internal_name ?? null } : product,
+      byProduct[product.id], threshold
+    )),
     total, page, pageSize,
     totalPages: Math.max(1, Math.ceil(total / pageSize)),
     lowStockThreshold: threshold,
@@ -150,16 +165,46 @@ export async function GET(req) {
       ])
       if (error || skuError) return errorResponse(error || skuError, { tag: 'admin-products-get-one' })
       if (!product) return Response.json({ error: '找不到这个商品，可能已经被删除' }, { status: 404 })
+      if (await canAccessInternalProductNames(supabase, admin)) {
+        const { data: alias, error: aliasError } = await supabase.from('product_internal_names')
+          .select('internal_name').eq('product_id', id).maybeSingle()
+        if (aliasError) return errorResponse(aliasError, { tag: 'admin-product-name-read' })
+        product.internal_name = alias?.internal_name ?? ''
+      }
       return Response.json({ product, skus: skus || [] })
     }
 
     const threshold = await lowStockThreshold()
     return searchParams.get('view') === 'stock'
       ? await stockList(searchParams, threshold)
-      : await productList(searchParams, threshold)
+      : await productList(searchParams, threshold, await canAccessInternalProductNames(supabase, admin))
   } catch (err) {
     return errorResponse(err, { tag: 'admin-products-get' })
   }
+}
+
+export async function PATCH(req) {
+  const admin = await verifyAdmin()
+  if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!await canAccessInternalProductNames(supabase, admin)) return Response.json({ error: '无权管理内部中文名' }, { status: 403 })
+
+  const body = await req.json().catch(() => null)
+  if (typeof body?.id !== 'string' || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(body.id)
+    || typeof body.internal_name !== 'string' || [...body.internal_name.trim()].length > 100) {
+    return Response.json({ error: '请填写有效的内部中文名（最多 100 字）' }, { status: 400 })
+  }
+  const internalName = body.internal_name.trim()
+  const { data: product, error: productError } = await supabase.from('products').select('id').eq('id', body.id).maybeSingle()
+  if (productError) return errorResponse(productError, { tag: 'admin-product-name-product' })
+  if (!product) return Response.json({ error: '找不到这个商品' }, { status: 404 })
+
+  const names = supabase.from('product_internal_names')
+  const { error } = internalName
+    ? await names.upsert({ product_id: body.id, internal_name: internalName }, { onConflict: 'product_id' })
+    : await names.delete().eq('product_id', body.id)
+  if (error) return errorResponse(error, { tag: 'admin-product-name-save' })
+  await recordAdminAction(admin, 'product.internal_name.update', { targetType: 'product', targetId: body.id })
+  return Response.json({ internal_name: internalName })
 }
 
 function atomicProductError(error) {

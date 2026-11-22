@@ -420,16 +420,16 @@ function SilkNotes() {
       <div className="silk-notes-inner reveal">
         <span className="eyebrow" style={{ marginBottom: 16 }}>About Our Silk</span>
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(26px, 3.2vw, 38px)', fontWeight: 300, lineHeight: 1.25, marginBottom: 'clamp(28px, 4vw, 44px)' }}>
-          Mulberry silk ribbon, <em style={{ fontStyle: 'italic', color: 'var(--gold)' }}>chosen for what you make</em>
+          How to choose <em style={{ fontStyle: 'italic', color: 'var(--gold)' }}>mulberry silk ribbon</em>
         </h2>
 
         <div className="silk-notes-cols">
           <div>
             <p>
-              A fine ribbon for embroidery or miniature clothing serves a different purpose
-              from a wider ribbon tied around a bouquet. Our fine mulberry silk ribbon has
-              width and colour options on the product page, so you can choose for the scale
-              of the detail you want to make.
+              Choose by width and finish. Our fine mulberry silk ribbon comes on 10-metre
+              spools in widths from 2mm to 13mm. Try the narrowest width for small bows,
+              miniature clothing or stitched details, and a wider ribbon where you want
+              the colour to stand out.
             </p>
             <p>
               Compare colours alongside the paper, flowers or fabric in your project. Product
@@ -439,9 +439,9 @@ function SilkNotes() {
           </div>
           <div>
             <p>
-              For a softly textured edge, explore the hand-frayed collection. For a crinkled
-              finish on a wooden spool, look at the vintage-inspired ribbon. The product
-              description explains the material, finish and available lengths of each style.
+              Choose hand-frayed silk ribbon for a soft edge and loose tails on a bouquet.
+              For textured bows on invitations or gifts, try the 10mm crinkle silk ribbon
+              on a wooden spool. Check the product page for available colours and lengths.
             </p>
             <p>
               Unsure which to choose? Our <Link href="/ribbon-guide">ribbon selection guide</Link>

@@ -3,7 +3,8 @@ import { siteConfig } from '@/admin/site-config'
 import { errorResponse } from '@osr/core/lib/api-error'
 import { escapeHtml } from '@osr/core/lib/escape-html'
 import { sendEmail } from '@/lib/email'
-import { validateEmailAttachments } from '@/admin/lib/email-attachments'
+import { validateEmailAttachments, validateEmailAttachmentDetails } from '@/admin/lib/email-attachments'
+import { prepareEmailAttachmentUploads, readEmailAttachments, removeEmailAttachmentUploads, validEmailAttachmentIds } from '@/admin/lib/email-attachment-storage'
 
 const styles = `
   body { margin:0; padding:0; background:#F7F3EE; font-family:'Georgia',serif; }
@@ -72,18 +73,60 @@ export async function POST(req) {
       return Response.json({ error: '缺少必填字段' }, { status: 400 })
     }
 
-    const files = multipart ? input.getAll('attachments') : []
-    const attachmentError = validateEmailAttachments(files)
+    const files = multipart ? input.getAll('attachments') : (input.attachments ?? [])
+    const attachmentError = multipart ? validateEmailAttachments(files) : validateEmailAttachmentDetails(files)
     if (attachmentError) return Response.json({ error: attachmentError }, { status: 400 })
-    const attachments = await Promise.all(files.map(async file => ({
-      filename: file.name,
-      content: Buffer.from(await file.arrayBuffer()).toString('base64'),
-    })))
+    if (multipart && files.reduce((total, file) => total + file.size, 0) > 4_194_304) {
+      return Response.json({ error: '请刷新页面后重新添加大附件' }, { status: 413 })
+    }
+    const ids = multipart ? [] : files.map(file => file.id)
+    if (ids.length && !validEmailAttachmentIds(ids)) return Response.json({ error: '附件引用无效' }, { status: 400 })
+    let attachments = []
+    if (files.length) {
+      attachments = multipart
+        ? await Promise.all(files.map(async file => ({
+            filename: file.name,
+            content: Buffer.from(await file.arrayBuffer()).toString('base64'),
+          })))
+        : await readEmailAttachments(admin.email, files)
+    }
+    if (!attachments) return Response.json({ error: '附件上传未完成，请重试' }, { status: 409 })
     const html = buildHtml(subject, body)
 
     await sendEmail({ to: to.trim(), cc: siteConfig.ownerEmail, subject, html, kind: 'marketing', attachments })
+    if (ids.length) {
+      try { await removeEmailAttachmentUploads(admin.email, ids) }
+      catch (error) { console.error('Email attachment cleanup failed', error?.status) }
+    }
     return Response.json({ success: true })
   } catch (err) {
     return errorResponse(err, { tag: 'admin-send-email' })
+  }
+}
+
+export async function PUT(req) {
+  const admin = await verifyAdmin()
+  if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  const files = await req.json().catch(() => null)
+  const message = validateEmailAttachmentDetails(files)
+  if (message) return Response.json({ error: message }, { status: 400 })
+  try {
+    const uploads = await prepareEmailAttachmentUploads(admin.email, files.length)
+    return Response.json({ uploads }, { headers: { 'Cache-Control': 'no-store' } })
+  } catch (err) {
+    return errorResponse(err, { tag: 'admin-email-attachments-prepare' })
+  }
+}
+
+export async function DELETE(req) {
+  const admin = await verifyAdmin()
+  if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  const ids = await req.json().catch(() => null)
+  if (!validEmailAttachmentIds(ids)) return Response.json({ error: '附件引用无效' }, { status: 400 })
+  try {
+    await removeEmailAttachmentUploads(admin.email, ids)
+    return Response.json({ success: true })
+  } catch (err) {
+    return errorResponse(err, { tag: 'admin-email-attachments-remove' })
   }
 }

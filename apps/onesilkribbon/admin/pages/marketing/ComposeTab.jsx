@@ -5,7 +5,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useAdminConfig } from '../../config'
 import { api } from '../../lib/api'
-import { EMAIL_ATTACHMENT_ACCEPT, validateEmailAttachments } from '../../lib/email-attachments'
+import { EMAIL_ATTACHMENT_ACCEPT, MAX_EMAIL_ATTACHMENT_MB, validateEmailAttachments } from '../../lib/email-attachments'
+import { sendAdminEmail } from '../../lib/upload-email-attachments'
 import { Card, Field, Input, Textarea, Button, Notice, useToast, styles as s } from '../../ui'
 
 export default function ComposeTab({ get, set }) {
@@ -76,14 +77,7 @@ export default function ComposeTab({ get, set }) {
     if (attachmentError) return
     setSending(true)
     try {
-      const fields = { to: to.trim(), subject, body }
-      let payload = fields
-      if (attachments.length) {
-        payload = new FormData()
-        for (const [name, value] of Object.entries(fields)) payload.set(name, value)
-        for (const file of attachments) payload.append('attachments', file)
-      }
-      await api('/api/admin/send-email', { method: 'POST', body: payload })
+      await sendAdminEmail({ to: to.trim(), subject, body }, attachments)
       toast.success(`邮件已发送给 ${to.trim()}`)
       setSubject(''); setBody(''); setTemplate('')
       setAttachments([])
@@ -116,7 +110,7 @@ export default function ComposeTab({ get, set }) {
           <Field label="正文" required hint={`邮件会套上 ${cfg.brand} 的信头信尾，并抄送一份到 ${cfg.ownerEmail}`}>
             <Textarea rows={14} value={body} onChange={e => setBody(e.target.value)} />
           </Field>
-          <Field label="附件" hint="最多 5 个，合计不超过 4 MB。支持 PDF、常用图片、DOCX、XLSX、TXT 和 CSV。">
+          <Field label="附件" hint={`最多 5 个，合计不超过 ${MAX_EMAIL_ATTACHMENT_MB} MB。支持 PDF、常用图片、DOCX、XLSX、TXT 和 CSV。`}>
             <Input type="file" accept={EMAIL_ATTACHMENT_ACCEPT} multiple disabled={sending} onChange={selectAttachments} />
           </Field>
           {attachments.length > 0 && (

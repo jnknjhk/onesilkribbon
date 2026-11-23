@@ -28,7 +28,7 @@ function load(file, exported, bindings = {}) {
   return new Function(...Object.keys(bindings), source + '\nreturn ' + exported)(...Object.values(bindings))
 }
 
-function mailRoute(admin = true) {
+function mailRoute(admin = { email: 'owner@example.test' }, storageBindings = {}) {
   const messages = []
   const logs = []
   const sendEmail = load('lib/email.js', 'sendEmail', {
@@ -46,6 +46,8 @@ function mailRoute(admin = true) {
     errorResponse: error => { throw error },
     sendEmail,
     validateEmailAttachments: load('admin/lib/email-attachments.js', 'validateEmailAttachments'),
+    validateEmailAttachmentDetails: load('admin/lib/email-attachments.js', 'validateEmailAttachmentDetails'),
+    ...storageBindings,
   })
   return { POST, messages, logs }
 }
@@ -79,15 +81,49 @@ test('admin rejects invalid attachment lists and the sender still accepts legacy
   const limits = [
     [new File(['data'], 'script.exe')],
     [new File([], 'empty.txt')],
-    [new File([Buffer.alloc(3 * 1024 * 1024)], 'one.pdf'), new File([Buffer.alloc(2 * 1024 * 1024)], 'two.pdf')],
     Array.from({ length: 6 }, (_, i) => new File(['data'], `file-${i}.txt`)),
     ['not a file'],
   ]
   for (const files of limits) assert.equal((await POST(withAttachments(files))).status, 400)
+  assert.equal((await POST(withAttachments([new File([Buffer.alloc(5 * 1024 * 1024)], 'large.pdf')]))).status, 413)
   const unauthorized = mailRoute(false)
   assert.equal((await unauthorized.POST(withAttachments([new File(['data'], 'safe.txt')]))).status, 401)
   assert.equal(unauthorized.messages.length, 0)
   assert.equal(messages.length, 0)
   assert.equal((await POST(request(JSON.stringify(fields)))).status, 200)
   assert.equal(Object.hasOwn(messages[0], 'attachments'), false)
+})
+
+test('large attachments bypass the send request body and use private, administrator-scoped storage', async () => {
+  const { createHmac, randomUUID } = require('node:crypto')
+  const id = randomUUID()
+  const file = new Blob([Buffer.alloc(6 * 1024 * 1024, 7)])
+  const reads = []
+  const removed = []
+  const storage = load('admin/lib/email-attachment-storage.js',
+    '{ readEmailAttachments, removeEmailAttachmentUploads, validEmailAttachmentIds }', {
+      createHmac, randomUUID,
+      process: { env: { SUPABASE_SERVICE_KEY: 'test-only' } },
+      EMAIL_ATTACHMENT_BUCKET: 'admin-email-attachments', MAX_EMAIL_ATTACHMENTS: 5,
+      supabaseAdmin: { storage: { from(bucket) {
+        assert.equal(bucket, 'admin-email-attachments')
+        return {
+          download: async path => { reads.push(path); return { data: file } },
+          remove: async paths => { removed.push(...paths); return {} },
+        }
+      } } },
+    })
+  const { POST, messages } = mailRoute(undefined, storage)
+  const attachment = { id, name: 'large.pdf', size: file.size }
+  const payload = attachments => request(JSON.stringify({ ...fields, attachments }))
+  assert.equal((await POST(payload([{ ...attachment, id: '../other-admin.pdf' }]))).status, 400)
+  assert.equal((await POST(payload([{ ...attachment, size: 29 * 1024 * 1024 }]))).status, 400)
+  assert.equal(reads.length, 0)
+  assert.equal((await POST(payload([{ ...attachment, size: 1 }]))).status, 409)
+  assert.equal(messages.length, 0)
+  assert.equal((await POST(payload([attachment]))).status, 200)
+  assert.equal(messages[0].attachments[0].filename, 'large.pdf')
+  assert.ok(Buffer.from(messages[0].attachments[0].content, 'base64').equals(Buffer.from(await file.arrayBuffer())))
+  const folder = createHmac('sha256', 'test-only').update('admin-email-attachments:owner@example.test').digest('hex')
+  assert.deepEqual(removed, [folder + '/' + id])
 })

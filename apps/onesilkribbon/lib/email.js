@@ -22,7 +22,7 @@ const OWNER      = 'song@onesilkribbon.com'
 // 成功和失败都落库，后台才能看出"这封到底发出去没有"。
 export async function sendEmail({
   to, subject, html, kind = 'other', orderNumber = null, deliveryKey,
-  replyTo, cc, timeoutMs = 20000,
+  replyTo, cc, attachments, timeoutMs = 20000,
 } = {}) {
   try {
     if (!process.env.RESEND_API_KEY) throw new Error('Email service unavailable')
@@ -40,6 +40,7 @@ export async function sendEmail({
         html,
         ...(replyTo ? { reply_to: replyTo } : {}),
         ...(cc ? { cc } : {}),
+        ...(attachments?.length ? { attachments } : {}),
       }),
       signal: AbortSignal.timeout(timeoutMs),
     })

@@ -3,6 +3,7 @@ import { siteConfig } from '@/admin/site-config'
 import { errorResponse } from '@osr/core/lib/api-error'
 import { escapeHtml } from '@osr/core/lib/escape-html'
 import { sendEmail } from '@/lib/email'
+import { validateEmailAttachments } from '@/admin/lib/email-attachments'
 
 const styles = `
   body { margin:0; padding:0; background:#F7F3EE; font-family:'Georgia',serif; }
@@ -54,14 +55,33 @@ export async function POST(req) {
   if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    const { to, subject, body } = await req.json()
-    if (!to || !subject || !body) {
+    const multipart = /^multipart\/form-data(?:\s*;|$)/i.test(req.headers.get('content-type') || '')
+    if (multipart && Number(req.headers.get('content-length')) > 4_400_000) {
+      return Response.json({ error: '附件和邮件内容合计过大，请减小附件后重试' }, { status: 413 })
+    }
+    let input
+    try {
+      input = multipart ? await req.formData() : await req.json()
+    } catch {
+      return Response.json({ error: '无法读取邮件内容，请重新选择附件后重试' }, { status: 400 })
+    }
+    const { to, subject, body } = multipart
+      ? { to: input.get('to'), subject: input.get('subject'), body: input.get('body') }
+      : (input || {})
+    if (![to, subject, body].every(value => typeof value === 'string' && value.trim())) {
       return Response.json({ error: '缺少必填字段' }, { status: 400 })
     }
 
+    const files = multipart ? input.getAll('attachments') : []
+    const attachmentError = validateEmailAttachments(files)
+    if (attachmentError) return Response.json({ error: attachmentError }, { status: 400 })
+    const attachments = await Promise.all(files.map(async file => ({
+      filename: file.name,
+      content: Buffer.from(await file.arrayBuffer()).toString('base64'),
+    })))
     const html = buildHtml(subject, body)
 
-    await sendEmail({ to, cc: siteConfig.ownerEmail, subject, html, kind: 'marketing' })
+    await sendEmail({ to: to.trim(), cc: siteConfig.ownerEmail, subject, html, kind: 'marketing', attachments })
     return Response.json({ success: true })
   } catch (err) {
     return errorResponse(err, { tag: 'admin-send-email' })

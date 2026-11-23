@@ -199,6 +199,10 @@
 .rowClick:focus-visible { outline-offset: -2px; }
 .rowClick:focus-visible td { background: var(--brand-soft); }
 .rowSelected td { background: var(--brand-soft) !important; }
+
+.emailAttachments { list-style: none; margin: 0; padding: 0; }
+.emailAttachments li { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.emailAttachments li > span { min-width: 0; overflow-wrap: anywhere; }
 .alignRight { text-align: right !important; }
 .cellMain { font-weight: 500; }
 .cellSub { font-size: 12px; color: var(--text-3); margin-top: 2px; }

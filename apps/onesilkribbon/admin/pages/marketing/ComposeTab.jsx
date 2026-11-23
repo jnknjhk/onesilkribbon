@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useAdminConfig } from '../../config'
 import { api } from '../../lib/api'
+import { EMAIL_ATTACHMENT_ACCEPT, validateEmailAttachments } from '../../lib/email-attachments'
 import { Card, Field, Input, Textarea, Button, Notice, useToast, styles as s } from '../../ui'
 
 export default function ComposeTab({ get, set }) {
@@ -18,6 +19,8 @@ export default function ComposeTab({ get, set }) {
   const [template, setTemplate] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
+  const [attachments, setAttachments] = useState([])
+  const [attachmentError, setAttachmentError] = useState('')
   const [customers, setCustomers] = useState([])
 
   useEffect(() => {
@@ -56,18 +59,40 @@ export default function ComposeTab({ get, set }) {
 
   const leftover = useMemo(() => [...new Set(`${subject}\n${body}`.match(/\{[^}]+\}/g) || [])], [subject, body])
 
+  function selectAttachments(event) {
+    const selected = Array.from(event.currentTarget.files)
+    event.currentTarget.value = ''
+    if (!selected.length) return
+    const next = [...attachments, ...selected]
+    const message = validateEmailAttachments(next)
+    setAttachmentError(message)
+    if (!message) setAttachments(next)
+  }
+
   async function send() {
     setError('')
     if (!to.trim() || !subject.trim() || !body.trim()) { setError('请填写收件人、主题和正文'); return }
     if (leftover.length) { setError(`还有没替换的内容：${leftover.join(' ')}，请改好再发`); return }
+    if (attachmentError) return
     setSending(true)
     try {
-      await api('/api/admin/send-email', { method: 'POST', body: { to: to.trim(), subject, body } })
+      const fields = { to: to.trim(), subject, body }
+      let payload = fields
+      if (attachments.length) {
+        payload = new FormData()
+        for (const [name, value] of Object.entries(fields)) payload.set(name, value)
+        for (const file of attachments) payload.append('attachments', file)
+      }
+      await api('/api/admin/send-email', { method: 'POST', body: payload })
       toast.success(`邮件已发送给 ${to.trim()}`)
       setSubject(''); setBody(''); setTemplate('')
+      setAttachments([])
       if (orderNumber || get('to')) set({ order: '', to: '', name: '' })
-    } catch (e) { setError('发送失败：' + e.message) }
-    setSending(false)
+    } catch (e) {
+      setError(e.status === 413 ? '附件和邮件内容合计过大，请减小附件后重试' : '发送失败：' + e.message)
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
@@ -91,9 +116,29 @@ export default function ComposeTab({ get, set }) {
           <Field label="正文" required hint={`邮件会套上 ${cfg.brand} 的信头信尾，并抄送一份到 ${cfg.ownerEmail}`}>
             <Textarea rows={14} value={body} onChange={e => setBody(e.target.value)} />
           </Field>
+          <Field label="附件" hint="最多 5 个，合计不超过 4 MB。支持 PDF、常用图片、DOCX、XLSX、TXT 和 CSV。">
+            <Input type="file" accept={EMAIL_ATTACHMENT_ACCEPT} multiple disabled={sending} onChange={selectAttachments} />
+          </Field>
+          {attachments.length > 0 && (
+            <ul className={s.emailAttachments} aria-label="已选附件">
+              {attachments.map((file, index) => (
+                <li key={`${file.name}-${index}`}>
+                  <span>{file.name} <small>（{Math.ceil(file.size / 1024)} KB）</small></span>
+                  <Button size="sm" variant="ghost" disabled={sending} aria-label={`移除 ${file.name}`}
+                    onClick={() => { setAttachments(files => files.filter((_, i) => i !== index)); setAttachmentError('') }}>移除</Button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {attachmentError && (
+            <Notice tone="warning">
+              {attachmentError}。本次选择未添加。
+              <Button size="sm" variant="ghost" onClick={() => setAttachmentError('')}>关闭提示</Button>
+            </Notice>
+          )}
           {leftover.length > 0 && <Notice tone="warning">把 {leftover.join(' ')} 换成实际内容后才能发送</Notice>}
           {error && <Notice tone="danger">{error}</Notice>}
-          <div><Button variant="primary" icon="send" loading={sending} onClick={send}>发送</Button></div>
+          <div><Button variant="primary" icon="send" loading={sending} disabled={!!attachmentError} onClick={send}>发送</Button></div>
         </div>
       </Card>
       <Card title="模板" subtitle="点一下套用，可以接着修改">
@@ -101,7 +146,8 @@ export default function ComposeTab({ get, set }) {
           {cfg.emailTemplates.map(t => (
             <Button key={t.label} block variant={template === t.label ? 'primary' : 'secondary'} onClick={() => applyTemplate(t)}>{t.label}</Button>
           ))}
-          <Button block variant="ghost" onClick={() => { setTemplate(''); setSubject(''); setBody('') }}>清空</Button>
+          <Button block variant="ghost" disabled={sending}
+            onClick={() => { setTemplate(''); setSubject(''); setBody(''); setAttachments([]); setAttachmentError('') }}>清空</Button>
         </div>
       </Card>
     </div>

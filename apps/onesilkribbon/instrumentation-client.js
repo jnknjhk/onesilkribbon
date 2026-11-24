@@ -1,10 +1,11 @@
 import * as Sentry from '@sentry/nextjs'
 import { telemetryPrivacyHooks } from './lib/telemetry-privacy'
+import { resolveSentryDsn } from './lib/sentry-dsn'
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart
 
 Sentry.init({
-  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+  dsn: resolveSentryDsn(process.env.NEXT_PUBLIC_SENTRY_DSN),
   environment: process.env.NODE_ENV,
 
   // 只在生产环境开启，本地开发不上报

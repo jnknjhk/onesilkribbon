@@ -177,6 +177,8 @@ test('depth, width and string budgets discard unsafe data without truncating a s
 })
 
 test('all runtime configs install hooks and keep browser init independent of requestDataIntegration', () => {
+  const oldDsn = 'https://' + 'a'.repeat(32) + '@o4511030004613120.ingest.de.sentry.io/4511030021259344'
+  const expectedDsn = oldDsn.replace('.ingest.de.', '.ingest.us.')
   for (const runtime of ['client', 'server', 'edge']) {
     let options
     const includes = []
@@ -188,11 +190,17 @@ test('all runtime configs install hooks and keep browser init independent of req
     // No process, require, Buffer, URL or network APIs in the scrubber's realm.
     const context = vm.createContext({})
     vm.runInContext(source.replace('export const telemetryPrivacyHooks', 'const telemetryPrivacyHooks'), context)
+    vm.runInContext(read('lib/sentry-dsn.js').replace('export function', 'function'), context)
     context.Sentry = sentry
-    context.process = { env: { NODE_ENV: 'production', NEXT_PUBLIC_SENTRY_DSN: 'test-only' } }
+    context.process = { env: { NODE_ENV: 'production', NEXT_PUBLIC_SENTRY_DSN: oldDsn } }
     const configFile = runtime === 'client' ? 'instrumentation-client.js' : `sentry.${runtime}.config.js`
     vm.runInContext(read(configFile).replace(/^import .*$/gm, '').replace(/^export /gm, ''), context)
     assert.equal(options.sendDefaultPii, false)
+    assert.equal(options.dsn, expectedDsn)
+    const differentProject = oldDsn.replace('/4511030021259344', '/1234')
+    assert.equal(context.resolveSentryDsn(differentProject), differentProject)
+    assert.equal(context.resolveSentryDsn(expectedDsn), expectedDsn)
+    assert.equal(context.resolveSentryDsn(undefined), undefined)
     assert.equal(options.enabled, true)
     assert.equal(options.tracesSampleRate, runtime === 'edge' ? 0 : 0.1)
     for (const name of ['beforeSend', 'beforeSendTransaction', 'beforeSendSpan', 'beforeBreadcrumb']) {

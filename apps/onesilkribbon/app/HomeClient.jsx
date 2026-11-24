@@ -420,7 +420,7 @@ function SilkNotes() {
       <div className="silk-notes-inner reveal">
         <span className="eyebrow" style={{ marginBottom: 16 }}>About Our Silk</span>
         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(26px, 3.2vw, 38px)', fontWeight: 300, lineHeight: 1.25, marginBottom: 'clamp(28px, 4vw, 44px)' }}>
-          How to choose <em style={{ fontStyle: 'italic', color: 'var(--gold)' }}>mulberry silk ribbon</em>
+          How to choose <em className="silk-notes-accent">mulberry silk ribbon</em>
         </h2>
 
         <div className="silk-notes-cols">
@@ -464,11 +464,15 @@ function SilkNotes() {
         .silk-notes { padding: var(--section-padding-y, 100px) var(--page-padding, 60px); background: var(--cream); }
         .silk-notes-inner { max-width: 1080px; margin: 0 auto; }
         .silk-notes-cols { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(28px, 4vw, 64px); }
-        .silk-notes-cols p { font-size: 14px; line-height: 2; color: var(--taupe); margin-bottom: 20px; }
+        .silk-notes-accent { color: #76592f; }
+        .silk-notes-cols p { font-size: 14px; line-height: 2; color: var(--deep); margin-bottom: 20px; }
         .silk-notes-cols p:last-child { margin-bottom: 0; }
+        .silk-notes-cols p a, .silk-notes-links a {
+          color: #76592f; text-decoration: underline; text-underline-offset: 0.2em;
+        }
         .silk-notes-links { list-style: none; display: flex; flex-wrap: wrap; gap: 10px 28px; margin-top: clamp(32px, 4vw, 48px); padding-top: 28px; border-top: 1px solid var(--sand); }
-        .silk-notes-links a { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color 0.3s, color 0.3s; }
-        .silk-notes-links a:hover { color: var(--ink); border-bottom-color: var(--ink); }
+        .silk-notes-links a { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; }
+        .silk-notes a:hover { color: var(--ink); }
         @media (max-width: 768px) { .silk-notes-cols { grid-template-columns: 1fr; } }
       ` }} />
     </section>

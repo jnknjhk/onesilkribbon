@@ -33,39 +33,19 @@ export default function CookieBanner() {
     <>
       <div className="cookie-banner">
         <p style={{
-          fontSize: 11, color: 'rgba(255,255,255,0.6)', lineHeight: 1.8,
+          fontSize: 12, color: 'rgba(255,255,255,0.75)', lineHeight: 1.8,
           flex: 1, minWidth: 0,
         }}>
           We use cookies to keep your basket and understand how you use our site.{' '}
-          <Link href="/cookies" style={{ color: 'var(--gold)', textDecoration: 'none' }}>
+          <Link href="/cookies" className="cookie-policy-link">
             Cookie Policy
           </Link>
         </p>
         <div className="cookie-actions">
-          <button onClick={decline} style={{
-            padding: '10px 24px', background: 'none',
-            border: '1px solid rgba(255,255,255,0.2)',
-            fontFamily: 'var(--font-body)', fontSize: 9, letterSpacing: '.2em',
-            textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', cursor: 'pointer',
-            transition: 'border-color .2s, color .2s',
-            minHeight: 44,
-          }}
-            onMouseEnter={e => { e.target.style.borderColor = 'rgba(255,255,255,0.5)'; e.target.style.color = '#fff' }}
-            onMouseLeave={e => { e.target.style.borderColor = 'rgba(255,255,255,0.2)'; e.target.style.color = 'rgba(255,255,255,0.5)' }}
-          >
+          <button type="button" className="cookie-decline" onClick={decline}>
             Decline
           </button>
-          <button onClick={accept} style={{
-            padding: '10px 24px', background: 'var(--gold)',
-            border: '1px solid var(--gold)',
-            fontFamily: 'var(--font-body)', fontSize: 9, letterSpacing: '.2em',
-            textTransform: 'uppercase', color: '#fff', cursor: 'pointer',
-            transition: 'opacity .2s',
-            minHeight: 44,
-          }}
-            onMouseEnter={e => e.target.style.opacity = '.85'}
-            onMouseLeave={e => e.target.style.opacity = '1'}
-          >
+          <button type="button" className="cookie-accept" onClick={accept}>
             Accept
           </button>
         </div>
@@ -82,6 +62,22 @@ export default function CookieBanner() {
         }
         .cookie-actions {
           display: flex; gap: 10px; flex-shrink: 0;
+        }
+        .cookie-policy-link {
+          color: var(--gold); text-decoration: underline; text-underline-offset: 0.2em;
+        }
+        .cookie-actions button {
+          min-height: 44px; padding: 10px 24px; border: 1px solid transparent;
+          font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+        }
+        .cookie-actions .cookie-accept { background: var(--gold); color: var(--ink); }
+        .cookie-actions .cookie-accept:hover { background: var(--warm); }
+        .cookie-actions .cookie-decline {
+          background: transparent; color: var(--cream); border-color: var(--taupe);
+        }
+        .cookie-actions .cookie-decline:hover { border-color: var(--cream); }
+        .cookie-banner :is(a, button):focus-visible {
+          outline: 2px solid var(--cream); outline-offset: 3px;
         }
         @media (max-width: 600px) {
           .cookie-banner {

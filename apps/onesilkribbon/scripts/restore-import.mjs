@@ -184,6 +184,12 @@ async function main() {
     const file = path.join(dir, `${table.name}.json`)
     let buffer
     try { buffer = await fs.readFile(file) } catch {
+      // 旧备份可能早于某张表存在：manifest 里没有它，就跳过。
+      // 如果 manifest 里有、文件却丢了，才是真的损坏。
+      if (!manifestTables.has(table.name)) {
+        console.log(`  ${table.name.padEnd(32)} 旧备份没有这张表，跳过`)
+        continue
+      }
       throw new Error(`缺少表文件: ${table.name}.json`)
     }
     const meta = manifestTables.get(table.name)

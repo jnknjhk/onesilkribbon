@@ -99,7 +99,12 @@ export default function OrderDetail({ number }) {
               : items.map(it => (
                 <div key={it.id} className={s.itemRow}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className={s.cellMain}>{it.product_name}</div>
+                    {it.internal_name && (
+                      <div className={s.cellMain}>
+                        {it.internal_name}{it.packing_width ? ` · ${it.packing_width}` : ''} × {it.quantity}
+                      </div>
+                    )}
+                    <div className={it.internal_name ? s.cellSub : s.cellMain}>{it.product_name}</div>
                     {it.sku_description && <div className={s.cellSub}>{it.sku_description}</div>}
                   </div>
                   <div className={s.num} style={{ color: 'var(--text-2)' }}>{money(it.unit_price_gbp)} × {it.quantity}</div>

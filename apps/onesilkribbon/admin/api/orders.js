@@ -4,6 +4,7 @@ import { verifyAdmin } from '../auth'
 import { errorResponse } from '@osr/core/lib/api-error'
 import { ORDER_TABS, DEFAULT_ORDER_TAB, tabStatuses, CAN } from '../lib/status'
 import { cleanSearch, isMissingRpc } from './_helpers'
+import { attachInternalPackingNames, canAccessInternalProductNames } from '../lib/internal-product-names'
 
 const MAX_PAGE_SIZE = 100
 
@@ -64,7 +65,7 @@ async function attachItemSummary(orders) {
   })
 }
 
-async function orderDetail(number) {
+async function orderDetail(number, admin) {
   const { data: order, error } = await supabaseAdmin
     .from('orders').select('*').eq('order_number', number).maybeSingle()
   if (error) return errorResponse(error, { tag: 'admin-order-detail' })
@@ -86,9 +87,10 @@ async function orderDetail(number) {
   if (disputesRes.error && !['PGRST205', '42P01'].includes(disputesRes.error.code)) {
     return errorResponse(disputesRes.error, { tag: 'admin-order-disputes' })
   }
+  const items = itemsRes.data || []
   return Response.json({
     order,
-    items: itemsRes.data || [],
+    items: await canAccessInternalProductNames(supabaseAdmin, admin) ? await attachInternalPackingNames(supabaseAdmin, items) : items,
     events: eventsRes.data || [],
     emails: emailsRes.data || [],
     disputes: disputesRes.error ? [] : (disputesRes.data || []),
@@ -115,7 +117,7 @@ export async function GET(req) {
     }
 
     const number = searchParams.get('number')
-    if (number) return await orderDetail(number)
+    if (number) return await orderDetail(number, admin)
 
     // 打印装箱单：一次取多张订单和各自的商品
     const numbers = searchParams.get('numbers')

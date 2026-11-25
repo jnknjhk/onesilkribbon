@@ -183,7 +183,7 @@ export default function ProductEditor({ product, initialSkus, onSaved }) {
 
       <div className={s.split}>
         <div className={s.stack}>
-          <ProductBasicCard form={form} isNew={isNew} setForm={setForm} />
+          <ProductBasicCard form={form} isNew={isNew} setForm={setForm} product={product} />
           <ProductImagesCard images={images} onMove={moveImage}
             onRemove={i => setImages(p => p.filter((_, j) => j !== i))}
             onAdd={urls => setImages(p => [...p, ...urls])} />

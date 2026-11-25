@@ -26,8 +26,9 @@
 | 17 | `2026-11-20-payment-recovery-fixes.sql` | PayPal 失败后释放预占，Stripe 退款回调保留后台库存回补 |
 | 18 | `2026-11-21-checkout-requests.sql` | 结账请求去重及 Stripe 分笔退款对账 |
 | 19 | `2026-11-21-product-image-column-types.sql` | 商品保存兼容 JSONB 和文本数组图片列 |
-| 20 | `2026-11-25-payment-disputes.sql` | 支付争议/拒付记录表 |
-| 21 | `2026-11-25-customer-directory-and-erasure.sql` | 客户目录（含零订单账号）与按 user_id 的 GDPR 删除 |
+| 20 | `2026-11-23-internal-product-names.sql` | 后台内部商品名和单账号访问配置 |
+| 21 | `2026-11-25-payment-disputes.sql` | 支付争议/拒付记录表 |
+| 22 | `2026-11-25-customer-directory-and-erasure.sql` | 客户目录（含零订单账号）与按 user_id 的 GDPR 删除 |
 
 ## 安全说明
 

@@ -25,6 +25,7 @@ const migrations = [
   '2026-11-20-payment-recovery-fixes.sql',
   '2026-11-21-checkout-requests.sql',
   '2026-11-21-product-image-column-types.sql',
+  '2026-11-23-internal-product-names.sql',
   '2026-11-25-payment-disputes.sql',
   '2026-11-25-customer-directory-and-erasure.sql',
 ]
@@ -99,6 +100,21 @@ test('baseline keeps public catalog readable and orders private', async () => {
     has_table_privilege('authenticated','orders','select') as user_orders
   `))[0]
   assert.deepEqual(result, { anon_products: true, anon_orders: false, user_orders: false })
+})
+
+test('internal product names and their owner configuration are private', async () => {
+  const result = await rows(`select c.relname, c.relrowsecurity as rls,
+    has_table_privilege('anon', c.oid, 'select') as guest,
+    has_table_privilege('authenticated', c.oid, 'select') as customer,
+    has_table_privilege('service_role', c.oid, 'select') as server_read,
+    has_table_privilege('service_role', c.oid, 'update') as server_write
+    from pg_class c join pg_namespace n on n.oid=c.relnamespace
+    where n.nspname='public' and c.relname in ('product_internal_names','product_internal_name_access')
+    order by c.relname`)
+  assert.deepEqual(result, [
+    { relname: 'product_internal_name_access', rls: true, guest: false, customer: false, server_read: true, server_write: false },
+    { relname: 'product_internal_names', rls: true, guest: false, customer: false, server_read: true, server_write: true },
+  ])
 })
 
 test('schema.sql and the new additive migrations are repeatable', async () => {

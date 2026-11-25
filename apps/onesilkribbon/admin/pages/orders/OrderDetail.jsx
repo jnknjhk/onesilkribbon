@@ -17,6 +17,7 @@ import ShipFields, { initialShipValue, carrierName, shipValueValid } from './Shi
 const EMAIL_KIND = {
   order_confirmation: '订单确认邮件', owner_notification: '新订单通知（发给你）', shipping: '发货通知',
   marketing: '后台手动发送', contact: '联系表单', contact_autoreply: '留言自动回复',
+  dispute_alert: '支付争议提醒（发给你）',
 }
 
 function backHref(status) {
@@ -42,7 +43,7 @@ export default function OrderDetail({ number }) {
   if (error) return <div><PageHeader title={number} back="/admin/orders" /><Notice tone="danger">{error}</Notice></div>
   if (!data) return <div><PageHeader title={number} back="/admin/orders" /><Card><SkeletonRows rows={6} /></Card></div>
 
-  const { order, items, events, emails } = data
+  const { order, items, events, emails, disputes = [] } = data
   const st = ORDER_STATUS[order.status] || { label: order.status, tone: 'neutral' }
   const done = () => { setModal(null); load(); refreshCounts() }
   const erased = isErased(order) // 客户已删除：没有联系方式了，不显示发邮件这类操作
@@ -81,6 +82,13 @@ export default function OrderDetail({ number }) {
       )}
       {order.status === 'pending' && (
         <Notice tone="info" style={{ marginBottom: 16 }}>顾客还没有付款，不需要发货。顾客完成付款后这单会自动变成“待发货”。</Notice>
+      )}
+      {disputes.length > 0 && (
+        <Notice tone="danger" style={{ marginBottom: 16 }}>
+          支付平台已对这笔订单发起争议：
+          {disputes.map(d => ` ${d.provider} ${d.status}${d.evidence_due_by ? `（举证截止 ${dateTime(d.evidence_due_by)}）` : ''}`).join('；')}。
+          请到支付平台提交证据；这里的订单状态不会自动改变。
+        </Notice>
       )}
 
       <div className={s.split}>

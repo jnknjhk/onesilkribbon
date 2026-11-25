@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { errorResponse } from '@osr/core/lib/api-error'
 import { recordPayment, recordExternalRefund, prepareOrder, completeOrder, deliverNotifications } from '@/lib/payment-orders'
 import { stripeProviderScope } from '@/lib/stripe-reservations'
+import { mapStripeDispute, recordAndNotifyDispute } from '@/lib/payment-disputes'
 
 async function stripeOrderForPayment(paymentIntent, orderNumberHint) {
   if (orderNumberHint) {
@@ -123,6 +124,18 @@ export async function POST(req) {
       return Response.json({ received: true })
     } catch (err) {
       return errorResponse(err, { status: 503, tag: 'stripe-refund-webhook' })
+    }
+  }
+
+  if (event.type.startsWith('charge.dispute.')) {
+    try {
+      const input = mapStripeDispute(event.data.object)
+      const order = input.paymentId ? await stripeOrderForPayment(input.paymentId, input.orderNumber) : null
+      // 只写数据库里确实存在的订单号，避免外键拒绝整条争议记录。
+      await recordAndNotifyDispute({ ...input, orderNumber: order?.order_number || null })
+      return Response.json({ received: true })
+    } catch (err) {
+      return errorResponse(err, { status: 503, tag: 'stripe-dispute-webhook' })
     }
   }
 

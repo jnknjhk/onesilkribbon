@@ -51,10 +51,19 @@ SUPABASE_SERVICE_KEY          = eyJhbGc...
 
 ### Stripe（在 stripe.com/dashboard → Developers → API keys）
 ```
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = pk_live_...
-STRIPE_SECRET_KEY                  = sk_live_...
-STRIPE_WEBHOOK_SECRET              = whsec_...（下一步配置）
+STRIPE_SECRET_KEY     = sk_live_...
+STRIPE_WEBHOOK_SECRET = whsec_...（下一步配置）
 ```
+
+> 结账走 Stripe Checkout 整页跳转，不需要 publishable key / Stripe Elements。
+
+### 邮件（在 resend.com → API Keys / Domains）
+```
+RESEND_API_KEY = re_...
+EMAIL_FROM     = song@onesilkribbon.com
+```
+
+> 没有 `RESEND_API_KEY` 时所有邮件发送都会报错；订单确认、发货通知、订阅验证都会受影响。
 
 ### PayPal（在 developer.paypal.com → My Apps）
 ```
@@ -69,10 +78,33 @@ PAYPAL_WEBHOOK_ID            = webhook-id（下一步创建）
 AFTERSHIP_API_KEY = asat_...
 ```
 
-### 其他
+### 后台与站点
 ```
 NEXT_PUBLIC_SITE_URL = https://onesilkribbon.com
+ADMIN_EMAILS         = song@onesilkribbon.com
 ```
+
+> `ADMIN_EMAILS` 是逗号分隔的管理员邮箱。**没有它没人能登录 /admin。**
+> 它还必须与 `supabase/schema.sql` 里 `is_admin_user()` 的邮箱保持一致。
+
+### 退订链接签名
+```
+UNSUBSCRIBE_SECRET = 一串足够长的随机字符
+```
+
+> 用于给营销邮件生成不可伪造的退订链接。留空时回退到 `SUPABASE_SERVICE_KEY`；
+> 建议单独配置，轮换密钥不会影响订单数据。可用 `openssl rand -hex 32` 生成。
+
+### Sentry（错误监控，可选但强烈建议）
+```
+NEXT_PUBLIC_SENTRY_DSN =
+SENTRY_ORG             = onesilkribbon
+SENTRY_PROJECT         = onesilkribbon
+SENTRY_AUTH_TOKEN      = sntrys_...（可选，用于上传 source map）
+```
+
+> 不配置 DSN 时 Sentry 静默不生效；没有 `SENTRY_AUTH_TOKEN` 时 source map 不会上传，
+> 线上堆栈会是压缩后的。
 
 ---
 
@@ -89,6 +121,9 @@ NEXT_PUBLIC_SITE_URL = https://onesilkribbon.com
    - `charge.refunded`
    - `refund.created`
    - `refund.updated`
+   - `charge.dispute.created`
+   - `charge.dispute.updated`
+   - `charge.dispute.closed`
 5. 点击 **"Add endpoint"**
 6. 复制 **Signing secret**（whsec_...）
 7. 填入 Vercel 的 `STRIPE_WEBHOOK_SECRET`
@@ -108,7 +143,13 @@ NEXT_PUBLIC_SITE_URL = https://onesilkribbon.com
    - `PAYMENT.CAPTURE.DECLINED`
    - `PAYMENT.CAPTURE.REFUNDED`
    - `PAYMENT.CAPTURE.REVERSED`
+   - `CUSTOMER.DISPUTE.CREATED`
+   - `CUSTOMER.DISPUTE.UPDATED`
+   - `CUSTOMER.DISPUTE.RESOLVED`
 4. 创建后复制 **Webhook ID**，填入 Vercel 的 `PAYPAL_WEBHOOK_ID`
+
+> 争议事件会写进 `payment_disputes`，并在后台「设置 → 支付恢复」和订单详情里提示。
+> 订单状态不会自动改变，需要到支付平台提交证据。
 
 ---
 
@@ -118,9 +159,9 @@ NEXT_PUBLIC_SITE_URL = https://onesilkribbon.com
 
 1. 登录 [supabase.com](https://supabase.com)，进入项目 → **SQL Editor**
 2. 新建查询，执行 `supabase/schema.sql`（可重复执行，只建表/列/索引/策略，不改数据）
-3. 按 `supabase/migrations/MANIFEST.md` 里的顺序，逐个执行迁移文件
+3. 按 `supabase/migrations/MANIFEST.md` 里的顺序，逐个执行**全部**迁移文件
    - 注意：`2026-10-14-inventory-coupons.sql` 必须排在 `2026-10-14-payment-reliability.sql` 之后，不能按文件名排序
-4. 最后执行 `2026-11-06-pii-erasure-and-order-closing.sql`
+   - 不要只执行到某一天为止；`MANIFEST.md` 的最后一行就是当前最新迁移
 
 **已有环境**：
 
@@ -129,6 +170,41 @@ NEXT_PUBLIC_SITE_URL = https://onesilkribbon.com
 - 不要重复执行已经跑过的迁移来“重建”数据库。
 
 数据库结构变更记录都在 `supabase/migrations/`，不再只依赖 `schema.sql`。
+
+---
+
+## 第五步之二：部署门禁与备份恢复
+
+### 部署门禁
+
+- 合并到 `master` 前，GitHub Actions 的「Lint / 单元测试 / 依赖审计」和「构建」必须全绿。
+- CI 的构建步骤不再静默跳过：缺少 Supabase 密钥会直接失败，避免生产构建长期没人验证。
+- Vercel 由 Git 集成自动部署 `master`；不要在 CI 红的时候合并。
+- 建议在 GitHub 仓库 **Settings → Branches** 给 `master` 加保护，要求 CI 通过后才能合并。
+
+### 备份
+
+在 `apps/onesilkribbon` 下：
+
+```bash
+npm run backup -- --dry-run                 # 只统计行数
+npm run backup -- --include-storage         # 导出全部表 + media 图片
+```
+
+备份目录含客户个人信息，只能放在本机加密盘，`backups/` 已在 `.gitignore` 中忽略。
+
+### 恢复
+
+```bash
+npm run restore -- --dir backups/<时间戳>                    # dry-run，只校验
+npm run restore -- --dir backups/<时间戳> --apply --yes      # 真正写入
+npm run restore -- --dir backups/<时间戳> --apply --yes --include-storage
+```
+
+- 恢复是 **upsert**，不会删除备份里没有的行；建议恢复到空环境。
+- 目标库有任何非空表时默认拒绝；`--force` 会先检查自然键冲突，冲突时不会写入任何数据。
+- JSON 备份不含 `auth.users` 登录账号；恢复后客户需要重新登录或重置密码。整库恢复请用 Supabase PITR。
+- 恢复完请抽查：订单、商品/SKU、退款记录、支付争议、媒体图片。
 
 ---
 

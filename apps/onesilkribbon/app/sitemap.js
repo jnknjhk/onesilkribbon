@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { FINE_SILK_CONTENT_UPDATED_AT, fineSilkColourNote } from '@/lib/fine-silk-colour-notes'
+import { HAND_FRAYED_CONTENT_UPDATED_AT, handFrayedColourNote } from '@/lib/hand-frayed-colour-notes'
 
 // Vercel continued serving the old sitemap after a direct catalogue cutover.
 // Generate this small metadata route from the live catalogue on request.
@@ -38,7 +39,11 @@ export default async function sitemap() {
 
   const productPages = (products || []).map(p => ({
     url: `${baseUrl}/collections/${p.collection}/${p.slug}`,
-    ...modified(p.updated_at, fineSilkColourNote(p.collection, p.slug) && FINE_SILK_CONTENT_UPDATED_AT),
+    ...modified(
+      p.updated_at,
+      fineSilkColourNote(p.collection, p.slug) && FINE_SILK_CONTENT_UPDATED_AT,
+      handFrayedColourNote(p.collection, p.slug) && HAND_FRAYED_CONTENT_UPDATED_AT,
+    ),
     changeFrequency: 'weekly',
     priority: 0.8,
   }))

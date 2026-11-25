@@ -1,5 +1,5 @@
 import { verifyAdmin } from '@/admin/auth'
-import { fetchAll } from '@/admin/api/_helpers'
+import { fetchAll, isMissingRelation } from '@/admin/api/_helpers'
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { errorResponse } from '@osr/core/lib/api-error'
 import { completeOrder, deliverNotifications } from '@/lib/payment-orders'
@@ -8,7 +8,7 @@ import { reconcileStripeReservation } from '@/lib/stripe-reservations'
 
 export async function GET() {
   if (!await verifyAdmin()) return Response.json({ error: 'Unauthorized' }, { status: 401 })
-  const [receipts, notifications, pendingPayPal, pendingStripe, pendingRefunds, unprocessedRefunds, refundedOrders, refundRequests, paymentRefunds] = await Promise.all([
+  const [receipts, notifications, pendingPayPal, pendingStripe, pendingRefunds, unprocessedRefunds, refundedOrders, refundRequests, paymentRefunds, disputes] = await Promise.all([
     supabaseAdmin.from('payment_receipts').select('provider,payment_id,order_number,created_at')
       .is('processed_at', null).order('created_at').limit(100),
     supabaseAdmin.from('payment_notifications').select('order_number,customer_sent_at,owner_sent_at')
@@ -31,8 +31,14 @@ export async function GET() {
       .eq('status', 'refunded').order('created_at', { ascending: false }).order('id')),
     fetchAll(() => supabaseAdmin.from('refund_requests').select('order_id').order('order_id')),
     fetchAll(() => supabaseAdmin.from('payment_refunds').select('order_number').order('order_number')),
+    // 支付平台拒付/争议：不自动改订单状态，单独列出让店主去支付平台应诉。
+    supabaseAdmin.from('payment_disputes')
+      .select('provider, dispute_id, order_number, payment_id, status, reason, amount_pence, currency, evidence_due_by, opened_at, updated_at, resolved_at')
+      .order('updated_at', { ascending: false }).limit(100),
   ])
-  const failed = [receipts, notifications, pendingPayPal, pendingStripe, pendingRefunds, unprocessedRefunds, refundedOrders, refundRequests, paymentRefunds].find(r => r.error)
+  // 代码可能先于迁移上线：争议表不存在时不影响其它恢复数据。
+  if (isMissingRelation(disputes.error)) { disputes.error = null; disputes.data = [] }
+  const failed = [receipts, notifications, pendingPayPal, pendingStripe, pendingRefunds, unprocessedRefunds, refundedOrders, refundRequests, paymentRefunds, disputes].find(r => r.error)
   if (failed) return errorResponse(failed.error)
 
   const withRefundRequest = new Set((refundRequests.data || []).map(r => r.order_id))
@@ -49,6 +55,7 @@ export async function GET() {
     pendingRefunds: pendingRefunds.data,
     unprocessedRefunds: unprocessedRefunds.data,
     refundedWithoutRecord,
+    disputes: disputes.data || [],
   })
 }
 

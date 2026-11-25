@@ -70,20 +70,28 @@ async function orderDetail(number) {
   if (error) return errorResponse(error, { tag: 'admin-order-detail' })
   if (!order) return Response.json({ error: '找不到这个订单' }, { status: 404 })
 
-  const [itemsRes, eventsRes, emailsRes] = await Promise.all([
+  const [itemsRes, eventsRes, emailsRes, disputesRes] = await Promise.all([
     supabaseAdmin.from('order_items').select('*').eq('order_id', order.id),
     supabaseAdmin.from('tracking_events').select('*').eq('order_id', order.id).order('event_time', { ascending: true }),
     supabaseAdmin.from('email_log').select('id, kind, to_email, subject, status, error, created_at, provider_id')
       .eq('order_number', order.order_number).order('created_at', { ascending: true }),
+    supabaseAdmin.from('payment_disputes')
+      .select('provider, dispute_id, status, reason, amount_pence, currency, evidence_due_by, opened_at, resolved_at')
+      .eq('order_number', order.order_number).order('opened_at', { ascending: false }),
   ])
   if (itemsRes.error) return errorResponse(itemsRes.error, { tag: 'admin-order-items' })
   if (eventsRes.error) return errorResponse(eventsRes.error, { tag: 'admin-order-events' })
   if (emailsRes.error) return errorResponse(emailsRes.error, { tag: 'admin-order-emails' })
+  // 迁移尚未执行时，订单详情仍然可用，争议区只是不显示。
+  if (disputesRes.error && !['PGRST205', '42P01'].includes(disputesRes.error.code)) {
+    return errorResponse(disputesRes.error, { tag: 'admin-order-disputes' })
+  }
   return Response.json({
     order,
     items: itemsRes.data || [],
     events: eventsRes.data || [],
     emails: emailsRes.data || [],
+    disputes: disputesRes.error ? [] : (disputesRes.data || []),
   })
 }
 

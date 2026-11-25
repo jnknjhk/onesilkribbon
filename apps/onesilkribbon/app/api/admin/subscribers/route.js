@@ -1,1 +1,1 @@
-export { GET } from '@/admin/api/subscribers'
+export { GET, PATCH } from '@/admin/api/subscribers'

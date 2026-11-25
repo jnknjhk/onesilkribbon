@@ -16,13 +16,17 @@ test('sitemap keeps real dates and rejects a database outage instead of silently
         { slug: 'ribbon', collection: 'silk', updated_at: '2026-01-02' },
         { slug: 'bow', collection: 'silk', updated_at: 'invalid' },
         { slug: 'mulberry-silk-ribbon-cloud-white', collection: 'fine-silk-ribbons', updated_at: '2026-10-01' },
+        { slug: 'pearl-white-hand-frayed-silk-ribbon', collection: 'hand-frayed-silk-ribbons', updated_at: '2026-10-01' },
+        { slug: 'lotus-pink-hand-frayed-silk-ribbon', collection: 'hand-frayed-silk-ribbons', updated_at: '2026-11-22' },
       ]
       : [{ slug: 'story', updated_at: null }, { slug: 'halloween-silk-ribbon-ideas', updated_at: '2026-10-28T04:05:00.000Z' }] } }) }) }
   try {
     const notesModule = 'data:text/javascript;base64,' + Buffer.from(read('lib/fine-silk-colour-notes.js')).toString('base64')
+    const handFrayedNotesModule = 'data:text/javascript;base64,' + Buffer.from(read('lib/hand-frayed-colour-notes.js')).toString('base64')
     const { default: sitemap } = await load(read('app/sitemap.js')
       .replace("import { supabaseAdmin } from '@osr/core/lib/supabase'", 'const supabaseAdmin = globalThis.__sitemapDb')
-      .replace('@/lib/fine-silk-colour-notes', notesModule))
+      .replace('@/lib/fine-silk-colour-notes', notesModule)
+      .replace('@/lib/hand-frayed-colour-notes', handFrayedNotesModule))
     const result = await sitemap()
     assert.equal(result.find(row => row.url.endsWith('/silk/ribbon')).lastModified.toISOString(), '2026-01-02T00:00:00.000Z')
     assert.equal(result.find(row => row.url.endsWith('/collections/silk')).lastModified.toISOString(), '2026-01-02T00:00:00.000Z')
@@ -30,12 +34,15 @@ test('sitemap keeps real dates and rejects a database outage instead of silently
     for (const suffix of ['/collections/fine-silk-ribbons', '/mulberry-silk-ribbon-cloud-white']) {
       assert.equal(result.find(row => row.url.endsWith(suffix)).lastModified.toISOString().slice(0, 10), FINE_SILK_CONTENT_UPDATED_AT)
     }
+    const { HAND_FRAYED_CONTENT_UPDATED_AT } = await import(handFrayedNotesModule)
+    assert.equal(result.find(row => row.url.endsWith('/pearl-white-hand-frayed-silk-ribbon')).lastModified.toISOString().slice(0, 10), HAND_FRAYED_CONTENT_UPDATED_AT)
+    assert.equal(result.find(row => row.url.endsWith('/lotus-pink-hand-frayed-silk-ribbon')).lastModified.toISOString().slice(0, 10), '2026-11-22')
     assert.ok(result.some(row => row.url.endsWith('/journal/story')))
     assert.equal(result.filter(row => row.url.endsWith('/collections/silk')).length, 1)
     const halloween = result.filter(row => row.url.endsWith('/journal/halloween-silk-ribbon-ideas'))
     assert.equal(halloween.length, 1)
     assert.equal(halloween[0].lastModified.toISOString(), '2026-10-28T04:05:00.000Z')
-    assert.equal(result.filter(row => row.lastModified).length, 5)
+    assert.equal(result.filter(row => row.lastModified).length, 8)
     failed = true
     await assert.rejects(sitemap, /Unable to generate sitemap/)
   } finally { delete globalThis.__sitemapDb }

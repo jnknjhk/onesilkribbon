@@ -7,6 +7,7 @@ import { safeProductHtml } from '@/lib/product-content'
 import { selectInitialSku, validSkus, productGroupSchema, variantUrl } from '@/lib/product-variants'
 import { FINE_SILK_COLLECTION, FINE_SILK_SOURCE_SLUG, readFineSilkFamily, fineSilkLegacyTarget, fineSilkColourChoices } from '@/lib/fine-silk-ribbons'
 import { fineSilkColourNote } from '@/lib/fine-silk-colour-notes'
+import { handFrayedColourNote } from '@/lib/hand-frayed-colour-notes'
 import { WOOD_SPOOL_SPLIT, splitLegacyTarget } from '@/lib/product-splits'
 import { readWoodSpoolFamily, woodSpoolSizeChoices } from '@/lib/wooden-spools'
 import { safeJsonLd } from '@/lib/safe-json-ld'
@@ -63,7 +64,7 @@ export async function generateMetadata({ params }) {
   // 而且商品描述第一行往往是「色号 | 品类名」，跟 <title> 完全重复，
   // 白白吃掉 40 多个字符的摘要空间。buildMetaDescription 会跳过标题回声、
   // 归一化换行，并在句子或词边界收尾。
-  const colourNote = fineSilkColourNote(product.collection, product.slug)
+  const colourNote = fineSilkColourNote(product.collection, product.slug) || handFrayedColourNote(product.collection, product.slug)
   const description = buildMetaDescription(colourNote || product.description, {
     productName: product.name,
     fallback: `Explore ${product.name} from One Silk Ribbon. Check available options, prices and delivery information on the product page.`,
@@ -140,7 +141,7 @@ export default async function ProductPage({ params, searchParams }) {
   const initialSku = selectInitialSku(purchasableSkus, typeof query?.sku === 'string' ? query.sku : '')
   const family = slug === FINE_SILK_COLLECTION ? await readFineSilkFamily(supabaseServer) : null
   const colours = family?.colours[product.id] ? await fineSilkColourChoices(supabaseServer, family) : []
-  const colourNote = fineSilkColourNote(product.collection, product.slug)
+  const colourNote = fineSilkColourNote(product.collection, product.slug) || handFrayedColourNote(product.collection, product.slug)
   const spoolFamily = slug === WOOD_SPOOL_SPLIT.collection ? await readWoodSpoolFamily(supabaseServer) : null
   const spoolSize = spoolFamily?.sizes[product.id]
   const spoolSizes = spoolSize ? await woodSpoolSizeChoices(supabaseServer, spoolFamily) : []

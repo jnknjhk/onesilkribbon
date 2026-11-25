@@ -20,8 +20,13 @@ const migrations = [
   '2026-11-07-customer-identity.sql',
   '2026-11-07-payment-refunds.sql',
   '2026-11-07-admin-dashboard.sql',
+  '2026-11-08-admin-backoffice.sql',
+  '2026-11-08-admin-audit-log.sql',
   '2026-11-20-payment-recovery-fixes.sql',
   '2026-11-21-checkout-requests.sql',
+  '2026-11-21-product-image-column-types.sql',
+  '2026-11-25-payment-disputes.sql',
+  '2026-11-25-customer-directory-and-erasure.sql',
 ]
 
 const read = file => fs.readFileSync(path.join(__dirname, '..', 'supabase', file), 'utf8')

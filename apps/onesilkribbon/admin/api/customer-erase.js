@@ -8,7 +8,7 @@
 // 先 planErasure() 算出会动哪些数据（后台确认框里展示给你看），确认后 eraseCustomer() 执行。
 // 每一步都可以重复执行：中途出错就再点一次删除，已经处理过的部分不会重复处理。
 import { supabaseAdmin } from '@osr/core/lib/supabase'
-import { fetchAll, isMissingRpc } from './_helpers'
+import { escapeLike, fetchAll, isMissingRpc } from './_helpers'
 import { ERASED_EMAIL, ERASED_NAME } from '../lib/erasure'
 
 const DAY = 86400000
@@ -29,16 +29,15 @@ const PERSONAL = {
 // 还没付过钱的订单：待付款的会先安全关闭；已取消的直接脱敏。
 const isUnpaid = o => (o.status === 'pending' || o.status === 'cancelled') && !o.paid_at
 
-async function findAccounts(email, orders) {
-  const lower = email.trim().toLowerCase()
-  const ids = new Set(orders.map(o => o.user_id).filter(Boolean))
-  const { data: profiles, error } = await supabaseAdmin.from('user_profiles')
-    .select('id, email').in('email', [...new Set([email, lower])])
-  if (error) throw error
-  for (const p of profiles || []) ids.add(p.id)
+async function findAccounts(email, orders, profiles) {
+  const lower = String(email || '').trim().toLowerCase()
+  const ids = new Set([
+    ...orders.map(o => o.user_id).filter(Boolean),
+    ...(profiles || []).map(p => p.id),
+  ])
 
-  const accounts = []   // 要删的：登录邮箱和这位客户一致
-  const skipped = []    // 订单上记着、但登录邮箱是别人的账号：不碰
+  const accounts = []   // 要删的：登录邮箱或账户资料邮箱和这位客户一致
+  const skipped = []    // 订单上记着、但邮箱是别人的账号：不碰
   for (const id of ids) {
     let authEmail = null
     let exists = false
@@ -47,10 +46,13 @@ async function findAccounts(email, orders) {
       if (!e && data?.user) { exists = true; authEmail = data.user.email || null }
     } catch { /* id 不是合法的 uuid 等，当作账号不存在 */ }
     const profile = (profiles || []).find(p => p.id === id)
+    const profileEmail = (profile?.email || '').toLowerCase()
     if (exists) {
+      // 只按登录邮箱判断归属。账户资料里的 email 不会随登录邮箱修改而更新，
+      // 用它匹配会把“曾经用过这个邮箱、后来改了邮箱”的另一个人的账号一起删掉。
       if ((authEmail || '').toLowerCase() === lower) accounts.push({ id, auth: true })
       else skipped.push({ id, email: authEmail })
-    } else if (profile && (profile.email || '').toLowerCase() === lower) {
+    } else if (profileEmail === lower) {
       accounts.push({ id, auth: false }) // 登录账号已经没了，只剩资料
     }
   }
@@ -58,9 +60,32 @@ async function findAccounts(email, orders) {
 }
 
 export async function planErasure(email) {
-  const { data: orders, error } = await fetchAll(() => supabaseAdmin.from('orders').select('*')
-    .eq('customer_email', email).order('id'))
+  const normalized = String(email || '').trim().toLowerCase()
+
+  // 大小写不敏感的精确匹配；% 和 _ 按字面值处理。
+  const { data: matched, error } = await fetchAll(() => supabaseAdmin.from('orders').select('*')
+    .ilike('customer_email', escapeLike(normalized)).order('id'))
   if (error) throw error
+  const orders = [...(matched || [])]
+
+  // 零订单账号也要能找到：客户目录里能看到的人，删除时也必须能处理。
+  const { data: profiles, error: profileError } = await supabaseAdmin.from('user_profiles')
+    .select('id, email').ilike('email', escapeLike(normalized))
+  if (profileError) throw profileError
+
+  const { accounts, skipped } = await findAccounts(normalized, orders, profiles || [])
+
+  // 直接匹配的账号，把它名下的全部订单纳入：登录后结账可能填了另一个邮箱。
+  const directIds = accounts.map(a => a.id).filter(Boolean)
+  if (directIds.length) {
+    const { data: linked, error: linkedError } = await fetchAll(() => supabaseAdmin.from('orders').select('*')
+      .in('user_id', directIds).order('id'))
+    if (linkedError) throw linkedError
+    const seen = new Set(orders.map(o => o.id))
+    for (const order of linked || []) {
+      if (!seen.has(order.id)) { orders.push(order); seen.add(order.id) }
+    }
+  }
 
   const blockers = []
   const toShip = orders.filter(o => o.status === 'paid')
@@ -93,18 +118,20 @@ export async function planErasure(email) {
   const unpaid = orders.filter(isUnpaid)
   const pendingUnpaid = unpaid.filter(o => o.status === 'pending')
   const keep = orders.filter(o => !isUnpaid(o))
-  const { accounts, skipped } = await findAccounts(email, orders)
 
-  const lower = email.trim().toLowerCase()
-  const sub = await supabaseAdmin.from('subscribers').select('id').eq('email', lower)
+  const [sub, legacySub] = await Promise.all([
+    supabaseAdmin.from('subscribers').select('id').eq('email', normalized),
+    supabaseAdmin.from('newsletter_subscribers').select('id').ilike('email', escapeLike(normalized)),
+  ])
   if (sub.error) throw sub.error
+  if (legacySub.error) throw legacySub.error
   const addresses = accounts.length
     ? await supabaseAdmin.from('user_addresses').select('id', { count: 'exact', head: true }).in('user_id', accounts.map(a => a.id))
     : { count: 0 }
   if (addresses.error) throw addresses.error
 
   return {
-    email,
+    email: normalized,
     orders, unpaid, keep, accounts, skipped, blockers,
     summary: {
       closeOrders: pendingUnpaid.length,
@@ -112,7 +139,7 @@ export async function planErasure(email) {
       keepOrders: keep.length,
       accounts: accounts.length,
       addresses: addresses.count || 0,
-      subscribed: (sub.data || []).length > 0,
+      subscribed: (sub.data || []).length > 0 || (legacySub.data || []).length > 0,
       skippedAccounts: skipped.map(s => s.email),
     },
   }
@@ -126,10 +153,17 @@ export async function eraseCustomer(email) {
   // 先删账号、再执行数据库事务：数据库那一步失败时订单和资料还在，可以安全重试；
   // 反过来先抹订单的话，重试时就找不到这个登录账号了。
   const authFailures = []
+  const deletableAccounts = []
   for (const account of plan.accounts) {
-    if (!account.auth) continue
+    if (!account.auth) { deletableAccounts.push(account); continue }
+    // 删除前再核对一次登录邮箱：计划生成后账号可能刚改过邮箱。
+    // 邮箱不匹配就不再动它，也不把它的 user_id 交给数据库事务。
+    const { data, error: readError } = await supabaseAdmin.auth.admin.getUserById(account.id)
+    const currentEmail = (data?.user?.email || '').toLowerCase()
+    if (readError || currentEmail !== plan.email.toLowerCase()) continue
     const { error } = await supabaseAdmin.auth.admin.deleteUser(account.id)
-    if (error && !/not found/i.test(error.message || '')) authFailures.push(error.message)
+    if (error && !/not found/i.test(error.message || '')) { authFailures.push(error.message); continue }
+    deletableAccounts.push(account)
   }
   if (authFailures.length) {
     return { ok: false, blockers: [`删除登录账号失败，请重试：${authFailures.join('；')}`] }
@@ -137,8 +171,8 @@ export async function eraseCustomer(email) {
 
   const orderNumbers = plan.orders.map(o => o.order_number).filter(Boolean)
   const { data, error } = await supabaseAdmin.rpc('admin_erase_customer_data', {
-    p_email: email,
-    p_user_ids: plan.accounts.map(a => a.id),
+    p_email: plan.email,
+    p_user_ids: deletableAccounts.map(a => a.id),
     p_order_numbers: orderNumbers,
   })
 
@@ -149,7 +183,7 @@ export async function eraseCustomer(email) {
     return {
       ok: true,
       done: {
-        accounts: plan.accounts.length,
+        accounts: deletableAccounts.length,
         closedOrders: Number(data.closedOrders) || 0,
         anonymizedOrders: Number(data.anonymizedOrders) || 0,
         subscription: (Number(data.subscribers) || 0) > 0,
@@ -212,10 +246,12 @@ async function eraseCustomerLegacy(plan) {
     done.accounts++
   }
 
-  // 4. 邮件订阅（订阅时邮箱统一存小写）
+  // 4. 邮件订阅与订阅限流历史（都存过这个邮箱）
   const sub = must(await supabaseAdmin.from('subscribers').delete().eq('email', lower).select('id'), '删除订阅失败')
   done.subscription = (sub.data || []).length > 0
   must(await supabaseAdmin.from('newsletter_subscribers').delete().in('email', [...new Set([email, lower])]), '删除旧订阅表失败')
+  must(await supabaseAdmin.from('subscription_email_requests').delete().eq('email', lower), '删除订阅限流记录失败')
+  must(await supabaseAdmin.from('subscription_email_attempts').delete().eq('email', lower), '删除订阅限流记录失败')
 
   // 5. 所有订单保留，只换掉个人信息。付款过的订单是财务记录；未付款订单已经关闭，
   //    也保留下来供对账，不再物理删除。
@@ -241,7 +277,7 @@ async function eraseCustomerLegacy(plan) {
 
   // 8. 邮件记录里的收件人（联系表单没有 order_number，单独按邮箱清理）
   must(await supabaseAdmin.from('email_log').update({ to_email: ERASED_EMAIL, subject: null, error: null })
-    .in('to_email', [...new Set([email, lower])]), '更新邮件记录失败')
+    .ilike('to_email', escapeLike(lower)), '更新邮件记录失败')
 
   return { ok: true, done, skippedAccounts: plan.summary.skippedAccounts }
 }

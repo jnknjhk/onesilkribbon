@@ -14,7 +14,16 @@ function safeTrackingUrl(value) {
 
 const RESEND_API = 'https://api.resend.com/emails'
 const FROM       = `One Silk Ribbon <${process.env.EMAIL_FROM || 'song@onesilkribbon.com'}>`
-const OWNER      = 'song@onesilkribbon.com'
+export const OWNER_EMAIL = 'song@onesilkribbon.com'
+const OWNER      = OWNER_EMAIL
+
+// 营销邮件页脚：退订入口必须出现在正文里，不能只依赖邮件客户端的按钮。
+export function unsubscribeFooter(url) {
+  return `<p style="font-size:11px;color:#9A8878;line-height:1.8;margin-top:24px;">
+    You are receiving this because you subscribed to One Silk Ribbon updates.
+    <a href="${escapeHtml(url)}" style="color:#B89B6A;">Unsubscribe</a>.
+  </p>`
+}
 
 // 所有邮件（订单、订阅验证、欢迎券、联系表单、后台群发）都从这里发出：
 // 统一超时、幂等键、Reply-To/CC 和 email_log 记录。
@@ -22,7 +31,7 @@ const OWNER      = 'song@onesilkribbon.com'
 // 成功和失败都落库，后台才能看出"这封到底发出去没有"。
 export async function sendEmail({
   to, subject, html, kind = 'other', orderNumber = null, deliveryKey,
-  replyTo, cc, timeoutMs = 20000,
+  replyTo, cc, attachments, headers, timeoutMs = 20000,
 } = {}) {
   try {
     if (!process.env.RESEND_API_KEY) throw new Error('Email service unavailable')
@@ -40,6 +49,8 @@ export async function sendEmail({
         html,
         ...(replyTo ? { reply_to: replyTo } : {}),
         ...(cc ? { cc } : {}),
+        ...(attachments?.length ? { attachments } : {}),
+        ...(headers && Object.keys(headers).length ? { headers } : {}),
       }),
       signal: AbortSignal.timeout(timeoutMs),
     })

@@ -1,8 +1,13 @@
 import { verifyAdmin } from '@/admin/auth'
 import { siteConfig } from '@/admin/site-config'
+import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { errorResponse } from '@osr/core/lib/api-error'
 import { escapeHtml } from '@osr/core/lib/escape-html'
-import { sendEmail } from '@/lib/email'
+import { sendEmail, unsubscribeFooter } from '@/lib/email'
+import { normalizeEmail, unsubscribeHeaders, unsubscribePageUrl } from '@/lib/unsubscribe'
+import { auditEmail, recordAdminAction } from '@/admin/lib/audit'
+import { validateEmailAttachments, validateEmailAttachmentDetails } from '@/admin/lib/email-attachments'
+import { prepareEmailAttachmentUploads, readEmailAttachments, removeEmailAttachmentUploads, validEmailAttachmentIds } from '@/admin/lib/email-attachment-storage'
 
 const styles = `
   body { margin:0; padding:0; background:#F7F3EE; font-family:'Georgia',serif; }
@@ -18,7 +23,7 @@ const styles = `
   .footer a { color:#B89B6A; text-decoration:none; }
 `
 
-function buildHtml(subject, body) {
+function buildHtml(subject, body, unsubscribeUrl) {
   const { brand, tagline, siteUrl, ownerEmail } = siteConfig
   const siteLabel = siteUrl.replace(/^https?:\/\//, '').replace(/\/$/, '')
   return `<!DOCTYPE html>
@@ -36,6 +41,7 @@ function buildHtml(subject, body) {
     <p style="font-size:12px;color:#9A8878;">
       Questions? Contact us at <a href="mailto:${ownerEmail}" style="color:#B89B6A;">${ownerEmail}</a>
     </p>
+    ${unsubscribeFooter(unsubscribeUrl)}
   </div>
   <div class="footer">
     <p>
@@ -54,16 +60,112 @@ export async function POST(req) {
   if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    const { to, subject, body } = await req.json()
-    if (!to || !subject || !body) {
+    const multipart = /^multipart\/form-data(?:\s*;|$)/i.test(req.headers.get('content-type') || '')
+    if (multipart && Number(req.headers.get('content-length')) > 4_400_000) {
+      return Response.json({ error: '附件和邮件内容合计过大，请减小附件后重试' }, { status: 413 })
+    }
+    let input
+    try {
+      input = multipart ? await req.formData() : await req.json()
+    } catch {
+      return Response.json({ error: '无法读取邮件内容，请重新选择附件后重试' }, { status: 400 })
+    }
+    const { to, subject, body, orderNumber } = multipart
+      ? {
+          to: input.get('to'), subject: input.get('subject'), body: input.get('body'),
+          orderNumber: input.get('orderNumber'),
+        }
+      : (input || {})
+    if (![to, subject, body].every(value => typeof value === 'string' && value.trim())) {
       return Response.json({ error: '缺少必填字段' }, { status: 400 })
     }
+    const recipient = normalizeEmail(to)
+    if (!recipient || recipient.length > 254 || !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(recipient)) {
+      return Response.json({ error: '收件邮箱格式不正确' }, { status: 400 })
+    }
+    const linkedOrder = typeof orderNumber === 'string' && orderNumber.trim() ? orderNumber.trim() : null
 
-    const html = buildHtml(subject, body)
+    // 营销邮件必须尊重退订。带订单号的邮件视为交易类（订单回复/通知），仍然允许发送。
+    if (!linkedOrder) {
+      const { data: subscriber, error: subError } = await supabaseAdmin.from('subscribers')
+        .select('status').eq('email', recipient).maybeSingle()
+      if (subError) return errorResponse(subError, { tag: 'admin-send-email-subscriber' })
+      if (subscriber?.status === 'unsubscribed') {
+        return Response.json({
+          error: '该邮箱已退订营销邮件。订单类通知请到订单页使用“重发”按钮。',
+        }, { status: 409 })
+      }
+    }
 
-    await sendEmail({ to, cc: siteConfig.ownerEmail, subject, html, kind: 'marketing' })
+    const files = multipart ? input.getAll('attachments') : (input.attachments ?? [])
+    const attachmentError = multipart ? validateEmailAttachments(files) : validateEmailAttachmentDetails(files)
+    if (attachmentError) return Response.json({ error: attachmentError }, { status: 400 })
+    if (multipart && files.reduce((total, file) => total + file.size, 0) > 4_194_304) {
+      return Response.json({ error: '请刷新页面后重新添加大附件' }, { status: 413 })
+    }
+    const ids = multipart ? [] : files.map(file => file.id)
+    if (ids.length && !validEmailAttachmentIds(ids)) return Response.json({ error: '附件引用无效' }, { status: 400 })
+    let attachments = []
+    if (files.length) {
+      attachments = multipart
+        ? await Promise.all(files.map(async file => ({
+            filename: file.name,
+            content: Buffer.from(await file.arrayBuffer()).toString('base64'),
+          })))
+        : await readEmailAttachments(admin.email, files)
+    }
+    if (!attachments) return Response.json({ error: '附件上传未完成，请重试' }, { status: 409 })
+    const html = buildHtml(subject, body, unsubscribePageUrl(recipient, siteConfig.siteUrl))
+
+    await sendEmail({
+      to: recipient,
+      cc: siteConfig.ownerEmail,
+      subject,
+      html,
+      kind: 'marketing',
+      orderNumber: linkedOrder,
+      attachments,
+      headers: unsubscribeHeaders(recipient, siteConfig.siteUrl),
+    })
+    // 审计里不存邮件主题正文：客户可能把个人信息写进主题，删除客户时很难彻底清掉。
+    await recordAdminAction(admin, 'email.send', {
+      targetType: 'email',
+      targetId: auditEmail(recipient),
+      detail: { attachments: files.length, linkedOrder: !!linkedOrder, subjectLength: subject.length },
+    })
+    if (ids.length) {
+      try { await removeEmailAttachmentUploads(admin.email, ids) }
+      catch (error) { console.error('Email attachment cleanup failed', error?.status) }
+    }
     return Response.json({ success: true })
   } catch (err) {
     return errorResponse(err, { tag: 'admin-send-email' })
+  }
+}
+
+export async function PUT(req) {
+  const admin = await verifyAdmin()
+  if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  const files = await req.json().catch(() => null)
+  const message = validateEmailAttachmentDetails(files)
+  if (message) return Response.json({ error: message }, { status: 400 })
+  try {
+    const uploads = await prepareEmailAttachmentUploads(admin.email, files.length)
+    return Response.json({ uploads }, { headers: { 'Cache-Control': 'no-store' } })
+  } catch (err) {
+    return errorResponse(err, { tag: 'admin-email-attachments-prepare' })
+  }
+}
+
+export async function DELETE(req) {
+  const admin = await verifyAdmin()
+  if (!admin) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  const ids = await req.json().catch(() => null)
+  if (!validEmailAttachmentIds(ids)) return Response.json({ error: '附件引用无效' }, { status: 400 })
+  try {
+    await removeEmailAttachmentUploads(admin.email, ids)
+    return Response.json({ success: true })
+  } catch (err) {
+    return errorResponse(err, { tag: 'admin-email-attachments-remove' })
   }
 }

@@ -1,7 +1,8 @@
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { redirect } from 'next/navigation'
 import { errorResponse } from '@osr/core/lib/api-error'
-import { sendEmail } from '@/lib/email'
+import { sendEmail, unsubscribeFooter } from '@/lib/email'
+import { unsubscribeHeaders, unsubscribePageUrl } from '@/lib/unsubscribe'
 
 const styles = `
   body{margin:0;padding:0;background:#F7F3EE;font-family:'Georgia',serif}
@@ -30,6 +31,7 @@ async function sendCouponEmail(email, couponCode) {
     <p class="text" style="font-size:12px;color:#9A8878;margin-bottom:32px">This code is unique to you and can only be used once.<br>Enter it at checkout to receive 10% off your first order.</p>
     <a href="https://onesilkribbon.com/collections" class="btn">Start Shopping</a>
     <p class="text" style="margin-top:40px;font-size:13px">Each ribbon is handcrafted from the finest mulberry silk — made to bring a little beauty to your everyday moments.</p>
+    ${unsubscribeFooter(unsubscribePageUrl(email))}
   </div>
   <div class="footer">
     <p><a href="https://onesilkribbon.com">onesilkribbon.com</a> · <a href="mailto:song@onesilkribbon.com">song@onesilkribbon.com</a></p>
@@ -43,6 +45,7 @@ async function sendCouponEmail(email, couponCode) {
     html,
     kind: 'welcome_coupon',
     deliveryKey: `welcome/${couponCode}`,
+    headers: unsubscribeHeaders(email),
   })
 }
 

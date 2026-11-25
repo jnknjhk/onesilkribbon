@@ -15,41 +15,11 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { createClient } from '@supabase/supabase-js'
+import { TABLES } from './backup-tables.mjs'
 
 const APP_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const PAGE_SIZE = 1000
 const STORAGE_BUCKET = 'media'
-
-// order 必须能唯一确定行的顺序，否则分页时可能重复或漏行。
-const TABLES = [
-  { name: 'products', order: ['id'] },
-  { name: 'product_skus', order: ['id'] },
-  { name: 'orders', order: ['id'] },
-  { name: 'order_items', order: ['id'] },
-  { name: 'tracking_events', order: ['id'] },
-  { name: 'customers', order: ['id'] },
-  { name: 'user_profiles', order: ['id'] },
-  { name: 'user_addresses', order: ['id'] },
-  { name: 'subscribers', order: ['id'] },
-  { name: 'newsletter_subscribers', order: ['id'] },
-  { name: 'coupons', order: ['id'] },
-  { name: 'welcome_coupon_claims', order: ['token'] },
-  { name: 'journal_posts', order: ['id'] },
-  { name: 'site_images', order: ['key'] },
-  { name: 'media', order: ['id'] },
-  { name: 'settings', order: ['key'] },
-  { name: 'email_log', order: ['id'] },
-  { name: 'payment_checkouts', order: ['order_number'] },
-  { name: 'payment_receipts', order: ['provider', 'payment_id'] },
-  { name: 'payment_notifications', order: ['order_number'] },
-  { name: 'refund_requests', order: ['order_id'] },
-  { name: 'paypal_sessions', order: ['id'] },
-  { name: 'checkout_reservations', order: ['order_number'] },
-  { name: 'checkout_stock_reservations', order: ['order_number', 'sku_id'] },
-  { name: 'stripe_checkout_attempts', order: ['order_number'] },
-  { name: 'subscription_email_requests', order: ['id'] },
-  { name: 'subscription_email_attempts', order: ['id'] },
-]
 
 function printHelp() {
   console.log(`用法: node scripts/backup-export.mjs [选项]

@@ -9,10 +9,13 @@ const migration = fs.readFileSync(
   path.resolve(__dirname, '../supabase/migrations/2026-11-06-product-save-atomic.sql'),
   'utf8'
 )
+const imageMigration = fs.readFileSync(
+  path.resolve(__dirname, '../supabase/migrations/2026-11-21-product-image-column-types.sql'),
+  'utf8'
+)
 
-before(async () => {
-  db = new PGlite()
-  await db.exec(`
+async function setupDatabase(database, productImageType = 'text[]', skuImageType = 'text[]') {
+  await database.exec(`
     create role anon;
     create role authenticated;
     create role service_role;
@@ -25,7 +28,7 @@ before(async () => {
       collection text not null,
       is_active boolean default true,
       is_featured boolean default false,
-      images text[] default '{}',
+      images ${productImageType},
       created_at timestamptz default now(),
       updated_at timestamptz default now(),
       sort_order integer default 0,
@@ -45,7 +48,7 @@ before(async () => {
       is_active boolean default true,
       created_at timestamptz default now(),
       attributes jsonb default '{}'::jsonb,
-      images text[] default '{}'
+      images ${skuImageType}
     );
     create table order_items (
       id uuid primary key default gen_random_uuid(),
@@ -55,10 +58,16 @@ before(async () => {
       quantity int
     );
   `)
-  await db.exec(migration)
+  await database.exec(migration)
+}
+
+before(async () => {
+  db = new PGlite()
+  await setupDatabase(db)
+  await db.exec(imageMigration)
 })
 
-const createProduct = async (slug, extra = {}) => {
+const createProduct = async (slug, extra = {}, database = db) => {
   const product = {
     name: `Product ${slug}`,
     slug,
@@ -92,12 +101,48 @@ const createProduct = async (slug, extra = {}) => {
       images: [],
     },
   ]
-  const result = await db.query(
+  const result = await database.query(
     'select admin_save_product($1::jsonb,$2::jsonb,$3::jsonb) result',
     [JSON.stringify(product), JSON.stringify(skus), '[]']
   )
   return result.rows[0].result
 }
+
+test('image migration supports JSONB galleries on either table or both tables', async () => {
+  for (const [productImageType, skuImageType] of [
+    ['text[]', 'jsonb'],
+    ['jsonb', 'text[]'],
+    ['jsonb', 'jsonb'],
+  ]) {
+    const database = new PGlite()
+    try {
+      await setupDatabase(database, productImageType, skuImageType)
+      await database.exec(imageMigration)
+      await database.exec(imageMigration)
+      const { id } = await createProduct('legacy-product', {}, database)
+      const [product] = (await database.query('select images from products where id=$1', [id])).rows
+      const [sku] = (await database.query("select id, images from product_skus where product_id=$1 and colour='Red'", [id])).rows
+      assert.deepEqual(product.images, ['main.jpg'])
+      assert.deepEqual(sku.images, ['red.jpg'])
+
+      for (const stock of [4, 5]) {
+        await database.query('select admin_save_product($1::jsonb,$2::jsonb)', [
+          JSON.stringify(stock === 4 ? { id, name: 'Renamed' } : { id, images: ['replacement.jpg'] }),
+          JSON.stringify([{ id: sku.id, loaded_stock_qty: 4, stock_qty: stock, price_gbp: 9, images: ['sku-' + stock + '.jpg'] }]),
+        ])
+        const [updated] = (await database.query(
+          'select p.images, s.images as sku_images, s.stock_qty from products p join product_skus s on s.product_id=p.id where s.id=$1',
+          [sku.id]
+        )).rows
+        assert.deepEqual(updated.images, [stock === 4 ? 'main.jpg' : 'replacement.jpg'])
+        assert.deepEqual(updated.sku_images, ['sku-' + stock + '.jpg'])
+        assert.equal(updated.stock_qty, stock)
+      }
+    } finally {
+      await database.close()
+    }
+  }
+})
 
 test('admin_save_product creates the product and all SKUs in one transaction', async () => {
   const created = await createProduct('created-product')

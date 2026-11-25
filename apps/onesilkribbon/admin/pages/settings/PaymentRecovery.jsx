@@ -76,6 +76,7 @@ export default function PaymentRecovery() {
   const pendingRefunds = data?.pendingRefunds || []
   const unprocessedRefunds = data?.unprocessedRefunds || []
   const refundedWithoutRecord = data?.refundedWithoutRecord || []
+  const disputes = data?.disputes || []
 
   return <div className="payment-recovery">
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
@@ -140,6 +141,25 @@ export default function PaymentRecovery() {
             {money(row.total_gbp)} · {row.payment_method || '未知支付方式'}
             {row.refund_reason ? ` · ${row.refund_reason}` : ''} · {date(row.created_at)}
           </div>
+        </div>
+      </div>)}
+    </Card>
+
+    <Card title="支付争议 / 拒付" subtitle="支付平台已发起争议；资金可能已被划走，请到支付平台提交证据" style={{ marginTop: 20 }}>
+      {!data && !message && <SkeletonRows rows={2} />}
+      {data && disputes.length === 0 && <EmptyState icon="check" title="没有支付争议" />}
+      {disputes.map(row => <div key={`${row.provider}:${row.dispute_id}`} style={ROW}>
+        <div style={{ minWidth: 0 }}>
+          {row.order_number
+            ? <Link className={s.mono} href={`/admin/orders/${encodeURIComponent(row.order_number)}`}>{row.order_number}</Link>
+            : <span className={s.mono}>{row.dispute_id}</span>}
+          <div style={{ color: 'var(--text-2)', fontSize: 13, marginTop: 4 }}>
+            {row.provider} · {row.status}
+            {row.amount_pence != null && ` · ${money(Number(row.amount_pence) / 100)} ${row.currency || ''}`}
+            {row.evidence_due_by && ` · 举证截止 ${date(row.evidence_due_by)}`}
+            {row.resolved_at && ` · 已结案 ${date(row.resolved_at)}`}
+          </div>
+          {row.reason && <div style={{ color: 'var(--text-3)', fontSize: 12, marginTop: 2 }}>{row.reason}</div>}
         </div>
       </div>)}
     </Card>

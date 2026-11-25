@@ -35,6 +35,13 @@ export function cleanSearch(q) {
   return String(q || '').replace(/[,()"\\%*]/g, ' ').trim().slice(0, 100)
 }
 
+// 用 .ilike() 做“大小写不敏感的精确匹配”时，必须转义所有通配符：
+// SQL 的 % 和 _，以及 PostgREST 自己映射成 % 的 *。
+// 否则 a_b@example.com / a*b@example.com 会匹配到 axb、ab 等别的邮箱。
+export function escapeLike(value) {
+  return String(value || '').replace(/\\/g, '\\\\').replace(/([%_*])/g, '\\$1')
+}
+
 // 列表接口统一的分页参数。默认每页 30 条，最多 100 条。
 export function pageRange(searchParams, { defaultSize = 30, maxSize = 100 } = {}) {
   const page = Math.max(1, parseInt(searchParams.get('page'), 10) || 1)

@@ -301,6 +301,7 @@ function SubscriberList({ get, set }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
+  const [version, setVersion] = useState(0)
 
   const sourceLabel = useCallback(v => cfg.subscriberSources.find(x => x.value === v)?.label || v || '—', [cfg])
 
@@ -313,7 +314,21 @@ function SubscriberList({ get, set }) {
       .then(setData)
       .catch(e => toast.error('订阅者加载失败：' + e.message))
       .finally(() => setLoading(false))
-  }, [page, q, source]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [page, q, source, version]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function toggleSubscription(row) {
+    const unsubscribed = row.status !== 'unsubscribed'
+    try {
+      await api('/api/admin/subscribers', {
+        method: 'PATCH',
+        body: unsubscribed ? { id: row.id, unsubscribed: true } : { id: row.id, unsubscribed: false },
+      })
+      toast.success(unsubscribed ? '已标记退订' : '已恢复订阅')
+      setVersion(v => v + 1)
+    } catch (e) {
+      toast.error('操作失败：' + e.message)
+    }
+  }
 
   // 导出和旧版格式一致：Email, Source, Status, Subscribed At；带 BOM，Excel 打开不乱码
   async function exportCsv() {
@@ -359,6 +374,12 @@ function SubscriberList({ get, set }) {
             { key: 'source', header: '来源', render: r => sourceLabel(r.source) },
             { key: 'status', header: '状态', render: r => <SubscriberStatus sub={r} /> },
             { key: 'date', header: '订阅时间', align: 'right', render: r => <span className={s.muted}>{date(r.subscribed_at || r.created_at)}</span> },
+            {
+              key: 'actions', header: '', align: 'right',
+              render: r => <Button size="sm" onClick={() => toggleSubscription(r)}>
+                {r.status === 'unsubscribed' ? '恢复订阅' : '标记退订'}
+              </Button>,
+            },
           ]}
         />
         {data && <Pager page={page} totalPages={data.totalPages} total={data.total} unit="位订阅者" onChange={p => set({ page: p })} />}

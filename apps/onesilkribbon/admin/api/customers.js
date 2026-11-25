@@ -6,7 +6,7 @@
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { verifyAdmin } from '../auth'
 import { errorResponse } from '@osr/core/lib/api-error'
-import { cleanSearch, pageRange } from './_helpers'
+import { cleanSearch, escapeLike, pageRange } from './_helpers'
 import { planErasure, eraseCustomer } from './customer-erase'
 import { ERASED_EMAIL } from '../lib/erasure'
 import { recordAdminAction, auditEmail } from '../lib/audit'
@@ -54,9 +54,11 @@ async function customerList(params) {
   const q = cleanSearch(params.get('q'))
   const type = params.get('type') || 'all'
 
-  // 同一个视图查询，只换类型条件；数据页和页签计数共用这套过滤
+  // 同一个视图查询，只换类型条件；数据页和页签计数共用这套过滤。
+  // customer_directory 把“零订单账号”和“只订阅未下单”的人也并进来了，
+  // 否则这些人在后台根本找不到，也就无法执行 GDPR 删除。
   const queryFor = (typeFilter, select = '*', options = {}) => {
-    let query = supabaseAdmin.from('customer_summary').select(select, options).neq('email', ERASED_EMAIL)
+    let query = supabaseAdmin.from('customer_directory').select(select, options).neq('email', ERASED_EMAIL)
     if (q) query = query.or(`email.ilike.%${q}%,name.ilike.%${q}%`)
     if (typeFilter === 'registered') query = query.not('user_id', 'is', null)
     if (typeFilter === 'guest') query = query.is('user_id', null)
@@ -94,6 +96,8 @@ async function customerList(params) {
       spent:     Number(r.spent || 0),
       lastOrder: r.last_order,
       user_id:   r.user_id || null,
+      hasAccount: !!r.has_account,
+      subscribed: !!r.subscribed,
     })),
     total, page, pageSize,
     totalPages: Math.max(1, Math.ceil(total / pageSize)),
@@ -103,39 +107,74 @@ async function customerList(params) {
 
 async function customerDetail(email) {
   if (email === ERASED_EMAIL) return Response.json({ error: '这位客户已经删除，个人信息已抹去' }, { status: 404 })
+  const normalized = String(email || '').trim().toLowerCase()
   const { data: orders, error } = await supabaseAdmin.from('orders')
     .select('id, order_number, status, total_gbp, created_at, paid_at, shipping_name, shipping_line1, shipping_line2, shipping_city, shipping_postcode, shipping_country, phone, user_id')
-    .eq('customer_email', email)
+    .ilike('customer_email', escapeLike(normalized))
     .order('created_at', { ascending: false })
   if (error) return errorResponse(error, { tag: 'admin-customer-orders' })
 
-  const userId = (orders || []).find(o => o.user_id)?.user_id || null
-  const [profileRes, addressesRes, subscriberRes] = await Promise.all([
-    userId ? supabaseAdmin.from('user_profiles').select('*').eq('id', userId).maybeSingle() : { data: null },
+  let userId = (orders || []).find(o => o.user_id)?.user_id || null
+  let profile = null
+  if (userId) {
+    const res = await supabaseAdmin.from('user_profiles').select('*').eq('id', userId).maybeSingle()
+    if (res.error) return errorResponse(res.error, { tag: 'admin-customer-profile' })
+    profile = res.data
+  }
+  // 零订单账号：客户列表里能看到，点进来也要能读到资料。
+  if (!profile) {
+    const res = await supabaseAdmin.from('user_profiles').select('*')
+      .ilike('email', escapeLike(normalized)).limit(1).maybeSingle()
+    if (res.error) return errorResponse(res.error, { tag: 'admin-customer-profile' })
+    profile = res.data
+    if (profile) userId = profile.id
+  }
+
+  const [addressesRes, subscriberRes, legacySubscriberRes] = await Promise.all([
     userId ? supabaseAdmin.from('user_addresses').select('*').eq('user_id', userId).order('is_default', { ascending: false }) : { data: [] },
     // 订阅时邮箱统一存成小写（见 /api/subscribe）
-    supabaseAdmin.from('subscribers').select('email, status, verified, source, subscribed_at, created_at').eq('email', email.trim().toLowerCase()).maybeSingle(),
+    supabaseAdmin.from('subscribers').select('email, status, verified, source, subscribed_at, created_at').eq('email', normalized).maybeSingle(),
+    // 旧订阅表只有邮箱；客户目录把这类人也列出来了，详情页必须能打开并删除。
+    supabaseAdmin.from('newsletter_subscribers').select('email, subscribed_at')
+      .ilike('email', escapeLike(normalized)).maybeSingle(),
   ])
+
+  let subscriber = subscriberRes.error ? null : (subscriberRes.data || null)
+  if (!subscriber && legacySubscriberRes.data) {
+    subscriber = {
+      email: normalized,
+      status: 'active',
+      verified: true,
+      source: 'newsletter_subscribers',
+      subscribed_at: legacySubscriberRes.data.subscribed_at,
+      legacy: true,
+    }
+  }
+  if (!orders?.length && !profile && !subscriber) {
+    return Response.json({ error: '找不到这位客户' }, { status: 404 })
+  }
 
   const latest = (orders || [])[0]
   const spent = (orders || []).reduce((n, o) => n + (['paid', 'shipped', 'delivered'].includes(o.status) ? parseFloat(o.total_gbp) || 0 : 0), 0)
   return Response.json({
     customer: {
-      email,
-      name: latest?.shipping_name || [profileRes.data?.first_name, profileRes.data?.last_name].filter(Boolean).join(' ') || '',
-      phone: profileRes.data?.phone || latest?.phone || '',
+      email: normalized,
+      name: latest?.shipping_name || [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || '',
+      phone: profile?.phone || latest?.phone || '',
       user_id: userId,
       orders: (orders || []).length,
       spent: Math.round(spent * 100) / 100,
       firstOrder: (orders || []).at(-1)?.created_at || null,
       lastOrder: latest?.created_at || null,
+      hasAccount: !!userId,
+      subscribed: !!subscriber && subscriber.status !== 'unsubscribed',
     },
     orders: orders || [],
-    profile: profileRes.data || null,
+    profile,
     addresses: addressesRes.data || [],
     // 订单上的收货地址也列出来（访客没有账户地址，只能从订单里看）
     shippingAddresses: dedupeAddresses(orders || []),
-    subscriber: subscriberRes.error ? null : (subscriberRes.data || null),
+    subscriber,
   })
 }
 

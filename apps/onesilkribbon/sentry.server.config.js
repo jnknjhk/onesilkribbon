@@ -1,8 +1,9 @@
 import * as Sentry from '@sentry/nextjs'
 import { telemetryPrivacyHooks } from './lib/telemetry-privacy'
+import { resolveSentryDsn } from './lib/sentry-dsn'
 
 Sentry.init({
-  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+  dsn: resolveSentryDsn(process.env.NEXT_PUBLIC_SENTRY_DSN),
   environment: process.env.NODE_ENV,
   enabled: process.env.NODE_ENV === 'production',
   sendDefaultPii: false,

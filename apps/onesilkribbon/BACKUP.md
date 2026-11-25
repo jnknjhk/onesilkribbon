@@ -84,22 +84,47 @@ backups/2026-11-06T08-30-00Z/
 ### 注意
 
 - **产物含客户姓名、邮箱、电话、地址**。只能放在本机加密盘或离线介质，不要上传网盘、不要提交 git。`backups/` 已在 `.gitignore` 中忽略。
+- **JSON 备份不含 `auth.users` 登录账号和密码**。它只覆盖业务表；整库恢复登录能力请用 Supabase Backups / PITR。用本脚本恢复到空项目后，客户需要重新登录或走一次“忘记密码”。
 - `SUPABASE_SERVICE_KEY` 拥有全部权限，只在本机环境变量里使用，不要写进任何会提交的文件。
 - 脚本按主键每 1000 行分页，避免 PostgREST 默认行数上限导致静默截断。
-- 以后新增数据表时，记得把表名和排序主键加进脚本顶部的 `TABLES` 列表；`--dry-run` 会立刻暴露漏掉的表。
+- 以后新增数据表时，把表名和排序主键加进 `scripts/backup-tables.mjs`（导出和恢复共用这一份）。
+  `--dry-run` 只能检查清单里的表；没有加进清单的表它看不到。`tests/ops-integrity.test.cjs` 会守住
+  订单、退款、争议、审计等关键表，但 schema 新增表仍需要人工补。
 
 ---
 
-## 三、恢复思路
+## 三、恢复
+
+优先用 Supabase Backups / PITR 恢复整库；本地 JSON 备份用于 PITR 不可用、或只需要把数据搬回空环境的情况。
+
+### 用恢复脚本（推荐）
+
+```bash
+# 只校验：读 manifest、核对 SHA-256 和行数，不写数据库
+npm run restore -- --dir backups/<时间戳>
+
+# 真正写入（目标库已有订单时还需要 --force）
+npm run restore -- --dir backups/<时间戳> --apply --yes
+
+# 同时恢复 media 图片
+npm run restore -- --dir backups/<时间戳> --apply --yes --include-storage
+```
+
+- 恢复按**外键顺序**写入（客户 → 商品 → 订单 → 支付/退款/争议），并按主键 upsert。
+- 默认拒绝恢复到**任何非空表**的库；确认要覆盖请加 `--force`。
+- 加 `--force` 后会先检查自然键冲突（邮箱、商品网址、优惠码、订单号等）。
+  同一业务键在目标库对应不同 id 时，脚本会在**写入任何数据之前**中止。
+- JSON 备份不含 `auth.users` 登录账号；恢复后客户需要重新登录或重置密码。
+- 恢复前先把**当前**数据再导出一次，避免覆盖还没备份的新数据。
+- `admin_audit_log` 是追加表，恢复时不写死自增 id，重复恢复会产生重复审计行。
+
+### 手动恢复（单表）
 
 | 场景 | 做法 |
 | --- | --- |
-| 整库误删 / 数据被批量改坏 | 用 Supabase Backups 或 PITR 恢复到事故前的时间点 |
-| 只有某张表出问题 | 从本地导出的 `<table>.json` 用 service key 逐条 upsert；注意按外键顺序（先 `orders` 再 `order_items`） |
+| 只有某张表出问题 | 从本地导出的 `<table>.json` 用 service key 逐条 upsert；注意外键顺序（先 `orders` 再 `order_items`） |
 | 媒体文件丢失 | 从 `storage/media/` 重新上传，`storage-manifest.json` 里的 SHA-256 可用于校验 |
 | 只想查历史值 | 直接读 JSON，不要写回线上 |
-
-恢复前先把**当前**数据再导出一次，避免恢复操作把还没备份的新数据覆盖掉。
 
 ---
 

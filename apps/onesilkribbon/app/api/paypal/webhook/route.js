@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { errorResponse } from '@osr/core/lib/api-error'
 import { recoverPayPal } from '@/lib/paypal-payment'
 import { recordExternalRefund } from '@/lib/payment-orders'
+import { mapPayPalDispute, recordAndNotifyDispute } from '@/lib/payment-disputes'
 
 const BASE = process.env.PAYPAL_MODE === 'live'
   ? 'https://api-m.paypal.com'
@@ -182,6 +183,13 @@ export async function POST(req) {
         full,
         evidence: { event_id: event.id || null, capture_id: captureId, refund_status: resource.status || null },
       })
+      return received()
+    }
+
+    if (event.event_type?.startsWith('CUSTOMER.DISPUTE.')) {
+      const input = mapPayPalDispute(event.resource || {}, event.id)
+      const order = input.paymentId ? await orderForCapture(input.paymentId) : null
+      await recordAndNotifyDispute({ ...input, orderNumber: order?.order_number || null })
       return received()
     }
 

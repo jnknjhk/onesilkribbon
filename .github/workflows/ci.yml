@@ -34,7 +34,7 @@ jobs:
         run: npm run lint -w apps/onesilkribbon
       - name: 单元测试
         working-directory: apps/onesilkribbon
-        run: node --test tests/*.test.cjs
+        run: npm test
       - name: 生产依赖安全审计
         run: npm audit --omit=dev --audit-level=high
 
@@ -57,13 +57,19 @@ jobs:
           cache: npm
       - name: 安装依赖
         run: npm ci
-      # secrets 不能在 if 里直接判断，先提升到 env 再判断，避免未配置密钥时红叉
+      # 构建不能静默跳过：缺密钥时 CI 必须变红，否则生产构建可能长期没人验证。
+      - name: 检查构建所需密钥
+        run: |
+          missing=""
+          [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] && missing="$missing NEXT_PUBLIC_SUPABASE_URL"
+          [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ] && missing="$missing NEXT_PUBLIC_SUPABASE_ANON_KEY"
+          [ -z "$SUPABASE_SERVICE_KEY" ] && missing="$missing SUPABASE_SERVICE_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::缺少构建所需密钥:$missing。请在仓库 Settings → Secrets 中配置。"
+            exit 1
+          fi
       - name: 构建 Next.js
-        if: env.NEXT_PUBLIC_SUPABASE_URL != ''
         run: npm run build -w apps/onesilkribbon
-      - name: 跳过构建（未配置 Supabase 密钥）
-        if: env.NEXT_PUBLIC_SUPABASE_URL == ''
-        run: echo "::notice::未配置 NEXT_PUBLIC_SUPABASE_URL，跳过构建。请在仓库 Settings → Secrets 中配置。"
 
   e2e-public:
     name: 线上公开页 smoke

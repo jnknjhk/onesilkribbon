@@ -23,7 +23,7 @@ function emailHarness() {
   })
   const escapeSource = fs.readFileSync(path.resolve(root, '../../packages/core/lib/escape-html.js'), 'utf8')
   vm.runInContext(escapeSource.replace('export function', 'function'), context)
-  vm.runInContext(read('lib/email.js').replace(/^import .*$/gm, '').replace(/export async function/g, 'async function'), context)
+  vm.runInContext(read('lib/email.js').replace(/^import .*$/gm, '').replace(/^export /gm, ''), context)
   return { context, sent, logs, escape: context.escapeHtml }
 }
 

@@ -1,7 +1,14 @@
+import { NextResponse } from 'next/server'
 import { adminMiddleware } from './admin/middleware'
 
 // Next 16 的 Proxy 入口；鉴权逻辑在 admin/middleware.js。
 export function proxy(request) {
+  const { pathname, searchParams } = request.nextUrl
+  if (pathname === '/collections' && searchParams.get('q') === '{search_term_string}') {
+    const destination = new URL(request.url)
+    destination.searchParams.delete('q')
+    return NextResponse.redirect(destination, 308)
+  }
   return adminMiddleware(request)
 }
 

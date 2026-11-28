@@ -98,7 +98,7 @@ test('search cancels timers and ignores late results from an obsolete query', as
   let index = 0
   const context = vm.createContext({
     useState: () => { const slot = index++; return [state[slot], value => { state[slot] = value }] },
-    useRef: () => ({ current: null }), useEffect: (callback, deps) => { effects.push({ callback, deps }) },
+    useRef: () => ({ current: null }), useCallback: fn => fn, useEffect: (callback, deps) => { effects.push({ callback, deps }) },
     useBodyScrollLock() {}, usePathname: () => '/', useRouter: () => ({}),
     useCart: () => ({}), useAuth: () => ({}), AbortController, encodeURIComponent,
     setTimeout: callback => { const id = {}; timers.set(id, callback); return id }, clearTimeout: id => timers.delete(id),
@@ -161,7 +161,8 @@ test('homepage only prices active variants and product selection has no delayed 
   assert.match(product, /const selectedSku = matchSku\(/)
   assert.doesNotMatch(product, /setSelectedSku/)
   const home = read('app/HomeClient.jsx')
-  assert.match(home, /return \(\) => \{ obs.disconnect\(\)/)
+  const reveal = read('components/home/Reveal.jsx')
+  assert.match(reveal, /observer\.disconnect\(\)/)
   assert.doesNotMatch(home, /\.reveal \{ opacity: 0/)
 })
 

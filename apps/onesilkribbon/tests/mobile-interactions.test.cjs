@@ -13,6 +13,7 @@ function hooks(initial = {}) {
       useState(initialValue) { const index = stateIndex++; if (!(index in states)) states[index] = index in initial ? initial[index] : initialValue
         return [states[index], value => { states[index] = typeof value === 'function' ? value(states[index]) : value }] },
       useRef(value) { const index = refIndex++; return refs[index] ||= { current: value } },
+      useCallback: fn => fn,
       useEffect: (callback, deps) => effects.push({ callback, deps }),
       setTimeout: (callback, delay) => { const id = {}; timers.set(id, { callback, delay }); return id },
       clearTimeout: id => timers.delete(id),

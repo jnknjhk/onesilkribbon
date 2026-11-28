@@ -193,7 +193,7 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
 
   return (
     <>
-      <div style={{ paddingTop: 68, background: 'var(--cream)', minHeight: '100vh' }}>
+      <div style={{ paddingTop: 'calc(68px + env(safe-area-inset-top, 0px))', background: 'var(--cream)', minHeight: '100vh' }}>
 
         {/* Breadcrumb */}
         <div style={{ padding: '16px 60px', borderBottom: '1px solid var(--sand)', fontSize: 10, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--taupe)' }} className="bc-pad">
@@ -515,6 +515,7 @@ export default function ProductClient({ initialProduct, initialSkus, initialSku,
             <Link href="/ribbon-guide">Choosing ribbon width and length</Link>
             <Link href="/care-guide">Caring for silk ribbon</Link>
           </>}
+          {collectionSlug === 'fine-silk-ribbons' && <Link href="/collections/studio-tools">Studio tools for embroidery</Link>}
           <Link href={`/collections/${collectionSlug}`}>Browse {collectionName}</Link>
           <Link href="/shipping-returns">Delivery &amp; returns</Link>
         </nav>

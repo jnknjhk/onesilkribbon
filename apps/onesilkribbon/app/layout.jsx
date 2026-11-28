@@ -1,4 +1,5 @@
 import './globals.css'
+import './gallery.css'
 import { Suspense } from 'react'
 import { Playfair_Display, Lora, Jost } from 'next/font/google'
 import Analytics from '@/components/Analytics'

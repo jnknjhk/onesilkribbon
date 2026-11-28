@@ -1,492 +1,338 @@
 'use client'
-import { useState, useEffect } from 'react'
+
+import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { formatGBP, FREE_SHIPPING_THRESHOLD } from '@/lib/pricing'
 import { subscribeEmail, isValidEmail } from '@osr/core/lib/client/subscribe'
 import { COLLECTIONS } from '@/lib/collections'
+import GalleryHero from '@/components/home/GalleryHero'
+import Reveal from '@/components/home/Reveal'
 
-const HOME_COLLECTIONS = COLLECTIONS.map(collection => ({
-  name: collection.shortName || collection.name,
-  slug: collection.slug,
-  count: collection.homeCount,
-  desc: collection.desc,
-  bg: collection.homeBg || collection.bg,
-}))
+const COLLECTION_LABEL = Object.fromEntries(
+  COLLECTIONS.map(collection => [collection.slug, collection.shortName || collection.name])
+)
 
-export default function HomeClient({ heroImages, storyImage, collectionImages, activeCollectionSlugs, featuredProducts, journalPosts, freeThreshold = FREE_SHIPPING_THRESHOLD, freeEnabled = true }) {
-  useEffect(() => {
-    if (!('IntersectionObserver' in window) || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    const els = document.querySelectorAll('.reveal')
-    const obs = new IntersectionObserver(entries => {
-      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.remove('reveal-pending'); obs.unobserve(e.target) } })
-    }, { threshold: 0.08 })
-    els.forEach(el => { el.classList.add('reveal-pending'); obs.observe(el) })
-    return () => { obs.disconnect(); els.forEach(el => el.classList.remove('reveal-pending')) }
-  }, [])
+function ProductImage({ src, alt, sizes, className = '' }) {
+  if (!src) return <div className={className} style={{ position: 'absolute', inset: 0, background: 'linear-gradient(160deg,#E8DDD0,#C4A882)' }} />
+  return <Image src={src} alt={alt} fill sizes={sizes} className={className} style={{ objectFit: 'cover' }} />
+}
 
+export default function HomeClient({ doors = [], ribbonHouses = [], ribbonCabinet = [], studioTools = [], storyImage, journalPosts = [], freeThreshold = FREE_SHIPPING_THRESHOLD, freeEnabled = true }) {
   return (
-    <>
-      <Hero heroImages={heroImages} />
-      <Marquee freeThreshold={freeThreshold} freeEnabled={freeEnabled} />
-      <div className="mobile-welcome-invite">
+    <div className="osr-home">
+      <GalleryHero freeThreshold={freeThreshold} freeEnabled={freeEnabled} />
+
+      <div className="osr-welcome-invite">
         <p>10% off your first order</p>
-        <button type="button" aria-haspopup="dialog" onClick={() => window.dispatchEvent(new Event('osr:welcome-open'))}>View welcome offer</button>
+        <button type="button" aria-haspopup="dialog" onClick={() => window.dispatchEvent(new Event('osr:welcome-open'))}>
+          View welcome offer
+        </button>
       </div>
-      <FeaturedProducts products={featuredProducts} />
-      <Collections collectionImages={collectionImages} activeCollectionSlugs={activeCollectionSlugs} />
-      <StorySection storyImage={storyImage} />
-      <JournalSection posts={journalPosts} />
-      <SilkNotes />
-      <NewsletterSection />
-      <style dangerouslySetInnerHTML={{ __html: `
-        .reveal { transition: opacity 0.9s ease, transform 0.9s ease; }
-        .reveal.reveal-pending { opacity: 0; transform: translateY(32px); }
-        @media (prefers-reduced-motion: reduce) {
-          .reveal.reveal-pending { opacity: 1; transform: none; }
-          .reveal, .hero-anim { transition: none !important; }
-          .hero-anim { opacity: 1 !important; transform: none !important; }
-          .hero-slide-active, .hero-scroll-line { animation: none !important; }
-        }
-        .prod-card:hover .prod-img-inner { transform: scale(1.04); }
-        .mobile-welcome-invite { display: none; }
-        @media (max-width: 900px) {
-          .mobile-welcome-invite { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px 16px; padding: 12px var(--page-padding); border-bottom: 1px solid var(--sand); }
-          .mobile-welcome-invite p { font-size: 14px; color: var(--deep); }
-          .mobile-welcome-invite button { min-height: 44px; border: 0; background: none; color: var(--deep); font-size: 13px; text-decoration: underline; text-underline-offset: 4px; }
-        }
-      ` }} />
-    </>
-  )
-}
 
-/* ═══ HERO ═══ */
+      <section className="osr-doors" id="rooms">
+        <div className="osr-container">
+          <Reveal className="osr-doors-head">
+            <div>
+              <span className="osr-eyebrow">The gallery rooms</span>
+              <h2 className="osr-title osr-title--sm" style={{ marginTop: 16 }}>Three ways to begin.</h2>
+            </div>
+            <p>Start with ribbon, with a hand-finished adornment, or with the tools that hold the work steady. Every room returns to the same studio.</p>
+          </Reveal>
 
-// 首页轮播图原本是 alt=""。纯装饰背景用空 alt 是对的，但这几张是品牌主视觉、
-// 画面里就是实际产品，给一句描述能被 Google 图片搜索检索到——丝带这种商品
-// 图片搜索是实打实的流量来源。不逐张写死，是因为图片由后台随时更换。
-function heroAlt(i) {
-  return `Handmade mulberry silk ribbon by One Silk Ribbon — studio image ${i + 1}`
-}
-
-function Hero({ heroImages }) {
-  const [currentIndex, setCurrentIndex] = useState(0)
-
-  useEffect(() => {
-    if (heroImages.length <= 1) return
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    const interval = setInterval(() => {
-      if (document.hidden) return
-      setCurrentIndex(prev => (prev + 1) % heroImages.length)
-    }, 6000)
-    return () => clearInterval(interval)
-  }, [heroImages])
-
-  return (
-    <section className="hero">
-      {heroImages.length > 0 ? (
-        heroImages.map((src, i) => (
-          <div key={src} className={`hero-slide ${i === currentIndex ? 'hero-slide-active' : ''}`}>
-            {i === 0 ? (
-              /* 第1张：优先加载，影响 LCP */
-              <Image
-                src={src} alt={heroAlt(i)} fill
-                style={{ objectFit: 'cover' }}
-                priority
-                fetchPriority="high"
-                sizes="100vw"
-              />
-            ) : (
-              /* 其余：懒加载 */
-              <Image
-                src={src} alt={heroAlt(i)} fill
-                style={{ objectFit: 'cover' }}
-                loading="lazy"
-                sizes="100vw"
-              />
-            )}
+          <div className="osr-doors-grid">
+            {doors.map((door, index) => (
+              <Reveal key={door.number} className="osr-door" delay={index * 90}>
+                <Link href={door.href} className="osr-door-media" aria-label={`${door.title} — ${door.cta}`}>
+                  <ProductImage src={door.image} alt={door.alt} sizes="(max-width: 960px) 100vw, 33vw" />
+                  <span className="osr-badge osr-badge--ink">{door.badge}</span>
+                  <span className="osr-door-num">{door.number}</span>
+                </Link>
+                <div className="osr-door-body">
+                  <span className="osr-label">Room {door.number}</span>
+                  <h2><Link href={door.href}>{door.title}</Link></h2>
+                  <p>{door.copy}</p>
+                  {door.links?.length > 0 && (
+                    <div className="osr-door-links">
+                      {door.links.map(link => <Link key={link.href} href={link.href}>{link.label}</Link>)}
+                    </div>
+                  )}
+                  <Link className="osr-textlink" href={door.href}>{door.cta}</Link>
+                </div>
+              </Reveal>
+            ))}
           </div>
-        ))
-      ) : (
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(160deg,#2C2420,#1C1714)' }} />
-      )}
-      <div className="hero-overlay" />
-      <div className="hero-gradient" />
+        </div>
+      </section>
 
-      <div className="hero-content">
-        <p className="hero-anim" style={{ transitionDelay: '0.1s', fontSize: 10, letterSpacing: '0.4em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 32 }}>
-          100% Pure Mulberry Silk · Handcrafted
-        </p>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(44px, 7.5vw, 88px)', fontWeight: 600, lineHeight: 1.08, color: '#fff', marginBottom: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', letterSpacing: '-0.02em' }}>
-          <span className="hero-anim" style={{ transitionDelay: '0.3s', display: 'block', fontWeight: 500 }}>Handmade Mulberry</span>
-          <span className="hero-anim" style={{ transitionDelay: '0.55s', display: 'block', fontStyle: 'italic', color: 'var(--gold)', fontWeight: 600 }}>Silk Ribbon</span>
-        </h1>
-        <p className="hero-anim" style={{ transitionDelay: '1.1s', fontSize: 15, lineHeight: 1.75, color: 'rgba(255,255,255,0.72)', maxWidth: 460, marginBottom: 52, textAlign: 'center', fontFamily: 'var(--font-serif-alt)', fontWeight: 400, letterSpacing: '0.01em' }}>
-          Woven from nature&apos;s finest thread — each ribbon carries the quiet beauty of silk in its most natural form, carefully chosen and made to last.
-        </p>
-        <div className="hero-anim" style={{ transitionDelay: '1.4s' }}>
-          <Link href="/collections" className="hero-btn"><span className="hero-btn-line" />Explore Collections<span className="hero-btn-line" /></Link>
+      {ribbonHouses.length > 0 && (
+        <section className="osr-houses" id="ribbons">
+          <div className="osr-container">
+            <Reveal className="osr-houses-head">
+              <div>
+                <span className="osr-eyebrow">Silk Ribbons</span>
+                <h2 className="osr-title osr-title--sm" style={{ marginTop: 14 }}>Three ribbon <em>houses.</em></h2>
+              </div>
+              <p>Ultra-fine embroidery ribbon, hand-torn crêpe satin and a vintage crinkle. Different hands, different edges, the same mulberry silk.</p>
+            </Reveal>
+
+            <div className="osr-houses-grid">
+              {ribbonHouses.map((house, index) => (
+                <Reveal key={house.slug} className="osr-house-card" delay={index * 80}>
+                  <Link href={house.href} className="osr-house-media" aria-label={house.label}>
+                    <ProductImage src={house.image} alt={house.label} sizes="(max-width: 960px) 100vw, 33vw" />
+                  </Link>
+                  <div className="osr-house-body">
+                    <h3><Link href={house.href}>{house.label}</Link></h3>
+                    <p>{house.blurb}</p>
+                    <div className="osr-house-meta">
+                      {house.slug === 'vintage-inspired-ribbons' ? (
+                        <>
+                          <span>{house.count} ribbon</span>
+                          <span>{house.skuCount} colourways</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>{house.count} colourways</span>
+                          <span>{house.note}</span>
+                        </>
+                      )}
+                      {house.minPrice > 0 && <span>From {formatGBP(house.minPrice)}</span>}
+                    </div>
+                    <Link className="osr-textlink" href={house.href}>Browse {house.label}</Link>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {ribbonCabinet.length > 0 && (
+        <section className="osr-cabinet">
+          <div className="osr-container">
+            <Reveal className="osr-cabinet-head">
+              <div>
+                <span className="osr-eyebrow">From the ribbon cabinet</span>
+                <h2 className="osr-title osr-title--sm" style={{ marginTop: 14 }}>A few ends to begin with.</h2>
+              </div>
+              <Link className="osr-textlink" href="/collections#ribbons">See all ribbons</Link>
+            </Reveal>
+
+            <div className="osr-strip">
+              {ribbonCabinet.map((product, index) => (
+                <Reveal key={product.slug} delay={index * 70}>
+                  <Link className="osr-mini-card" href={`/collections/${product.collection}/${product.slug}`}>
+                    <div className="osr-mini-card-media">
+                      <ProductImage src={product.image} alt={product.name} sizes="(max-width: 960px) 50vw, 25vw" />
+                    </div>
+                    <h3>{product.name}</h3>
+                    <p>
+                      {COLLECTION_LABEL[product.collection] || 'Silk ribbon'}
+                      {product.minPrice > 0 ? ` · from ${formatGBP(product.minPrice)}` : ''}
+                    </p>
+                    {product.hexes.length > 0 && (
+                      <div className="osr-swatch-dots" aria-hidden="true">
+                        {product.hexes.map(hex => <span key={hex} className="osr-swatch-dot" style={{ background: hex }} />)}
+                      </div>
+                    )}
+                  </Link>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {studioTools.length > 0 && (
+        <section className="osr-tools-feature">
+          <div className="osr-container">
+            <Reveal className="osr-tools-feature-grid">
+              <div className="osr-tools-feature-media">
+                <ProductImage
+                  src={(studioTools.find(tool => tool.slug === 'adjustable-beechwood-embroidery-stand') || studioTools[0]).image}
+                  alt="Adjustable beechwood tabletop embroidery stand holding a hoop of silk ribbon flowers"
+                  sizes="(max-width: 960px) 100vw, 45vw"
+                />
+              </div>
+              <div className="osr-tools-feature-body">
+                <span className="osr-eyebrow">Studio Tools</span>
+                <h2>The workbench, kept in the <em>exhibition.</em></h2>
+                <p className="osr-lede">
+                  Wooden spools, beechwood hoops and a tabletop stand with a butterfly clamp. These are the pieces that hold the ribbon steady while it becomes something else.
+                </p>
+                <div className="osr-tools-links">
+                  {studioTools.map(tool => (
+                    <Link key={tool.slug} href={`/collections/${tool.collection}/${tool.slug}`}>
+                      {tool.name}
+                      <span>{tool.minPrice > 0 ? `from ${formatGBP(tool.minPrice)}` : ''}</span>
+                    </Link>
+                  ))}
+                </div>
+                <Link className="osr-textlink" href="/collections/studio-tools">See the studio tools</Link>
+                <Link className="osr-tools-cross" href="/collections/fine-silk-ribbons">Also used with the fine embroidery ribbon →</Link>
+              </div>
+            </Reveal>
+          </div>
+        </section>
+      )}
+
+      <section className="osr-story">
+        <div className="osr-story-grid">
+          <div className="osr-story-media">
+            <ProductImage src={storyImage} alt="One Silk Ribbon studio still life with hand-frayed silk ribbon" sizes="(max-width: 960px) 100vw, 50vw" />
+          </div>
+          <Reveal className="osr-story-body">
+            <span className="osr-eyebrow">Our story</span>
+            <h2>Made by hand. <em>Made with intention.</em></h2>
+            <p>
+              One Silk Ribbon began with a simple frustration: the impossibility of finding a ribbon that felt truly beautiful. We started with a single bolt of Grade 6A mulberry silk and a pair of hands.
+            </p>
+            <p>
+              Today our collections bring together silk ribbons and handcrafted details, with colour, texture and care at the heart of each piece.
+            </p>
+            <Link className="osr-textlink osr-textlink--light" href="/about">Read our story</Link>
+          </Reveal>
         </div>
-        <div className="hero-scroll-wrap hero-anim" style={{ transitionDelay: '1.8s' }}>
-          <div className="hero-scroll-line" />
-        </div>
-      </div>
+      </section>
+
+      <SilkNotes />
+
+      <JournalSection posts={journalPosts} />
+
+      <NewsletterSection />
 
       <style dangerouslySetInnerHTML={{ __html: `
-        .hero { position: relative; height: 100vh; height: 100dvh; min-height: 600px; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #1C1714; }
-        .hero-slide { position: absolute; inset: 0; z-index: 0; opacity: 0; transition: opacity 1.5s ease-in-out; }
-        .hero-slide-active { opacity: 1; animation: kenBurns 18s ease-out forwards; }
-        @keyframes kenBurns { 0% { transform: scale(1.08); } 100% { transform: scale(1); } }
-        .hero-overlay { position: absolute; inset: 0; z-index: 1; background: rgba(28,23,20,0.45); }
-        .hero-gradient { position: absolute; bottom: 0; left: 0; right: 0; z-index: 1; height: 40%; background: linear-gradient(to top, rgba(28,23,20,0.6), transparent); }
-        .hero-content { position: relative; z-index: 2; text-align: center; padding: 0 24px; max-width: 800px; display: flex; flex-direction: column; align-items: center; }
-        .hero-anim { opacity: 1; transform: none; }
-        .hero-in { opacity: 1 !important; transform: translateY(0) !important; }
-        .hero-btn { background: none; border: 1px solid rgba(255,255,255,0.3); color: #fff; font-family: var(--font-body); font-size: 10px; letter-spacing: 0.32em; text-transform: uppercase; padding: 18px 48px; display: inline-flex; align-items: center; gap: 20px; cursor: pointer; transition: all 0.4s ease; }
-        .hero-btn:hover { background: rgba(255,255,255,0.08); border-color: var(--gold); color: var(--gold); }
-        .hero-btn-line { display: block; width: 28px; height: 1px; background: var(--gold); transition: width 0.4s ease; }
-        .hero-btn:hover .hero-btn-line { width: 40px; }
-        .hero-scroll-wrap { position: absolute; bottom: 40px; left: 50%; margin-left: -0.5px; }
-        .hero-scroll-line { width: 1px; height: 48px; background: linear-gradient(to bottom, var(--gold), transparent); animation: scrollPulse 2s ease-in-out infinite; }
-        @keyframes scrollPulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
-        @media (max-width: 768px) { .hero-btn { padding: 16px 32px; font-size: 9px; } .hero-scroll-wrap { bottom: 24px; } .hero-scroll-line { height: 32px; } }
-        @media (max-width: 600px) {
-          .hero { height: auto; min-height: 100svh; padding: 100px 0 72px; }
-          .hero-content { width: 100%; padding: 0 20px; }
-          .hero-content h1 { font-size: clamp(32px, 8.6vw, 48px) !important; margin-bottom: 24px !important; }
-          .hero-content > p:first-child { font-size: 9px !important; letter-spacing: .22em !important; margin-bottom: 24px !important; }
-          .hero-content > p { margin-bottom: 28px !important; }
-          .hero-btn { min-height: 48px; padding: 16px 20px; gap: 12px; letter-spacing: .18em; }
-          .hero-btn-line { width: 18px; }
-          .hero-scroll-wrap { display: none; }
+        .osr-welcome-invite { display: none; }
+        @media (max-width: 900px) {
+          .osr-welcome-invite {
+            display: flex; justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 4px 16px;
+            padding: 10px 20px;
+            background: var(--osr-paper-2);
+            border-bottom: 1px solid var(--osr-line);
+          }
+          .osr-welcome-invite p { font-size: 13px; color: var(--osr-ink); }
+          .osr-welcome-invite button {
+            min-height: 44px; border: 0; background: none;
+            color: var(--osr-berry); font-size: 12px;
+            text-decoration: underline; text-underline-offset: 4px;
+          }
         }
       ` }} />
-    </section>
-  )
-}
-
-function Marquee({ freeThreshold = FREE_SHIPPING_THRESHOLD, freeEnabled = true }) {
-  const items = ['Fine Silk Ribbons','Hand-Frayed Collection','Handcrafted Adornments','Patterned Ribbons','Studio Tools','Vintage-Inspired','30+ Hand-Dyed Colourways', freeEnabled ? `Free Worldwide Shipping over £${freeThreshold}` : 'Worldwide Shipping Available']
-  return (
-    <div style={{ background: 'var(--deep)', padding: '14px 0', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-      <div style={{ display: 'inline-flex', animation: 'marquee 24s linear infinite' }}>
-        {[...items, ...items].map((item, i) => (
-          <span key={i} style={{ fontSize: 10, letterSpacing: '0.28em', textTransform: 'uppercase', color: 'var(--warm)', padding: '0 40px' }}>{item} ·</span>
-        ))}
-      </div>
-      <style dangerouslySetInnerHTML={{ __html: `@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}` }} />
     </div>
   )
 }
 
-/* ═══ COLLECTIONS ═══ */
-function Collections({ collectionImages, activeCollectionSlugs }) {
-  const collections = HOME_COLLECTIONS.filter(c => !activeCollectionSlugs || activeCollectionSlugs.includes(c.slug))
+function SilkNotes() {
   return (
-    <section style={{ padding: 'var(--section-padding-y, 100px) 0' }}>
-      <div style={{ textAlign: 'center', marginBottom: 'clamp(48px, 6vw, 80px)', padding: '0 var(--page-padding, 60px)' }} className="reveal">
-        <span className="eyebrow">Our Collections</span>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 300, marginTop: 20 }}>
-          Explore ribbons &amp; <em style={{ fontStyle: 'italic', color: 'var(--taupe)' }}>handcrafted details</em>
-        </h2>
-      </div>
-
-      <div style={{ maxWidth: 1360, margin: '0 auto', padding: '0 var(--page-padding, 60px)' }}>
-        {collections.map((c, i) => {
-          const img = collectionImages[c.slug]
-          const fallback = c.bg
-          const isEven = i % 2 === 1
-
-          return (
-            <Link key={c.slug} href={`/collections/${c.slug}`} style={{ textDecoration: 'none', display: 'block' }}>
-              <div className={`reveal col-row ${isEven ? 'col-row-reverse' : ''}`}>
-                <div className="col-row-img" style={{ background: fallback }}>
-                  {img && (
-                    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                      <Image
-                        src={img} alt={c.name} fill
-                        style={{ objectFit: 'cover', transition: 'transform 0.8s cubic-bezier(0.25,0.46,0.45,0.94)' }}
-                        className="col-row-img-inner"
-                        loading="lazy"
-                        sizes="(max-width: 768px) 100vw, 40vw"
-                      />
-                    </div>
-                  )}
-                </div>
-                <div className="col-row-text">
-                  <span style={{ fontSize: 9, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 16, display: 'block' }}>{c.count}</span>
-                  <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(30px, 3.5vw, 42px)', fontWeight: 300, color: 'var(--ink)', marginBottom: 20, lineHeight: 1.2 }}>{c.name}</h3>
-                  <p style={{ fontSize: 15, color: 'var(--taupe)', lineHeight: 2, marginBottom: 28 }}>{c.desc}</p>
-                  <span className="col-row-cta"><span className="col-row-cta-line" />Shop Collection</span>
-                </div>
-              </div>
-            </Link>
-          )
-        })}
-      </div>
-
-      <style dangerouslySetInnerHTML={{ __html: `
-        .col-row { display: grid; grid-template-columns: 2fr 3fr; gap: 0; margin-bottom: clamp(16px, 3vw, 32px); overflow: hidden; min-height: 220px; }
-        .col-row-reverse { direction: rtl; }
-        .col-row-reverse > * { direction: ltr; }
-        .col-row-img { overflow: hidden; position: relative; min-height: 200px; }
-        .col-row:hover .col-row-img-inner { transform: scale(1.05) !important; }
-        .col-row-text { display: flex; flex-direction: column; justify-content: center; padding: clamp(32px, 5vw, 72px); }
-        .col-row-cta { display: inline-flex; align-items: center; gap: 14px; font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--deep); }
-        .col-row-cta-line { width: 28px; height: 1px; background: var(--gold); display: inline-block; transition: width 0.4s ease; }
-        .col-row:hover .col-row-cta-line { width: 48px; }
-        .col-row:hover .col-row-cta { color: var(--gold); }
-        @media (max-width: 768px) { .col-row { grid-template-columns: 1fr; min-height: auto; } .col-row-reverse { direction: ltr; } .col-row-img { min-height: 180px; } .col-row-text { padding: 28px 24px 36px; } }
-      ` }} />
-    </section>
-  )
-}
-
-/* ═══ STORY ═══ */
-function StorySection({ storyImage }) {
-  return (
-    <section style={{ background: 'var(--sand)', overflow: 'hidden' }}>
-      <div className="story-row reveal">
-        <div className="story-img">
-          {storyImage ? (
-            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-              <Image src={storyImage} alt="Our Story" fill style={{ objectFit: 'cover' }} loading="lazy" sizes="(max-width: 768px) 100vw, 50vw" />
-            </div>
-          ) : (
-            <div style={{ width: '100%', height: '100%', background: 'linear-gradient(160deg, #D4C5B0, #9A8878, #C4A882)' }} />
-          )}
-        </div>
-        <div className="story-text">
-          <span className="eyebrow" style={{ marginBottom: 20 }}>Our Story</span>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(28px, 3.5vw, 42px)', fontWeight: 300, marginBottom: 28, lineHeight: 1.2, color: 'var(--ink)' }}>
-            Made by hand.<br /><em style={{ fontStyle: 'italic' }}>Made with intention.</em>
+    <section className="osr-notes">
+      <div className="osr-container">
+        <Reveal className="osr-notes-inner">
+          <span className="osr-eyebrow">About our silk</span>
+          <h2 className="osr-title osr-title--sm" style={{ marginTop: 16 }}>
+            How to choose <em>mulberry silk ribbon</em>
           </h2>
-          <p style={{ fontSize: 14, color: 'var(--taupe)', lineHeight: 2, marginBottom: 20 }}>
-            One Silk Ribbon began with a simple frustration: the impossibility of finding a ribbon that felt truly beautiful. We started with a single bolt of Grade 6A mulberry silk and a pair of hands.
-          </p>
-          <p style={{ fontSize: 14, color: 'var(--taupe)', lineHeight: 2, marginBottom: 40 }}>
-            Today our collections bring together silk ribbons and handcrafted details, with colour, texture and care at the heart of each piece.
-          </p>
-          <Link href="/about" className="btn-text"><span className="line" />Read Our Story</Link>
-        </div>
+
+          <div className="osr-notes-cols">
+            <div>
+              <p>
+                Choose by width and finish. Our fine mulberry silk ribbon comes on 10-metre spools in widths from 2mm to 13mm. Try the narrowest width for small bows, miniature clothing or stitched details, and a wider ribbon where you want the colour to stand out.
+              </p>
+              <p>
+                Compare colours alongside the paper, flowers or fabric in your project. Product photographs are a useful starting point, but lighting and screen settings can change the way a shade appears. Check the selected option before ordering.
+              </p>
+            </div>
+            <div>
+              <p>
+                Choose hand-frayed silk ribbon for a soft edge and loose tails on a bouquet. For textured bows on invitations or gifts, try the 10mm crinkle silk ribbon on a wooden spool. Check the product page for available colours and lengths.
+              </p>
+              <p>
+                Unsure which to choose? Our <Link href="/ribbon-guide">ribbon selection guide</Link> explains how to compare widths and measure a sample for your project. For washing, handling and storage, see the <Link href="/care-guide">silk care guide</Link>.
+              </p>
+            </div>
+          </div>
+
+          <ul className="osr-notes-links">
+            <li><Link href="/collections/fine-silk-ribbons">Fine silk ribbon, 2mm–13mm</Link></li>
+            <li><Link href="/collections/hand-frayed-silk-ribbons">Hand-frayed silk ribbon</Link></li>
+            <li><Link href="/collections/vintage-inspired-ribbons">Vintage-inspired ribbon</Link></li>
+            <li><Link href="/collections/handcrafted-adornments">Handcrafted adornments</Link></li>
+            <li><Link href="/collections/studio-tools">Studio tools</Link></li>
+            <li><Link href="/bespoke">Bespoke &amp; wholesale</Link></li>
+          </ul>
+        </Reveal>
       </div>
-      <style dangerouslySetInnerHTML={{ __html: `
-        .story-row { display: grid; grid-template-columns: 1fr 1fr; max-width: 1360px; margin: 0 auto; min-height: 560px; }
-        .story-img { overflow: hidden; }
-        .story-text { display: flex; flex-direction: column; justify-content: center; padding: clamp(40px, 6vw, 80px); }
-        @media (max-width: 768px) { .story-row { grid-template-columns: 1fr; } .story-img { min-height: 300px; } .story-text { padding: 40px 24px 60px; } }
-      ` }} />
     </section>
   )
 }
 
-/* ═══ FEATURED PRODUCTS ═══ */
-function FeaturedProducts({ products }) {
-  return (
-    <section className="featured-section">
-      <div className="featured-header reveal">
-        <div>
-          <span className="eyebrow" style={{ marginBottom: 16 }}>Artisan Picks</span>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(28px, 3.5vw, 42px)', fontWeight: 300 }}>
-            Our <em style={{ fontStyle: 'italic', color: 'var(--taupe)' }}>Favourites</em>
-          </h2>
-        </div>
-        <Link href="/collections" className="btn-text"><span className="line" />View All</Link>
-      </div>
-      <div className="featured-grid">
-        {products.map(p => (
-          <Link key={p.id} href={`/collections/${p.collection}/${p.slug}`} style={{ textDecoration: 'none' }} className="prod-card reveal">
-            <div style={{ aspectRatio: '1/1', background: 'var(--sand)', marginBottom: 16, overflow: 'hidden', position: 'relative' }}>
-              {p.images?.[0] && (
-                <Image
-                  src={p.images[0]} alt={p.name} fill
-                  className="prod-img-inner"
-                  style={{ objectFit: 'cover', transition: 'transform 0.8s ease' }}
-                  loading="lazy"
-                  sizes="(max-width: 768px) 50vw, 25vw"
-                />
-              )}
-            </div>
-            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(15px, 1.5vw, 18px)', color: 'var(--ink)' }}>{p.name}</h3>
-            <p style={{ fontSize: 14, color: 'var(--taupe)', marginTop: 8 }}>From {formatGBP(p.price)}</p>
-            <div style={{ display: 'flex', gap: 4, marginTop: 12 }}>
-              {p.swatches.map((hex, i) => (
-                <div key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: hex, border: '1px solid rgba(0,0,0,0.05)' }} />
-              ))}
-            </div>
-          </Link>
-        ))}
-      </div>
-      <style dangerouslySetInnerHTML={{ __html: `
-        .featured-section { padding: var(--section-padding-y, 100px) var(--page-padding, 60px); background: var(--cream); }
-        .featured-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 48px; flex-wrap: wrap; gap: 16px; }
-        .featured-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; }
-        .featured-grid > a { min-width: 0; overflow-wrap: anywhere; }
-        @media (max-width: 1024px) { .featured-grid { grid-template-columns: repeat(3, 1fr); } }
-        @media (max-width: 768px) { .featured-grid { grid-template-columns: repeat(2, 1fr); gap: 20px; } .featured-header { margin-bottom: 32px; } }
-      ` }} />
-    </section>
-  )
-}
-
-/* ═══ JOURNAL ═══ */
 function JournalSection({ posts }) {
   if (!posts || posts.length === 0) return null
 
-  const FALLBACK_BG = [
+  const fallbackBackgrounds = [
     'linear-gradient(135deg, #E8DDD0, #C4A882)',
     'linear-gradient(135deg, #D4C5B0, #9A8878)',
     'linear-gradient(135deg, #E8C9B8, #9A7A66)',
   ]
 
-  function formatDate(iso) {
+  const formatDate = iso => {
     if (!iso) return ''
     return new Date(iso).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
   }
 
   return (
-    <section className="journal-section">
-      <div className="journal-header reveal" style={{ textAlign: 'center', marginBottom: 'clamp(40px, 5vw, 64px)' }}>
-        <span className="eyebrow" style={{ marginBottom: 16 }}>The Journal</span>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(28px, 3.5vw, 42px)', fontWeight: 300, marginTop: 12 }}>
-          Stories from the <em style={{ fontStyle: 'italic', color: 'var(--taupe)' }}>Atelier</em>
-        </h2>
-      </div>
+    <section className="osr-journal">
+      <div className="osr-container">
+        <Reveal className="osr-journal-head">
+          <span className="osr-eyebrow">The Journal</span>
+          <h2 className="osr-title osr-title--sm" style={{ marginTop: 16 }}>Stories from the <em>atelier.</em></h2>
+        </Reveal>
 
-      <div className="journal-grid">
-        {posts.map((post, i) => (
-          <Link key={post.slug} href={`/journal/${post.slug}`} style={{ textDecoration: 'none' }}>
-            <div className="journal-card reveal" style={{ transitionDelay: `${i * 0.12}s` }}>
-              <div className="journal-card-img">
-                {post.cover_image ? (
-                  <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                    <Image
-                      src={post.cover_image} alt={post.title} fill
-                      style={{ objectFit: 'cover', transition: 'transform 0.6s ease' }}
-                      className="journal-card-img-inner"
-                      loading="lazy"
-                      sizes="(max-width: 600px) 100vw, 33vw"
-                    />
-                  </div>
-                ) : (
-                  <div style={{ width: '100%', height: '100%', background: FALLBACK_BG[i % 3] }} />
-                )}
-              </div>
-              <div className="journal-card-body">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                  <span style={{ fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--gold)' }}>{post.category}</span>
-                  <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'var(--warm)' }} />
-                  <span style={{ fontSize: 10, color: 'var(--taupe)', letterSpacing: '0.05em' }}>{formatDate(post.published_at)}</span>
+        <div className="osr-journal-grid">
+          {posts.map(post => (
+            <Reveal key={post.slug}>
+              <Link href={`/journal/${post.slug}`} className="osr-journal-card">
+                <div className="osr-journal-media">
+                  {post.cover_image ? (
+                    <Image src={post.cover_image} alt={post.title} fill sizes="(max-width: 900px) 100vw, 33vw" style={{ objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ position: 'absolute', inset: 0, background: fallbackBackgrounds[posts.indexOf(post) % 3] }} />
+                  )}
                 </div>
-                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(18px, 2vw, 22px)', fontWeight: 300, color: 'var(--ink)', marginBottom: 12, lineHeight: 1.3 }}>{post.title}</h3>
-                <p style={{ fontSize: 12, color: 'var(--taupe)', lineHeight: 1.9, marginBottom: 20 }}>{post.excerpt}</p>
-                <span className="journal-card-link">Read More →</span>
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
-
-      <div className="reveal" style={{ textAlign: 'center', marginTop: 'clamp(32px, 4vw, 56px)' }}>
-        <Link href="/journal" className="btn-text"><span className="line" />View All Articles</Link>
-      </div>
-
-      <style dangerouslySetInnerHTML={{ __html: `
-        .journal-section { padding: var(--section-padding-y, 100px) var(--page-padding, 60px); background: var(--mist); }
-        .journal-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(20px, 3vw, 36px); max-width: 1360px; margin: 0 auto; }
-        .journal-card { background: var(--cream); overflow: hidden; transition: transform 0.4s ease, box-shadow 0.4s ease; }
-        .journal-card:hover { transform: translateY(-4px); box-shadow: 0 16px 48px rgba(0,0,0,0.08); }
-        .journal-card-img { aspect-ratio: 16/10; overflow: hidden; position: relative; }
-        .journal-card:hover .journal-card-img-inner { transform: scale(1.05) !important; }
-        .journal-card-body { padding: clamp(20px, 2.5vw, 28px); }
-        .journal-card-link { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold); transition: color 0.3s; }
-        .journal-card:hover .journal-card-link { color: var(--ink); }
-        @media (max-width: 900px) { .journal-grid { grid-template-columns: 1fr 1fr; } }
-        @media (max-width: 600px) { .journal-grid { grid-template-columns: 1fr; } }
-      ` }} />
-    </section>
-  )
-}
-
-/* ═══ SILK NOTES（首页品类说明区） ═══ */
-// 首页正文原来只有 3,100 字符左右，且 H1/H2 里没有品类词，Google 很难判断
-// 这个站到底在卖什么。这一段既补内容厚度，也把「真丝缎带」的工艺信息
-// 和内链铺开——六个系列、护理指南、定制批发都能从首页一跳到达。
-// 文案刻意不写具体色号数量：站上曾同时出现 200 / 30+ / 12 三个互相矛盾的
-// 数字，与其编一个，不如只讲能验证的工艺。
-function SilkNotes() {
-  return (
-    <section className="silk-notes">
-      <div className="silk-notes-inner reveal">
-        <span className="eyebrow" style={{ marginBottom: 16 }}>About Our Silk</span>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(26px, 3.2vw, 38px)', fontWeight: 300, lineHeight: 1.25, marginBottom: 'clamp(28px, 4vw, 44px)' }}>
-          How to choose <em className="silk-notes-accent">mulberry silk ribbon</em>
-        </h2>
-
-        <div className="silk-notes-cols">
-          <div>
-            <p>
-              Choose by width and finish. Our fine mulberry silk ribbon comes on 10-metre
-              spools in widths from 2mm to 13mm. Try the narrowest width for small bows,
-              miniature clothing or stitched details, and a wider ribbon where you want
-              the colour to stand out.
-            </p>
-            <p>
-              Compare colours alongside the paper, flowers or fabric in your project. Product
-              photographs are a useful starting point, but lighting and screen settings can
-              change the way a shade appears. Check the selected option before ordering.
-            </p>
-          </div>
-          <div>
-            <p>
-              Choose hand-frayed silk ribbon for a soft edge and loose tails on a bouquet.
-              For textured bows on invitations or gifts, try the 10mm crinkle silk ribbon
-              on a wooden spool. Check the product page for available colours and lengths.
-            </p>
-            <p>
-              Unsure which to choose? Our <Link href="/ribbon-guide">ribbon selection guide</Link>
-              {' '}explains how to compare widths and measure a sample for your project. For
-              washing, handling and storage, see the <Link href="/care-guide">silk care guide</Link>.
-            </p>
-          </div>
+                <div className="osr-journal-body">
+                  <div className="osr-journal-meta">
+                    <span>{post.category}</span>
+                    <span>{formatDate(post.published_at)}</span>
+                  </div>
+                  <h3>{post.title}</h3>
+                  <p>{post.excerpt}</p>
+                  <span className="osr-journal-link">Read more →</span>
+                </div>
+              </Link>
+            </Reveal>
+          ))}
         </div>
 
-        <ul className="silk-notes-links">
-          <li><Link href="/collections/fine-silk-ribbons">Fine silk ribbon, 2mm–13mm</Link></li>
-          <li><Link href="/collections/hand-frayed-silk-ribbons">Hand-frayed silk ribbon</Link></li>
-          <li><Link href="/collections/vintage-inspired-ribbons">Vintage-inspired ribbon</Link></li>
-          <li><Link href="/collections/handcrafted-adornments">Handcrafted adornments</Link></li>
-          <li><Link href="/bespoke">Bespoke &amp; wholesale</Link></li>
-        </ul>
+        <div className="osr-journal-more">
+          <Link href="/journal" className="osr-textlink">View all articles</Link>
+        </div>
       </div>
-
-      <style dangerouslySetInnerHTML={{ __html: `
-        .silk-notes { padding: var(--section-padding-y, 100px) var(--page-padding, 60px); background: var(--cream); }
-        .silk-notes-inner { max-width: 1080px; margin: 0 auto; }
-        .silk-notes-cols { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(28px, 4vw, 64px); }
-        .silk-notes-accent { color: #76592f; }
-        .silk-notes-cols p { font-size: 14px; line-height: 2; color: var(--deep); margin-bottom: 20px; }
-        .silk-notes-cols p:last-child { margin-bottom: 0; }
-        .silk-notes-cols p a, .silk-notes-links a {
-          color: #76592f; text-decoration: underline; text-underline-offset: 0.2em;
-        }
-        .silk-notes-links { list-style: none; display: flex; flex-wrap: wrap; gap: 10px 28px; margin-top: clamp(32px, 4vw, 48px); padding-top: 28px; border-top: 1px solid var(--sand); }
-        .silk-notes-links a { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; }
-        .silk-notes a:hover { color: var(--ink); }
-        @media (max-width: 768px) { .silk-notes-cols { grid-template-columns: 1fr; } }
-      ` }} />
     </section>
   )
 }
 
-/* ═══ NEWSLETTER ═══ */
 function NewsletterSection() {
   const [email, setEmail] = useState('')
   const [status, setStatus] = useState('')
   const [msg, setMsg] = useState('')
 
   const handleSubscribe = async () => {
-    if (!isValidEmail(email)) { setMsg('Please enter a valid email'); setStatus('error'); return }
+    if (!isValidEmail(email)) {
+      setMsg('Please enter a valid email')
+      setStatus('error')
+      return
+    }
     setStatus('loading')
     const result = await subscribeEmail(email, 'home_newsletter')
     if (result.ok) {
@@ -500,33 +346,35 @@ function NewsletterSection() {
   }
 
   return (
-    <section className="newsletter-section">
-      <div className="newsletter-inner reveal">
-        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(24px, 3vw, 32px)', fontWeight: 300, marginBottom: 20 }}>Join the Atelier</h2>
-        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 40, letterSpacing: '0.05em' }}>Receive seasonal palette updates and artisan stories.</p>
-        {status === 'success' ? (
-          <p style={{ fontSize: 13, color: 'var(--gold)', letterSpacing: '0.05em' }}>{msg}</p>
-        ) : (
-          <>
-            <div className="newsletter-form">
-              <input aria-label="Email address for newsletter" name="email" autoComplete="email" type="email" value={email} onChange={e => { setEmail(e.target.value); setStatus(''); setMsg('') }}
-                onKeyDown={e => e.key === 'Enter' && handleSubscribe()}
-                placeholder="Email Address" style={{ background: 'none', border: 'none', color: '#fff', flex: 1, outline: 'none', fontSize: 16, minWidth: 0 }} />
-              <button onClick={handleSubscribe} disabled={status === 'loading'}
-                style={{ background: 'none', border: 'none', color: 'var(--gold)', textTransform: 'uppercase', fontSize: 10, letterSpacing: '0.2em', whiteSpace: 'nowrap', padding: '8px 0', cursor: 'pointer' }}>
-                {status === 'loading' ? '…' : 'Subscribe'}
-              </button>
-            </div>
-            {status === 'error' && <p style={{ fontSize: 11, color: '#f87171', marginTop: 8 }}>{msg}</p>}
-          </>
-        )}
+    <section className="osr-newsletter">
+      <div className="osr-container">
+        <Reveal className="osr-newsletter-inner">
+          <h2>Join the Atelier</h2>
+          <p>Receive seasonal palette updates and artisan stories.</p>
+          {status === 'success' ? (
+            <p style={{ color: '#d7b7a2', fontSize: 13 }}>{msg}</p>
+          ) : (
+            <>
+              <div className="osr-newsletter-form">
+                <input
+                  aria-label="Email address for newsletter"
+                  name="email"
+                  autoComplete="email"
+                  type="email"
+                  value={email}
+                  onChange={event => { setEmail(event.target.value); setStatus(''); setMsg('') }}
+                  onKeyDown={event => event.key === 'Enter' && handleSubscribe()}
+                  placeholder="Email address"
+                />
+                <button type="button" onClick={handleSubscribe} disabled={status === 'loading'}>
+                  {status === 'loading' ? '…' : 'Subscribe'}
+                </button>
+              </div>
+              {status === 'error' && <p className="osr-newsletter-error" role="alert">{msg}</p>}
+            </>
+          )}
+        </Reveal>
       </div>
-      <style dangerouslySetInnerHTML={{ __html: `
-        .newsletter-section { padding: var(--section-padding-y, 100px) var(--page-padding, 60px); background: var(--deep); color: #fff; text-align: center; }
-        .newsletter-inner { max-width: 500px; margin: 0 auto; }
-        .newsletter-form { display: flex; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 12px; gap: 12px; }
-        @media (max-width: 480px) { .newsletter-form { flex-direction: column; border-bottom: none; gap: 16px; } .newsletter-form input { border-bottom: 1px solid rgba(255,255,255,0.2) !important; padding-bottom: 12px; } .newsletter-form button { border: 1px solid rgba(255,255,255,0.2) !important; padding: 14px !important; } }
-      ` }} />
     </section>
   )
 }

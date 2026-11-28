@@ -1,114 +1,188 @@
 import { supabaseAdmin as supabaseServer } from '@osr/core/lib/supabase'
 import { COLLECTION_SLUGS } from '@/lib/collections'
 import { FREE_SHIPPING_THRESHOLD } from '@/lib/pricing'
+import { RIBBON_HOUSES } from '@/lib/storefront-nav'
 import HomeClient from './HomeClient'
 
 export const revalidate = 60
 
+const firstImage = product => {
+  const images = Array.isArray(product?.images) ? product.images : []
+  return images.find(image => typeof image === 'string' && image.trim()) || null
+}
+
 export default async function HomePage() {
-  // ── 一次性取所有 site_images ──────────────────────────────────────────────
-  const { data: siteImages } = await supabaseServer
-    .from('site_images').select('key, url')
-
-  const imgMap = {}
-  if (siteImages) {
-    for (const row of siteImages) imgMap[row.key] = row.url
-  }
-
-  // Hero images
-  const heroImages = ['home_hero_1','home_hero_2','home_hero_3','home_hero_4','home_hero_5']
-    .map(k => imgMap[k]).filter(Boolean)
-
-  // Story image
-  const storyImage = imgMap['home_story'] || null
-
-  // ── Collection images: 没有 site_image 就从商品图取（一次查询）──────────────
-  const fallbackImgMap = {}
-  const { data: colProds } = await supabaseServer
+  const [siteImageResult, productResult, journalResult, settingsResult] = await Promise.all([
+    supabaseServer.from('site_images').select('key, url'),
+    supabaseServer
       .from('products')
-      .select('collection, images')
-      .in('collection', COLLECTION_SLUGS)
-      .eq('is_active', true)
-
-  if (colProds) {
-    for (const p of colProds) {
-      if (fallbackImgMap[p.collection]) continue
-      const imgs = Array.isArray(p.images) ? p.images : []
-      if (imgs.length > 0) fallbackImgMap[p.collection] = imgs[0]
-    }
-  }
-  const activeCollectionSlugs = colProds ? [...new Set(colProds.map(p => p.collection))] : COLLECTION_SLUGS
-
-  const collectionImages = {}
-  for (const slug of COLLECTION_SLUGS) {
-    collectionImages[slug] = imgMap[`home_col_${slug}`] || fallbackImgMap[slug] || null
-  }
-
-  // ── Featured products + SKUs（两次查询代替 N+1）──────────────────────────
-  // Prefer featured products, fall back to any active products
-  let { data: products } = await supabaseServer
-    .from('products')
-    .select('id, name, slug, images, collection')
-    .eq('is_active', true)
-    .eq('is_featured', true)
-    .order('sort_order', { ascending: true, nullsFirst: false })
-    .limit(4)
-
-  if (!products || products.length === 0) {
-    const { data: fallback } = await supabaseServer
-      .from('products')
-      .select('id, name, slug, images, collection')
+      .select('id, name, slug, images, collection, sort_order, created_at')
       .eq('is_active', true)
       .order('sort_order', { ascending: true, nullsFirst: false })
-      .limit(4)
-    products = fallback
-  }
+      .order('created_at', { ascending: true }),
+    supabaseServer
+      .from('journal_posts')
+      .select('slug, title, category, excerpt, cover_image, published_at')
+      .eq('is_published', true)
+      .order('published_at', { ascending: false })
+      .limit(3),
+    supabaseServer
+      .from('settings')
+      .select('key, value')
+      .in('key', ['free_shipping_threshold', 'free_shipping_enabled']),
+  ])
 
-  let featuredProducts = []
-  if (products && products.length > 0) {
-    const productIds = products.map(p => p.id)
-    const { data: allSkus } = await supabaseServer
+  if (productResult.error) throw new Error('Unable to load the studio catalogue. Please try again.')
+
+  const imgMap = {}
+  for (const row of siteImageResult.data || []) imgMap[row.key] = row.url
+
+  const products = productResult.data || []
+  const productIds = products.map(product => product.id)
+
+  let skuRows = []
+  if (productIds.length > 0) {
+    const { data, error } = await supabaseServer
       .from('product_skus')
-      .select('product_id, price_gbp, colour_hex')
+      .select('product_id, price_gbp, colour_hex, stock_qty')
       .in('product_id', productIds)
       .eq('is_active', true)
       .order('price_gbp', { ascending: true })
-
-    featuredProducts = products.map(p => {
-      const skus = (allSkus || []).filter(s => s.product_id === p.id)
-      return {
-        ...p,
-        price: skus[0]?.price_gbp || 0,
-        swatches: skus.slice(0, 5).map(s => s.colour_hex).filter(Boolean),
-      }
-    })
+    if (error) throw new Error('Unable to load studio prices. Please try again.')
+    skuRows = data || []
   }
 
-  // ── Shipping settings for marquee ────────────────────────────────────────
-  const { data: shippingSettings } = await supabaseServer
-    .from('settings')
-    .select('key, value')
-    .in('key', ['free_shipping_threshold', 'free_shipping_enabled'])
-  const settingsMap = Object.fromEntries((shippingSettings || []).map(r => [r.key, r.value]))
-  const freeThreshold = settingsMap['free_shipping_threshold'] || FREE_SHIPPING_THRESHOLD
-  const freeEnabled   = settingsMap['free_shipping_enabled'] !== 'false'
+  const skusByProduct = new Map()
+  for (const sku of skuRows) {
+    if (!skusByProduct.has(sku.product_id)) skusByProduct.set(sku.product_id, [])
+    skusByProduct.get(sku.product_id).push(sku)
+  }
 
-  // ── Journal posts ─────────────────────────────────────────────────────────
-  const { data: journalPosts } = await supabaseServer
-    .from('journal_posts')
-    .select('slug, title, category, excerpt, cover_image, published_at')
-    .eq('is_published', true)
-    .order('published_at', { ascending: false })
-    .limit(3)
+  const productSummary = product => {
+    const skus = skusByProduct.get(product.id) || []
+    const prices = skus.map(sku => Number(sku.price_gbp)).filter(price => Number.isFinite(price) && price > 0)
+    const hexes = [...new Set(skus.map(sku => sku.colour_hex).filter(hex => typeof hex === 'string' && hex.trim()))].slice(0, 4)
+    return {
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+      collection: product.collection,
+      image: firstImage(product),
+      minPrice: prices.length ? Math.min(...prices) : 0,
+      skuCount: skus.length,
+      hexes,
+    }
+  }
+
+  const bySlug = new Map(products.map(product => [product.slug, product]))
+
+  const collectionStats = {}
+  for (const slug of COLLECTION_SLUGS) {
+    const items = products.filter(product => product.collection === slug)
+    const prices = items
+      .map(product => productSummary(product).minPrice)
+      .filter(price => price > 0)
+    collectionStats[slug] = {
+      slug,
+      count: items.length,
+      image: imgMap[`home_col_${slug}`] || firstImage(items[0]) || null,
+      minPrice: prices.length ? Math.min(...prices) : 0,
+      skuCount: items.reduce((total, product) => total + (skusByProduct.get(product.id)?.length || 0), 0),
+    }
+  }
+
+  const handFrayed = products.filter(product => product.collection === 'hand-frayed-silk-ribbons')
+  const vintage = products.filter(product => product.collection === 'vintage-inspired-ribbons')
+  const cabinetSlugs = [
+    'pearl-white-hand-frayed-silk-ribbon',
+    'lotus-pink-hand-frayed-silk-ribbon',
+    'burgundy',
+    '10mm-vintage-crinkle-silk-ribbon-on-wooden-spool-100-pure-mulberry-silk',
+  ]
+  const cabinetProducts = []
+  for (const slug of cabinetSlugs) {
+    const product = bySlug.get(slug)
+    if (product) cabinetProducts.push(product)
+  }
+  for (const product of [...handFrayed, ...vintage]) {
+    if (cabinetProducts.length >= 4) break
+    if (!cabinetProducts.includes(product)) cabinetProducts.push(product)
+  }
+  const ribbonCabinet = cabinetProducts.slice(0, 4).map(productSummary)
+
+  const ribbonHouses = RIBBON_HOUSES.map(house => {
+    const stats = collectionStats[house.slug]
+    return { ...house, count: stats?.count || 0, skuCount: stats?.skuCount || 0, minPrice: stats?.minPrice || 0, image: stats?.image || null }
+  }).filter(house => house.count > 0)
+
+  const studioToolsCollection = products.filter(product => product.collection === 'studio-tools')
+  const toolSlugs = [
+    'artisan-wooden-spool-2-3-x-3cm',
+    'adjustable-beechwood-embroidery-hoop',
+    'adjustable-beechwood-embroidery-stand',
+  ]
+  const studioToolProducts = []
+  for (const slug of toolSlugs) {
+    const product = bySlug.get(slug)
+    if (product) studioToolProducts.push(product)
+  }
+  for (const product of studioToolsCollection) {
+    if (studioToolProducts.length >= 3) break
+    if (!studioToolProducts.includes(product)) studioToolProducts.push(product)
+  }
+  const studioTools = studioToolProducts.slice(0, 3).map(productSummary)
+
+  const ribbonCount = ribbonHouses.reduce((total, house) => total + house.count, 0)
+  const doors = [
+    {
+      number: '01',
+      title: 'Silk Ribbons',
+      href: '/collections#ribbons',
+      image: collectionStats['hand-frayed-silk-ribbons']?.image || ribbonHouses[0]?.image || null,
+      alt: 'Pearl White hand-frayed silk ribbon wound on a vintage wooden spool',
+      badge: 'Live collection',
+      copy: `Fine embroidery ribbon, hand-torn crêpe satin and vintage crinkle — ${ribbonCount} live pieces across three ribbon houses.`,
+      cta: 'Enter the ribbon house',
+      links: ribbonHouses.map(house => ({ label: house.label, href: house.href })),
+    },
+    {
+      number: '02',
+      title: 'Handcrafted Adornments',
+      href: '/collections/handcrafted-adornments',
+      image: collectionStats['handcrafted-adornments']?.image || null,
+      alt: 'Handcrafted silk mini bows and ribbon-embroidered brooches',
+      badge: 'Live collection',
+      copy: `${collectionStats['handcrafted-adornments']?.count || 0} hand-finished pieces — mulberry silk mini bows and ribbon-embroidered brooches.`,
+      cta: 'Enter the adornment room',
+      links: [],
+    },
+    {
+      number: '03',
+      title: 'Studio Tools',
+      href: '/collections/studio-tools',
+      image: collectionStats['studio-tools']?.image || null,
+      alt: 'Beechwood tabletop embroidery stand holding a hoop of silk ribbon flowers',
+      badge: 'Live collection',
+      copy: `${collectionStats['studio-tools']?.count || 0} beechwood tools — ribbon spools, adjustable hoops and a tabletop embroidery stand.`,
+      cta: 'Enter the workbench',
+      links: [],
+    },
+  ]
+
+  const settingsMap = Object.fromEntries((settingsResult.data || []).map(row => [row.key, row.value]))
+  const freeThreshold = settingsMap.free_shipping_threshold || FREE_SHIPPING_THRESHOLD
+  const freeEnabled = settingsMap.free_shipping_enabled !== 'false'
+
+  const storyImage = imgMap.home_story || collectionStats['hand-frayed-silk-ribbons']?.image || '/images/silk-gallery/hero-desktop.jpg'
 
   return (
     <HomeClient
-      heroImages={heroImages}
+      doors={doors}
+      ribbonHouses={ribbonHouses}
+      ribbonCabinet={ribbonCabinet}
+      studioTools={studioTools}
       storyImage={storyImage}
-      collectionImages={collectionImages}
-      activeCollectionSlugs={activeCollectionSlugs}
-      featuredProducts={featuredProducts}
-      journalPosts={journalPosts || []}
+      journalPosts={journalResult.data || []}
       freeThreshold={freeThreshold}
       freeEnabled={freeEnabled}
     />

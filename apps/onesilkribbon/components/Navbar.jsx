@@ -1,11 +1,13 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { useCart } from '@/lib/cart'
 import { useAuth } from '@osr/core/lib/auth'
 import { useBodyScrollLock } from '@/lib/use-body-scroll-lock'
+import { SHOP_GROUPS } from '@/lib/storefront-nav'
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false)
@@ -17,10 +19,15 @@ export function Navbar() {
   const [accountOpen, setAccountOpen] = useState(false)
   const [searchError, setSearchError] = useState('')
   const [searchRetry, setSearchRetry] = useState(0)
+  const [shopOpen, setShopOpen] = useState(false)
   const searchInputRef = useRef(null)
   const accountRef = useRef(null)
   const navRef = useRef(null)
-  const panelRef = useRef(null)
+  const menuRef = useRef(null)
+  const searchRef = useRef(null)
+  const megaRef = useRef(null)
+  const shopTriggerRef = useRef(null)
+  const shopWasOpen = useRef(false)
   const pathname = usePathname()
   const router = useRouter()
 
@@ -28,8 +35,16 @@ export function Navbar() {
   const { user, loading, signOut } = useAuth()
   const itemCount = getItemCount ? getItemCount() : 0
 
-  const isDarkHero = pathname === '/'
-  const isLight = isDarkHero && !scrolled && !menuOpen && !searchOpen
+  const isShopActive = pathname.startsWith('/collections')
+
+  const closeAll = useCallback(() => {
+    setShopOpen(false)
+    setMenuOpen(false)
+    setSearchOpen(false)
+    setAccountOpen(false)
+  }, [])
+
+  useBodyScrollLock(menuOpen || searchOpen)
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50)
@@ -38,73 +53,96 @@ export function Navbar() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  useBodyScrollLock(menuOpen || searchOpen)
-
   useEffect(() => {
     if (!cartOpen) return
-    setMenuOpen(false); setSearchOpen(false); setAccountOpen(false)
-  }, [cartOpen])
+    closeAll()
+  }, [cartOpen, closeAll])
 
   useEffect(() => {
-    const wide = window.matchMedia('(min-width: 901px)')
-    const closeMobileMenu = () => { if (wide.matches) setMenuOpen(false) }
-    closeMobileMenu()
-    wide.addEventListener('change', closeMobileMenu)
-    return () => wide.removeEventListener('change', closeMobileMenu)
+    const wide = window.matchMedia('(min-width: 961px)')
+    const onChange = () => {
+      setMenuOpen(false)
+      setShopOpen(false)
+    }
+    wide.addEventListener('change', onChange)
+    return () => wide.removeEventListener('change', onChange)
   }, [])
 
   useEffect(() => {
     if ((!menuOpen && !searchOpen) || cartOpen) return
-    const nav = navRef.current, panel = panelRef.current
+    const nav = navRef.current
+    const panel = searchOpen ? searchRef.current : menuRef.current
     const previous = document.activeElement
     const selector = 'a[href], button:not([disabled]), input:not([disabled])'
+    const visible = element => {
+      if (!element || element.getClientRects().length === 0) return false
+      if (typeof element.closest === 'function' && element.closest('[inert]')) return false
+      return true
+    }
     const controls = () => [nav, panel].flatMap(root =>
-      [...(root?.querySelectorAll(selector) || [])].filter(el => el.getClientRects().length > 0)
+      [...(root?.querySelectorAll(selector) || [])].filter(visible)
     )
     const belongs = element => nav?.contains(element) || panel?.contains(element)
     panel?.querySelector(searchOpen ? 'input' : 'a[href]')?.focus({ preventScroll: true })
     const trapTab = event => {
       if (event.key !== 'Tab' || event.defaultPrevented) return
       const elements = controls()
-      const first = elements[0], last = elements[elements.length - 1]
+      const first = elements[0]
+      const last = elements[elements.length - 1]
       if (!first) return
       if (event.shiftKey && (document.activeElement === first || !belongs(document.activeElement))) {
-        event.preventDefault(); last.focus()
+        event.preventDefault()
+        last.focus()
       } else if (!event.shiftKey && (document.activeElement === last || !belongs(document.activeElement))) {
-        event.preventDefault(); first.focus()
+        event.preventDefault()
+        first.focus()
       }
     }
     document.addEventListener('keydown', trapTab)
     return () => {
       document.removeEventListener('keydown', trapTab)
-      // A newly opened basket or welcome dialog owns its own focus.
-      if (previous?.isConnected && (panel?.contains(document.activeElement) || document.activeElement === document.body)) previous.focus({ preventScroll: true })
+      if (previous?.isConnected && (panel?.contains(document.activeElement) || document.activeElement === document.body)) {
+        previous.focus({ preventScroll: true })
+      }
     }
   }, [menuOpen, searchOpen, cartOpen])
 
   useEffect(() => {
-    setMenuOpen(false)
-    setSearchOpen(false)
-    setAccountOpen(false)
-  }, [pathname])
+    if (!shopOpen) {
+      if (!shopWasOpen.current) return
+      shopWasOpen.current = false
+      shopTriggerRef.current?.focus({ preventScroll: true })
+      return
+    }
+    shopWasOpen.current = true
+    const frame = window.requestAnimationFrame(() => {
+      megaRef.current?.querySelector('a[href], button')?.focus({ preventScroll: true })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [shopOpen])
+
+  useEffect(() => {
+    closeAll()
+  }, [pathname, closeAll])
 
   useEffect(() => {
     const onKeyDown = event => {
       if (event.key !== 'Escape') return
-      setMenuOpen(false)
-      setSearchOpen(false)
-      setAccountOpen(false)
+      closeAll()
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [])
+  }, [closeAll])
 
   useEffect(() => {
     if (searchOpen && searchInputRef.current) {
       const timer = setTimeout(() => searchInputRef.current?.focus(), 100)
       return () => clearTimeout(timer)
     }
-    if (!searchOpen) { setSearchQuery(''); setSearchResults([]) }
+    if (!searchOpen) {
+      setSearchQuery('')
+      setSearchResults([])
+    }
   }, [searchOpen])
 
   useEffect(() => {
@@ -127,17 +165,27 @@ export function Navbar() {
         const data = await res.json()
         if (!Array.isArray(data)) throw new Error('Search unavailable')
         if (active) setSearchResults(data)
-      } catch { if (active) { setSearchResults([]); setSearchError('Search is unavailable right now. Please try again.') } }
-      finally { clearTimeout(deadline); if (active) setSearching(false) }
+      } catch {
+        if (active) {
+          setSearchResults([])
+          setSearchError('Search is unavailable right now. Please try again.')
+        }
+      } finally {
+        clearTimeout(deadline)
+        if (active) setSearching(false)
+      }
     }, 300)
-    return () => { active = false; clearTimeout(timer); clearTimeout(deadline); controller.abort() }
+    return () => {
+      active = false
+      clearTimeout(timer)
+      clearTimeout(deadline)
+      controller.abort()
+    }
   }, [searchQuery, searchOpen, searchRetry])
 
   useEffect(() => {
-    const handler = (e) => {
-      if (accountRef.current && !accountRef.current.contains(e.target)) {
-        setAccountOpen(false)
-      }
+    const handler = event => {
+      if (accountRef.current && !accountRef.current.contains(event.target)) setAccountOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -153,33 +201,6 @@ export function Navbar() {
     await signOut()
   }
 
-  const textColor = isLight ? '#fff' : 'var(--deep)'
-  const logoSrc = isLight ? '/images/logo-white.png' : '/images/logo.png'
-  const iconStroke = isLight ? '#fff' : 'var(--deep)'
-  const shadow = isLight ? '0 1px 8px rgba(0,0,0,0.3)' : 'none'
-
-  const navLinks = [
-    { href: '/collections', label: 'Shop' },
-    { href: '/about',       label: 'About' },
-    { href: '/bespoke',     label: 'Bespoke' },
-  ]
-
-  const mobileCollections = [
-    { name: 'Fine Silk Ribbons',      slug: 'fine-silk-ribbons' },
-    { name: 'Hand-Frayed',            slug: 'hand-frayed-silk-ribbons' },
-    { name: 'Handcrafted Adornments', slug: 'handcrafted-adornments' },
-    { name: 'Patterned Ribbons',      slug: 'patterned-ribbons' },
-    { name: 'Studio Tools',           slug: 'studio-tools' },
-    { name: 'Vintage-Inspired',       slug: 'vintage-inspired-ribbons' },
-  ]
-
-  const mobileLinks = [
-    { name: 'Our Story',       href: '/about' },
-    { name: 'Bespoke & Trade', href: '/bespoke' },
-    { name: 'Journal',         href: '/journal' },
-    { name: 'Contact',         href: '/contact' },
-  ]
-
   const getInitial = () => {
     if (!user) return ''
     if (user.name) return user.name.charAt(0).toUpperCase()
@@ -187,80 +208,115 @@ export function Navbar() {
     return '?'
   }
 
+  const directLinks = [
+    { href: '/about', label: 'About' },
+    { href: '/bespoke', label: 'Bespoke' },
+    { href: '/journal', label: 'Journal' },
+  ]
+
   return (
     <>
-      <nav ref={navRef} className="site-nav" style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: menuOpen || searchOpen ? 180 : 100,
-        padding: scrolled ? '8px 0' : '14px 0',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        background: (scrolled || menuOpen || searchOpen) ? 'rgba(247,243,238,0.95)' : 'transparent',
-        backdropFilter: (scrolled || menuOpen || searchOpen) ? 'blur(12px)' : 'none',
-        borderBottom: scrolled ? '1px solid var(--sand)' : 'none',
-        transition: 'background 0.4s ease, backdrop-filter 0.4s ease, border-color 0.4s ease, padding 0.4s ease',
-      }}>
-        <Link href="/" onClick={() => { setMenuOpen(false); setSearchOpen(false) }} className="nav-brand">
-          <Image src={logoSrc} alt="One Silk Ribbon" width={34} height={34} loading="eager" className="nav-logo" style={{ transition: 'opacity 0.3s' }} />
-          <span className="nav-brand-text" style={{
-            color: isLight ? '#fff' : 'var(--ink)',
-            textShadow: shadow,
-            transition: 'color 0.4s, text-shadow 0.4s',
-          }}>
+      <nav ref={navRef} className={`site-nav osr-nav is-solid ${scrolled ? 'is-scrolled' : ''}`} aria-label="Main navigation">
+        <Link href="/" onClick={closeAll} className="osr-brand">
+          <Image
+            src="/images/logo.png"
+            alt="One Silk Ribbon"
+            width={30}
+            height={30}
+            loading="eager"
+            className="osr-brand-logo"
+          />
+          <span className="osr-brand-text">
             One <em>Silk</em> Ribbon
           </span>
         </Link>
 
-        <ul className="nav-desktop nav-links">
-          {navLinks.map(l => (
-            <li key={l.href}>
-              <Link href={l.href} className="nav-link" style={{
-                color: textColor,
-                textShadow: isLight ? '0 1px 6px rgba(0,0,0,0.25)' : 'none',
-                transition: 'color 0.4s, text-shadow 0.4s',
-              }}>
-                {l.label}
+        <div className="osr-desktop-nav">
+          <button
+            ref={shopTriggerRef}
+            type="button"
+            className={`osr-shop-trigger ${isShopActive ? 'is-active' : ''}`}
+            aria-expanded={shopOpen}
+            aria-controls="osr-mega"
+            aria-current={isShopActive ? 'page' : undefined}
+            onClick={() => {
+              setShopOpen(value => !value)
+              setMenuOpen(false)
+              setSearchOpen(false)
+              setAccountOpen(false)
+            }}
+          >
+            Shop <span className="osr-chevron" aria-hidden="true">⌄</span>
+          </button>
+          {directLinks.map(link => {
+            const active = pathname.startsWith(link.href)
+            return (
+              <Link key={link.href} href={link.href} className={`osr-nav-link ${active ? 'is-active' : ''}`} aria-current={active ? 'page' : undefined}>
+                {link.label}
               </Link>
-            </li>
-          ))}
-        </ul>
+            )
+          })}
+        </div>
 
-        <div className="nav-icons">
-          {/* 搜索 */}
-          <button onClick={() => { setSearchOpen(!searchOpen); setMenuOpen(false) }} className="nav-icon-btn" aria-label="Search" aria-expanded={searchOpen}>
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none"
-              stroke={searchOpen ? 'var(--deep)' : iconStroke} strokeWidth="1.4"
-              style={{ transition: 'stroke 0.4s', filter: isLight ? 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))' : 'none' }}>
-              <circle cx="11" cy="11" r="8"/>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        <div className="osr-nav-tools">
+          <button
+            type="button"
+            className="osr-icon-btn"
+            aria-label="Search"
+            aria-expanded={searchOpen}
+            onClick={() => {
+              setSearchOpen(value => !value)
+              setShopOpen(false)
+              setMenuOpen(false)
+              setAccountOpen(false)
+            }}
+          >
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
           </button>
 
-          {/* 账户（桌面端） */}
           {!loading && (
-            <div className="nav-desktop" ref={accountRef} style={{ position: 'relative' }}>
+            <div className="osr-desktop-account" ref={accountRef} style={{ position: 'relative' }}>
               {user ? (
-                <button onClick={() => setAccountOpen(!accountOpen)} className="nav-icon-btn" aria-label="My account" style={{ padding: 4 }}>
+                <button
+                  type="button"
+                  onClick={() => setAccountOpen(value => !value)}
+                  className="osr-icon-btn"
+                  aria-label="My account"
+                  aria-expanded={accountOpen}
+                  style={{ padding: 4 }}
+                >
                   {user.avatar ? (
-                    <img src={user.avatar} alt={user.name || user.email} width={28} height={28} decoding="async" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', display: 'block', border: '1.5px solid var(--gold)' }} />
+                    <img
+                      src={user.avatar}
+                      alt={user.name || user.email}
+                      width={28}
+                      height={28}
+                      decoding="async"
+                      style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', display: 'block', border: '1.5px solid var(--osr-gold)' }}
+                    />
                   ) : (
-                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--gold)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 400 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--osr-gold)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 400 }}>
                       {getInitial()}
                     </div>
                   )}
                 </button>
               ) : (
-                <Link href="/login" className="nav-icon-btn" aria-label="Sign in" style={{ display: 'flex', padding: 6 }}>
-                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke={iconStroke} strokeWidth="1.4" style={{ transition: 'stroke 0.4s', filter: isLight ? 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))' : 'none' }}>
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                    <circle cx="12" cy="7" r="4"/>
+                <Link href="/login" className="osr-icon-btn" aria-label="Sign in" style={{ display: 'flex', padding: 6 }}>
+                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
                   </svg>
                 </Link>
               )}
 
               {user && accountOpen && (
-                <div style={{ position: 'absolute', top: 'calc(100% + 10px)', right: 0, width: 220, background: '#fff', border: '1px solid var(--sand)', boxShadow: '0 8px 32px rgba(28,23,20,0.10)', zIndex: 200, animation: 'fadeInDown 0.18s ease' }}>
-                  <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid var(--mist)' }}>
-                    <p style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 400, marginBottom: 2 }}>{user.name || 'My Account'}</p>
-                    <p style={{ fontSize: 11, color: 'var(--taupe)', wordBreak: 'break-all' }}>{user.email}</p>
+                <div style={{ position: 'absolute', top: 'calc(100% + 10px)', right: 0, width: 220, background: 'var(--osr-paper)', border: '1px solid var(--osr-line)', boxShadow: '0 8px 32px rgba(28,23,20,0.10)', zIndex: 200, animation: 'osrFade 0.18s ease' }}>
+                  <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid var(--osr-line-soft)' }}>
+                    <p style={{ fontSize: 13, color: 'var(--osr-ink)', fontWeight: 400, marginBottom: 2 }}>{user.name || 'My Account'}</p>
+                    <p style={{ fontSize: 11, color: 'var(--osr-muted)', wordBreak: 'break-all' }}>{user.email}</p>
                   </div>
                   {[
                     { href: '/account', label: 'My Account' },
@@ -268,16 +324,20 @@ export function Navbar() {
                     { href: '/account/addresses', label: 'Saved Addresses' },
                     { href: '/account/profile', label: 'Edit Profile' },
                   ].map(item => (
-                    <Link key={item.href} href={item.href} onClick={() => setAccountOpen(false)}
-                      style={{ display: 'block', padding: '10px 16px', fontSize: 12, color: 'var(--deep)', letterSpacing: '.03em', borderBottom: '1px solid var(--mist)', transition: 'background 0.15s' }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'var(--mist)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setAccountOpen(false)}
+                      style={{ display: 'block', padding: '10px 16px', fontSize: 12, color: 'var(--osr-ink-soft)', letterSpacing: '.03em', borderBottom: '1px solid var(--osr-line-soft)' }}
+                    >
                       {item.label}
                     </Link>
                   ))}
-                  <button onClick={handleSignOut} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 16px', fontSize: 11, color: 'var(--taupe)', letterSpacing: '.08em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'color 0.15s' }}
-                    onMouseEnter={e => e.currentTarget.style.color = 'var(--ink)'}
-                    onMouseLeave={e => e.currentTarget.style.color = 'var(--taupe)'}>
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 16px', fontSize: 11, color: 'var(--osr-muted)', letterSpacing: '.08em', textTransform: 'uppercase', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)' }}
+                  >
                     Sign out
                   </button>
                 </div>
@@ -285,65 +345,185 @@ export function Navbar() {
             </div>
           )}
 
-          {/* 购物车 */}
-          <button onClick={() => { setMenuOpen(false); setSearchOpen(false); setAccountOpen(false); toggleCart() }} className="nav-icon-btn" aria-label="Basket" style={{ position: 'relative' }}>
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke={iconStroke} strokeWidth="1.4" style={{ transition: 'stroke 0.4s', filter: isLight ? 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))' : 'none' }}>
-              <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
-              <line x1="3" y1="6" x2="21" y2="6"/>
-              <path d="M16 10a4 4 0 01-8 0"/>
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false)
+              setSearchOpen(false)
+              setShopOpen(false)
+              setAccountOpen(false)
+              toggleCart()
+            }}
+            className="osr-icon-btn"
+            aria-label="Basket"
+            style={{ position: 'relative' }}
+          >
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4">
+              <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <path d="M16 10a4 4 0 01-8 0" />
             </svg>
-            {itemCount > 0 && (
-              <span style={{ position: 'absolute', top: 0, right: 0, background: 'var(--gold)', color: '#fff', width: 15, height: 15, borderRadius: '50%', fontSize: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 400 }}>
-                {itemCount}
-              </span>
-            )}
+            {itemCount > 0 && <span className="osr-bag-count">{itemCount}</span>}
           </button>
 
-          {/* 汉堡（移动端） */}
-          <button onClick={() => { setMenuOpen(!menuOpen); setSearchOpen(false) }} className="nav-mobile nav-icon-btn" aria-label="Menu" aria-expanded={menuOpen}>
-            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke={menuOpen ? 'var(--ink)' : iconStroke} strokeWidth="1.3" style={{ transition: 'stroke 0.4s' }}>
-              {menuOpen ? (
-                <><line x1="4" y1="4" x2="18" y2="18"/><line x1="18" y1="4" x2="4" y2="18"/></>
-              ) : (
-                <><line x1="3" y1="7" x2="19" y2="7"/><line x1="3" y1="11" x2="19" y2="11"/><line x1="3" y1="15" x2="19" y2="15"/></>
-              )}
-            </svg>
+          <button
+            type="button"
+            className={`osr-burger ${menuOpen ? 'is-open' : ''}`}
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={menuOpen}
+            aria-controls="osr-mobile-menu"
+            onClick={() => {
+              setMenuOpen(value => !value)
+              setSearchOpen(false)
+              setShopOpen(false)
+              setAccountOpen(false)
+            }}
+          >
+            <span /><span /><span />
           </button>
         </div>
       </nav>
 
-      {/* 搜索弹出层 */}
+      <div className={`osr-mega-scrim ${shopOpen ? 'is-open' : ''}`} onClick={() => setShopOpen(false)} aria-hidden="true" />
+      <div
+        ref={megaRef}
+        className={`osr-mega ${shopOpen ? 'is-open' : ''}`}
+        id="osr-mega"
+        aria-label="Shop menu"
+        inert={!shopOpen}
+        aria-hidden={!shopOpen}
+      >
+        <div className="osr-mega-inner">
+          {SHOP_GROUPS.map(group => (
+            <div key={group.id} className="osr-mega-group">
+              <Link href={group.href} onClick={() => setShopOpen(false)}>
+                {group.label} <span>{group.note}</span>
+              </Link>
+              <ul className="osr-mega-list">
+                {group.links.map(link => (
+                  <li key={link.href}>
+                    <Link href={link.href} onClick={() => setShopOpen(false)}>
+                      <strong>{link.label}</strong>
+                      <small>{link.note}</small>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+          <Link href="/collections/hand-frayed-silk-ribbons" className="osr-mega-tile" onClick={() => setShopOpen(false)}>
+            <Image src="/images/silk-gallery/hero-desktop.jpg" alt="Pearl White hand-frayed silk ribbon on a vintage wooden spool" fill sizes="280px" style={{ objectFit: 'cover' }} />
+            <div className="osr-mega-tile-body">
+              <h3>The Ribbon House</h3>
+              <p>Pearl White · hand-torn crêpe satin</p>
+            </div>
+          </Link>
+        </div>
+        <div className="osr-mega-foot">
+          <Link className="osr-textlink" href="/collections" onClick={() => setShopOpen(false)}>Browse all collections</Link>
+        </div>
+      </div>
+
+      <div
+        ref={menuRef}
+        className={`osr-mobile-menu ${menuOpen ? 'is-open' : ''}`}
+        id="osr-mobile-menu"
+        role="dialog"
+        aria-modal={menuOpen ? 'true' : undefined}
+        aria-label="Mobile navigation"
+        inert={!menuOpen}
+        aria-hidden={!menuOpen}
+      >
+        <div className="osr-mobile-top">
+          <Link href="/" onClick={() => setMenuOpen(false)}>Home</Link>
+          <Link href="/collections" onClick={() => setMenuOpen(false)}>Shop all collections</Link>
+        </div>
+
+        {SHOP_GROUPS.map((group, index) => (
+          <MobileGroup key={group.id} group={group} index={index} onNavigate={() => setMenuOpen(false)} />
+        ))}
+
+        <div className="osr-mobile-footer">
+          <Link href="/about" onClick={() => setMenuOpen(false)}>Our Story</Link>
+          <Link href="/bespoke" onClick={() => setMenuOpen(false)}>Bespoke &amp; Trade</Link>
+          <Link href="/journal" onClick={() => setMenuOpen(false)}>Journal</Link>
+          <Link href="/contact" onClick={() => setMenuOpen(false)}>Contact</Link>
+          <Link href="/track-order" onClick={() => setMenuOpen(false)}>Track Order</Link>
+          <Link href="/faq" onClick={() => setMenuOpen(false)}>FAQ &amp; Help</Link>
+          {user ? (
+            <>
+              <Link href="/account" onClick={() => setMenuOpen(false)}>My Account</Link>
+              <Link href="/account/orders" onClick={() => setMenuOpen(false)}>My Orders</Link>
+              <button
+                type="button"
+                onClick={() => { setMenuOpen(false); signOut() }}
+                style={{ textAlign: 'left', border: 0, background: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)' }}
+              >
+                Sign out
+              </button>
+            </>
+          ) : (
+            <Link href="/login" onClick={() => setMenuOpen(false)}>Sign in / Register</Link>
+          )}
+        </div>
+      </div>
+
       {searchOpen && (
         <>
-          <div onClick={() => setSearchOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 178, background: 'rgba(28,23,20,0.4)', backdropFilter: 'blur(2px)', animation: 'fadeIn 0.2s ease' }} />
-          <div ref={panelRef} className="search-panel" style={{ zIndex: 179 }} role="search" aria-label="Product search">
-            <div className="search-inner">
-              <div className="search-input-wrap">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--taupe)" strokeWidth="1.4" style={{ flexShrink: 0 }}>
-                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          <div className="osr-search-scrim" onClick={() => setSearchOpen(false)} />
+          <div ref={searchRef} className="osr-search-panel" role="search" aria-label="Product search">
+            <div className="osr-search-inner">
+              <div className="osr-search-input-wrap">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--osr-muted)" strokeWidth="1.4" style={{ flexShrink: 0 }}>
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
                 </svg>
-                <input ref={searchInputRef} type="search" aria-label="Search products" maxLength={100} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search products…" className="search-input" />
-                <button aria-label="Close search" onClick={() => setSearchOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--taupe)', fontSize: 18, cursor: 'pointer', padding: 4, minWidth:44, minHeight:44, lineHeight: 1 }}>✕</button>
+                <input
+                  ref={searchInputRef}
+                  type="search"
+                  aria-label="Search products"
+                  maxLength={100}
+                  value={searchQuery}
+                  onChange={event => setSearchQuery(event.target.value)}
+                  placeholder="Search products…"
+                  className="osr-search-input"
+                />
+                <button
+                  type="button"
+                  aria-label="Close search"
+                  onClick={() => setSearchOpen(false)}
+                  style={{ background: 'none', border: 'none', color: 'var(--osr-muted)', fontSize: 18, cursor: 'pointer', padding: 4, minWidth: 44, minHeight: 44, lineHeight: 1 }}
+                >
+                  ✕
+                </button>
               </div>
-              <div className="search-results" aria-live="polite" aria-busy={searching}>
-                {searching && <p style={{ padding: '20px 0', fontSize: 12, color: 'var(--taupe)', textAlign: 'center' }}>Searching…</p>}
-                {searchError && <div role="alert" style={{ padding:'16px 0', fontSize:13, color:'var(--deep)' }}>
-                  <p>{searchError}</p>
-                  <button className="btn-text" style={{ minHeight:44 }} onClick={() => setSearchRetry(value => value + 1)}>Retry search</button>
-                </div>}
-                {!searching && !searchError && searchQuery.trim().length >= 2 && searchResults.length === 0 && (
-                  <p style={{ padding: '20px 0', fontSize: 13, color: 'var(--taupe)', textAlign: 'center' }}>No products found for &quot;{searchQuery}&quot;</p>
+              <div className="osr-search-results" aria-live="polite" aria-busy={searching}>
+                {searching && <p style={{ padding: '20px 0', fontSize: 12, color: 'var(--osr-muted)', textAlign: 'center' }}>Searching…</p>}
+                {searchError && (
+                  <div role="alert" style={{ padding: '16px 0', fontSize: 13, color: 'var(--osr-ink)' }}>
+                    <p>{searchError}</p>
+                    <button type="button" className="osr-textlink" style={{ border: 0, background: 'none', padding: 0 }} onClick={() => setSearchRetry(value => value + 1)}>
+                      Retry search
+                    </button>
+                  </div>
                 )}
-                {searchResults.map(p => {
-                  const img = Array.isArray(p.images) ? p.images[0] : null
+                {!searching && !searchError && searchQuery.trim().length >= 2 && searchResults.length === 0 && (
+                  <p style={{ padding: '20px 0', fontSize: 13, color: 'var(--osr-muted)', textAlign: 'center' }}>
+                    No products found for &quot;{searchQuery}&quot;
+                  </p>
+                )}
+                {searchResults.map(product => {
+                  const image = Array.isArray(product.images) ? product.images[0] : null
                   return (
-                    <button key={p.id} onClick={() => handleSearchClick(p.collection, p.slug)} className="search-result-item">
-                      <div className="search-result-img">
-                        {img ? <img src={img} alt={p.name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : null}
+                    <button key={product.id} type="button" onClick={() => handleSearchClick(product.collection, product.slug)} className="osr-search-result">
+                      <div className="osr-search-result-img">
+                        {image ? <img src={image} alt={product.name} loading="lazy" decoding="async" /> : null}
                       </div>
                       <div>
-                        <p style={{ fontSize: 13, color: 'var(--ink)', marginBottom: 3, textAlign: 'left' }}>{p.name}</p>
-                        <p style={{ fontSize: 10, color: 'var(--taupe)', letterSpacing: '.08em', textTransform: 'uppercase', textAlign: 'left' }}>{(p.collection || '').replace(/-/g, ' ')}</p>
+                        <p style={{ fontSize: 13, color: 'var(--osr-ink)', marginBottom: 3, textAlign: 'left' }}>{product.name}</p>
+                        <p style={{ fontSize: 10, color: 'var(--osr-muted)', letterSpacing: '.08em', textTransform: 'uppercase', textAlign: 'left' }}>
+                          {(product.collection || '').replace(/-/g, ' ')}
+                        </p>
                       </div>
                     </button>
                   )
@@ -353,81 +533,48 @@ export function Navbar() {
           </div>
         </>
       )}
-
-      {/* 移动端菜单 */}
-      {menuOpen && (
-        <div ref={panelRef} className="mobile-menu" aria-label="Mobile navigation" style={{ position: 'fixed', inset: 0, zIndex: 179, background: 'var(--cream)', paddingTop: 72, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
-          <div style={{ padding: '20px 32px 40px', display: 'flex', flexDirection: 'column' }}>
-            <p style={{ fontSize: 9, letterSpacing: '.32em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid var(--sand)' }}>Shop</p>
-            {mobileCollections.map(c => (
-              <Link key={c.slug} href={`/collections/${c.slug}`} onClick={() => setMenuOpen(false)} style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 300, color: 'var(--ink)', padding: '12px 0', borderBottom: '1px solid var(--mist)' }}>
-                {c.name}
-              </Link>
-            ))}
-            <div style={{ height: 1, width: '100%', background: 'var(--sand)', margin: '24px 0 20px' }} />
-            <p style={{ fontSize: 9, letterSpacing: '.32em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 16 }}>Explore</p>
-            {mobileLinks.map(l => (
-              <Link key={l.href} href={l.href} onClick={() => setMenuOpen(false)} style={{ fontSize: 15, fontWeight: 300, color: 'var(--deep)', padding: '10px 0', letterSpacing: '0.04em' }}>
-                {l.name}
-              </Link>
-            ))}
-            <div style={{ height: 1, width: '100%', background: 'var(--sand)', margin: '24px 0 20px' }} />
-            <Link href="/track-order" onClick={() => setMenuOpen(false)} style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe)', padding: '10px 0' }}>Track Order</Link>
-            <Link href="/faq" onClick={() => setMenuOpen(false)} style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe)', padding: '10px 0' }}>FAQ & Help</Link>
-            <div style={{ height: 1, width: '100%', background: 'var(--sand)', margin: '24px 0 20px' }} />
-            {user ? (
-              <>
-                <Link href="/account" onClick={() => setMenuOpen(false)} style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--gold)', padding: '10px 0' }}>My Account</Link>
-                <Link href="/account/orders" onClick={() => setMenuOpen(false)} style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe)', padding: '10px 0' }}>My Orders</Link>
-                <button onClick={() => { setMenuOpen(false); signOut() }} style={{ background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--taupe)', padding: '10px 0', fontFamily: 'var(--font-body)' }}>Sign out</button>
-              </>
-            ) : (
-              <Link href="/login" onClick={() => setMenuOpen(false)} style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--gold)', padding: '10px 0' }}>Sign in / Register</Link>
-            )}
-          </div>
-        </div>
-      )}
-
-      <style dangerouslySetInnerHTML={{ __html: `
-        .site-nav { padding-left: clamp(28px, 5vw, 60px) !important; padding-right: clamp(28px, 5vw, 60px) !important; }
-        .nav-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; z-index: 101; flex-shrink: 0; }
-        .nav-logo { height: 34px; width: 34px; border-radius: 50%; object-fit: cover; display: block; position: relative; top: -1px; }
-        .nav-brand-text { font-family: var(--font-display); font-size: 16px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 300; }
-        .nav-brand-text em { font-style: italic; font-weight: 300; }
-        .nav-links { display: flex; gap: 40px; list-style: none; margin: 0; position: absolute; left: 50%; transform: translateX(-50%); align-items: center; }
-        .nav-link { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; position: relative; padding-bottom: 2px; }
-        .nav-link::after { content: ''; position: absolute; bottom: 0; left: 0; width: 0; height: 1px; background: var(--gold); transition: width 0.4s ease; }
-        .nav-link:hover::after { width: 100%; }
-        .nav-icons { display: flex; align-items: center; gap: clamp(12px, 2vw, 20px); z-index: 101; }
-        .nav-icon-btn { background: none; border: none; cursor: pointer; padding: 6px; display: flex; align-items: center; -webkit-tap-highlight-color: transparent; }
-        .search-panel { position: fixed; top: 0; left: 0; right: 0; z-index: 99; background: var(--cream); border-bottom: 1px solid var(--sand); padding-top: 72px; animation: slideDown 0.25s ease; }
-        .search-inner { max-width: 640px; margin: 0 auto; padding: 20px clamp(24px, 5vw, 60px) 24px; }
-        .search-input-wrap { display: flex; align-items: center; gap: 12; border-bottom: 1px solid var(--warm); padding-bottom: 14px; margin-bottom: 8px; }
-        .search-input { flex: 1; min-width: 0; background: none; border: none; outline: none; font-family: var(--font-body); font-size: 16px; color: var(--ink); letter-spacing: 0.03em; }
-        .search-input::placeholder { color: var(--warm); }
-        .search-results { max-height: 400px; overflow-y: auto; }
-        .search-result-item { display: flex; align-items: center; gap: 14; width: 100%; padding: 12px 0; border-bottom: 1px solid var(--mist); background: none; border-left: none; border-right: none; border-top: none; cursor: pointer; transition: opacity 0.2s; }
-        .search-result-item:hover { opacity: 0.7; }
-        .search-result-img { width: 48px; height: 48px; border-radius: 4px; background: var(--sand); flex-shrink: 0; overflow: hidden; }
-        @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
-        @keyframes slideDown { from { transform: translateY(-20px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
-        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-8px) } to { opacity: 1; transform: translateY(0) } }
-        @media (max-width: 900px) { .nav-desktop { display: none !important; } .nav-links { position: static; transform: none; } }
-        @media (min-width: 901px) { .nav-mobile { display: none !important; } }
-        @media (max-width: 900px) {
-          .site-nav { padding: calc(8px + env(safe-area-inset-top, 0px)) 16px 8px !important; }
-          .nav-icon-btn { width: 44px; height: 44px; justify-content: center; flex-shrink: 0; }
-          .nav-icons { gap: 2px; }
-          .nav-brand { min-width: 0; gap: 8px; }
-          .nav-brand-text { font-size: clamp(12px, 3.4vw, 15px); letter-spacing: .03em; white-space: nowrap; }
-          .nav-logo { height: 28px; width: 28px; flex-shrink: 0; }
-          .mobile-menu { overscroll-behavior: contain; padding-bottom: max(32px, env(safe-area-inset-bottom)); }
-          .mobile-menu a, .mobile-menu button { min-height: 44px; display: flex; align-items: center; }
-          .search-panel { max-height: 100vh; max-height: 100dvh; overflow-y: auto; overscroll-behavior: contain; }
-          .search-results { max-height: min(400px, 55dvh); }
-        }
-        @media (max-width: 360px) { .site-nav { padding-left: 12px !important; padding-right: 12px !important; } .nav-brand { gap: 6px; } }
-      ` }} />
     </>
+  )
+}
+
+function MobileGroup({ group, index, onNavigate }) {
+  const [open, setOpen] = useState(false)
+  const panelId = `osr-mobile-group-${index}`
+  return (
+    <div className={`osr-mobile-group ${open ? 'is-open' : ''}`}>
+      <button
+        type="button"
+        className="osr-mobile-toggle"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => setOpen(value => !value)}
+      >
+        <span>
+          {group.label}
+          <small>{group.note}</small>
+        </span>
+        <span className="osr-mobile-plus" aria-hidden="true" />
+      </button>
+      <div className="osr-mobile-links" id={panelId} inert={!open} aria-hidden={!open}>
+        <div>
+          <ul>
+            <li>
+              <Link href={group.href} onClick={onNavigate}>
+                All {group.label}
+                <small>View the collection</small>
+              </Link>
+            </li>
+            {group.links.map(link => (
+              <li key={link.href}>
+                <Link href={link.href} onClick={onNavigate}>
+                  {link.label}
+                  <small>{link.note}</small>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
   )
 }

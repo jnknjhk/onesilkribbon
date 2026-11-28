@@ -2,6 +2,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { COLLECTION_META } from '@/lib/collection-content'
+import { RIBBON_HOUSES, RIBBON_HOUSE_SLUGS } from '@/lib/storefront-nav'
+import Reveal from '@/components/home/Reveal'
 
 export const revalidate = 60
 
@@ -16,74 +18,105 @@ const COLLECTIONS = Object.entries(COLLECTION_META).map(([slug, meta]) => ({ slu
 export default async function CollectionsPage() {
   const [catalog, pictures] = await Promise.all([
     supabaseAdmin.from('products').select('collection, images').eq('is_active', true),
-    supabaseAdmin.from('site_images').select('key, url').in('key', COLLECTIONS.map(c => `home_col_${c.slug}`)),
+    supabaseAdmin.from('site_images').select('key, url').in('key', COLLECTIONS.map(collection => `home_col_${collection.slug}`)),
   ])
   if (catalog.error) throw new Error('Unable to load collections')
   const products = catalog.data || []
   const imageMap = Object.fromEntries((pictures.data || []).map(row => [row.key, row.url]))
   const available = COLLECTIONS.map(collection => {
     const items = products.filter(product => product.collection === collection.slug)
-    return { ...collection, count: items.length, image: imageMap[`home_col_${collection.slug}`] || items.find(p => Array.isArray(p.images) && p.images[0])?.images[0] }
+    return {
+      ...collection,
+      count: items.length,
+      image: imageMap[`home_col_${collection.slug}`] || items.find(product => Array.isArray(product.images) && product.images[0])?.images[0] || null,
+    }
   }).filter(collection => collection.count > 0)
+
+  const ribbonHouseItems = () => RIBBON_HOUSES.map(config => {
+    const item = available.find(collection => collection.slug === config.slug)
+    if (!item) return null
+    return { ...config, count: item.count, image: item.image, desc: item.desc }
+  }).filter(Boolean)
+
+  const otherCollectionItems = () => available.filter(collection => !RIBBON_HOUSE_SLUGS.includes(collection.slug))
+
   return (
-    <div className="collections-page" style={{ paddingTop: 100, background: 'var(--cream)', minHeight: '100vh' }}>
-      {/* Header */}
-      <div className="section-header" style={{ paddingBottom: 80 }}>
-        <span className="eyebrow" style={{ marginBottom: 20 }}>One Silk Ribbon</span>
-        <h1 className="display-title">All <em>Collections</em></h1>
-        <div className="rule" />
-        <p style={{ fontSize: 14, color: 'var(--taupe)', lineHeight: 1.9, maxWidth: 480, margin: '28px auto 0' }}>
-          Compare ribbon finishes, find a colour for your next project, or explore handcrafted details and wooden spools.
+    <div className="collections-page">
+      <header className="osr-collections-head osr-container">
+        <span className="osr-eyebrow">One Silk Ribbon</span>
+        <h1 className="osr-title">All <em>Collections</em></h1>
+        <div style={{ width: 40, height: 1, background: 'var(--osr-gold)', margin: '24px auto 0' }} />
+        <p>
+          Compare ribbon finishes, find a colour for your next project, or explore handcrafted details and the wooden tools of the studio.
         </p>
-        <Link href="/ribbon-guide" className="collections-guide-link">Not sure which ribbon to choose? Read the guide →</Link>
-      </div>
+        <Link href="/ribbon-guide" className="osr-textlink">Not sure which ribbon to choose? Read the guide</Link>
+      </header>
 
-      {/* Grid */}
-      <div style={{ padding: '0 60px 120px' }} className="coll-page-pad">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 40 }} className="coll-page-grid">
-          {available.map((c) => (
-            <Link key={c.slug} href={`/collections/${c.slug}`} style={{ display: 'block' }}>
-              <div style={{ overflow: 'hidden' }} className="coll-page-card">
-                {/* Image */}
-                <div style={{ aspectRatio: '16/9', background: c.bg, marginBottom: 28, overflow: 'hidden', position: 'relative' }}>
-                  {c.image && <Image className="coll-page-img" src={c.image} alt={c.name} fill sizes="(max-width: 900px) 100vw, 50vw" style={{ objectFit: 'cover', transition: 'transform 0.8s cubic-bezier(0.25,0.46,0.45,0.94)' }} />}
-                </div>
-                {/* Info */}
-                <div style={{ paddingBottom: 40, borderBottom: '1px solid var(--sand)' }}>
-                  <div className="coll-page-card-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-                    <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 300, color: 'var(--ink)', lineHeight: 1.2 }}>
-                      {c.name}
-                    </h2>
-                    <span className="eyebrow" style={{ flexShrink: 0, marginLeft: 24, marginTop: 4 }}>{c.count} {c.count === 1 ? 'product' : 'products'}</span>
+      {ribbonHouseItems().length > 0 && (
+        <section className="osr-houses-section osr-container" id="ribbons">
+          <div className="osr-houses-section-head">
+            <div>
+              <span className="osr-eyebrow">Silk Ribbons</span>
+              <h2>Three ribbon houses.</h2>
+            </div>
+            <p>Ultra-fine embroidery ribbon, hand-torn crêpe satin and a vintage crinkle — each house has its own hand and its own use.</p>
+          </div>
+
+          <div className="osr-houses-grid">
+            {ribbonHouseItems().map((house, index) => (
+              <Reveal key={house.slug} className="osr-house-card" delay={index * 80}>
+                <Link href={house.href} className="osr-house-media" aria-label={house.label}>
+                  {house.image ? (
+                    <Image src={house.image} alt={house.label} fill sizes="(max-width: 960px) 100vw, 33vw" style={{ objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ position: 'absolute', inset: 0, background: house.bg }} />
+                  )}
+                </Link>
+                <div className="osr-house-body">
+                  <h3><Link href={house.href}>{house.label}</Link></h3>
+                  <p>{house.blurb}</p>
+                  <div className="osr-house-meta">
+                    <span>{house.count} {house.slug === 'vintage-inspired-ribbons' ? (house.count === 1 ? 'ribbon' : 'ribbons') : 'colourways'}</span>
+                    <span>{house.note}</span>
                   </div>
-                  <p style={{ fontSize: 13, color: 'var(--taupe)', lineHeight: 1.9, marginBottom: 24 }}>{c.desc}</p>
-                  <span style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--deep)', display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span style={{ width: 28, height: 1, background: 'var(--gold)', display: 'inline-block', transition: 'width 0.4s' }} className="coll-line" />
-                    Shop Collection
-                  </span>
+                  <Link className="osr-textlink" href={house.href}>Browse {house.label}</Link>
                 </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </div>
+              </Reveal>
+            ))}
+          </div>
+        </section>
+      )}
 
-      <style dangerouslySetInnerHTML={{ __html: `
-        .collections-guide-link { display: inline-flex; align-items: center; min-height: 44px; margin-top: 20px; color: var(--deep); text-decoration: underline; text-underline-offset: 4px; }
-        .coll-page-grid > a { min-width: 0; overflow-wrap: anywhere; }
-        .coll-page-card:hover .coll-page-img { transform: scale(1.04); }
-        .coll-page-card:hover .coll-line { width: 52px !important; }
-        @media(max-width:900px) { .coll-page-grid{grid-template-columns:1fr !important} }
-        @media(max-width:600px) {
-          .collections-page { padding-top: 68px !important; }
-          .collections-page > .section-header { padding: 40px 20px 36px !important; }
-          .coll-page-pad { padding: 0 20px 64px !important; }
-          .coll-page-grid { gap: 32px !important; }
-          .coll-page-card-heading { flex-direction: column; gap: 12px; }
-          .coll-page-card-heading .eyebrow { margin-left: 0 !important; }
-          .coll-page-card-heading h2 { font-size: 26px !important; }
-        }
-      ` }} />
+      {otherCollectionItems().length > 0 && (
+        <section className="osr-collections-other osr-container">
+          <div className="osr-collections-other-head">
+            <span className="osr-eyebrow">More from the studio</span>
+            <h2 style={{ marginTop: 12 }}>Adornments &amp; tools.</h2>
+          </div>
+
+          <div className="osr-collection-grid">
+            {otherCollectionItems().map((collection, index) => (
+              <Reveal key={collection.slug} className="osr-collection-card" delay={index * 80}>
+                <Link href={`/collections/${collection.slug}`} className="osr-collection-media" aria-label={collection.name}>
+                  {collection.image ? (
+                    <Image src={collection.image} alt={collection.name} fill sizes="(max-width: 960px) 100vw, 50vw" style={{ objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ position: 'absolute', inset: 0, background: collection.bg }} />
+                  )}
+                </Link>
+                <div className="osr-collection-card-body">
+                  <div className="osr-collection-card-head">
+                    <h3><Link href={`/collections/${collection.slug}`}>{collection.name}</Link></h3>
+                    <span>{collection.count} {collection.count === 1 ? 'product' : 'products'}</span>
+                  </div>
+                  <p>{collection.desc}</p>
+                  <Link className="osr-textlink" href={`/collections/${collection.slug}`}>Shop the collection</Link>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   )
 }

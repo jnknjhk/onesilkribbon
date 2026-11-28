@@ -43,6 +43,7 @@ export async function generateMetadata({ params }) {
   // follow 保持开启，页面上的导航链接权重照常传递；上架第一个商品后会自动恢复收录，
   // 不需要回来改代码。
   const products = await getActiveProducts(slug)
+  const socialImage = heroImage || (Array.isArray(products[0]?.images) ? products[0].images[0] : null)
   // 根布局的 title.template 会自动拼上 "| One Silk Ribbon"，<title> 用短标题；
   // openGraph/twitter 不走 template，单独给带完整品牌的版本
   const title = meta.seoTitle || meta.name
@@ -60,13 +61,13 @@ export async function generateMetadata({ params }) {
       siteName: 'One Silk Ribbon',
       locale: 'en_GB',
       type: 'website',
-      images: heroImage ? [{ url: heroImage, width: 1200, height: 630, alt: meta.name }] : [],
+      images: socialImage ? [{ url: socialImage, width: 1200, height: 630, alt: meta.name }] : [],
     },
     twitter: {
       card: 'summary_large_image',
       title: socialTitle,
       description: meta.desc,
-      images: heroImage ? [heroImage] : [],
+      images: socialImage ? [socialImage] : [],
     },
   }
 }
@@ -85,6 +86,7 @@ export default async function CollectionPage({ params }) {
     : { data: null }
 
   const rawProducts = await getActiveProducts(slug)
+  const hero = heroImage || (Array.isArray(rawProducts[0]?.images) ? rawProducts[0].images[0] : null)
 
   // Fetch SKU prices server-side to avoid N+1 on client
   let products = rawProducts || []
@@ -147,7 +149,7 @@ export default async function CollectionPage({ params }) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
       />
-      <CollectionClient initialProducts={products || []} slug={slug} initialHeroImage={heroImage} relatedArticle={relatedArticle} />
+      <CollectionClient initialProducts={products || []} slug={slug} initialHeroImage={hero} relatedArticle={relatedArticle} />
     </>
   )
 }

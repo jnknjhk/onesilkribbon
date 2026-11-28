@@ -1,7 +1,7 @@
 'use client'
 import { Card, Field, Input, Select, Segmented, Checkbox, Button, Notice, styles as s } from '../../ui'
 
-export default function ProductSidebar({ form, setForm, cfg, isNew, product, slugChanged, onDelete }) {
+export default function ProductSidebar({ form, setForm, onCollectionChange, cfg, isNew, product, slugChanged, onDelete }) {
   const setF = patch => setForm(p => ({ ...p, ...patch }))
 
   return (
@@ -17,7 +17,7 @@ export default function ProductSidebar({ form, setForm, cfg, isNew, product, slu
       <Card title="分类">
         <div className={s.stack}>
           <Field label="所属系列">
-            <Select value={form.collection} onChange={e => setF({ collection: e.target.value })}>
+            <Select value={form.collection} onChange={e => onCollectionChange(e.target.value)}>
               {!cfg.collections.some(c => c.value === form.collection) && <option value={form.collection}>{form.collection}</option>}
               {cfg.collections.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
             </Select>

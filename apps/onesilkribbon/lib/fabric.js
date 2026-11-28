@@ -392,7 +392,7 @@ export function fabricDraftTemplate() {
     specifications: [
       { key: FABRIC_SPEC_KEYS.type, value: '' },
       { key: FABRIC_SPEC_KEYS.weight, value: '' },
-      { key: FABRIC_SPEC_KEYS.width, value: '114 cm' },
+      { key: FABRIC_SPEC_KEYS.width, value: '' },
       { key: FABRIC_SPEC_KEYS.use, value: '' },
       { key: FABRIC_SPEC_KEYS.maxCut, value: '' },
       { key: FABRIC_SPEC_KEYS.weave, value: '' },

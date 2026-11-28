@@ -35,20 +35,16 @@ import {
 } from '../../ui'
 import { FABRIC_COLLECTION, fabricDraftTemplate } from '@/lib/fabric'
 
-export default function ProductEditor({ product, initialSkus, onSaved, template = '' }) {
+export default function ProductEditor({ product, initialSkus, onSaved }) {
   const cfg = useAdminConfig()
   const router = useRouter()
   const toast = useToast()
   const isNew = product === 'new'
-  const fabricDraft = isNew && template === 'fabric'
-  const draft = fabricDraft ? fabricDraftTemplate() : null
-  const defaultCollection = draft?.collection || cfg.collections[0]?.value || ''
-  const initialAttrConfig = fabricDraft
-    ? draft.attributeConfig
-    : (isNew ? [] : loadAttributeConfig(product.attribute_config))
+  const defaultCollection = cfg.collections[0]?.value || ''
+  const fabricDefaultsApplied = useRef(false)
 
   const [form, setForm] = useState(() => isNew
-    ? { name: '', slug: '', description: '', collection: defaultCollection, active: !fabricDraft }
+    ? { name: '', slug: '', description: '', collection: defaultCollection, active: true }
     : {
         name: product.name || '', slug: product.slug || '',
         description: product.description || '',
@@ -58,12 +54,9 @@ export default function ProductEditor({ product, initialSkus, onSaved, template 
         sort_order: product.sort_order || 0,
       })
   const [images, setImages] = useState(() => (isNew ? [] : product.images || []))
-  const [specifications, setSpecifications] = useState(() => fabricDraft ? draft.specifications : initialSpecifications(product, isNew))
-  const [attrConfig, setAttrConfig] = useState(initialAttrConfig)
-  const [skus, setSkus] = useState(() => {
-    if (fabricDraft && (initialSkus || []).length === 0) return [createSku(initialAttrConfig)]
-    return (initialSkus || []).map(loadSku)
-  })
+  const [specifications, setSpecifications] = useState(() => initialSpecifications(product, isNew))
+  const [attrConfig, setAttrConfig] = useState(() => isNew ? [] : loadAttributeConfig(product.attribute_config))
+  const [skus, setSkus] = useState(() => (initialSkus || []).map(loadSku))
   const [deletedSkuIds, setDeletedSkuIds] = useState([])
 
   const [batchOpen, setBatchOpen] = useState(false)
@@ -80,6 +73,23 @@ export default function ProductEditor({ product, initialSkus, onSaved, template 
 
   const attrNames = attrConfig.filter(a => a.name.trim()).map(a => a.name)
   const slugChanged = !isNew && product.slug && form.slug.trim() !== product.slug
+
+  function selectCollection(collection) {
+    if (!isNew || collection !== FABRIC_COLLECTION || fabricDefaultsApplied.current) {
+      setForm(current => ({ ...current, collection }))
+      return
+    }
+
+    fabricDefaultsApplied.current = true
+    const draft = fabricDraftTemplate()
+    setForm(current => ({ ...current, collection, active: draft.active }))
+    setAttrConfig(current => current.length || skus.length ? current : draft.attributeConfig)
+    setSpecifications(current => {
+      const entered = current.filter(spec => spec.key.trim() || spec.value.trim())
+      const keys = new Set(entered.map(spec => spec.key.trim().toLowerCase()))
+      return [...entered, ...draft.specifications.filter(spec => !keys.has(spec.key.toLowerCase()))]
+    })
+  }
 
   // 从商品里移除图片只是去掉引用，文件还在媒体库里（别处可能也在用）
   const moveImage = (i, d) => setImages(p => {
@@ -181,7 +191,7 @@ export default function ProductEditor({ product, initialSkus, onSaved, template 
     <div>
       <PageHeader
         back="/admin/products"
-        title={isNew ? (fabricDraft ? '新建面料草稿' : '新建商品') : (form.name || '未命名商品')}
+        title={isNew ? '新建商品' : (form.name || '未命名商品')}
         subtitle={!isNew && <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <Badge tone={form.active ? 'success' : 'neutral'}>{form.active ? '上架中' : '已下架'}</Badge>
           <span>{skus.length} 个 SKU · 库存共 {totalStock}</span>
@@ -196,7 +206,7 @@ export default function ProductEditor({ product, initialSkus, onSaved, template 
 
       {form.collection === FABRIC_COLLECTION && (
         <Notice style={{ marginBottom: 14 }}>
-          面料按整米销售：SKU 价格填<strong>每米价</strong>，库存填<strong>可用米数</strong>。规格参数保留 Fabric type、Weight（如 19 momme）、Width、Use、Max continuous cut（只能填正整数米，如 5 或 5 m）。草稿可缺字段；上架前必须补全，并至少有一个启用的颜色 SKU 和有效每米价。草稿默认下架，上架后才会出现在正式导航、sitemap 和商品 Feed。
+          面料按整米销售。SKU 价格填<strong>每米价</strong>，库存填<strong>可用米数</strong>。上架前请填齐面料品类、织法、姆米、门幅、用途和最大连续裁剪长度（正整数米），并启用至少一个填写了每米价的颜色 SKU。资料未齐时，可以先以下架状态保存。
         </Notice>
       )}
 
@@ -214,7 +224,7 @@ export default function ProductEditor({ product, initialSkus, onSaved, template 
           <ProductSpecificationsCard specifications={specifications} setSpecifications={setSpecifications} />
         </div>
 
-        <ProductSidebar form={form} setForm={setForm} cfg={cfg} isNew={isNew} product={product}
+        <ProductSidebar form={form} setForm={setForm} onCollectionChange={selectCollection} cfg={cfg} isNew={isNew} product={product}
           slugChanged={slugChanged} onDelete={() => setConfirm({ kind: 'delete' })} />
       </div>
 

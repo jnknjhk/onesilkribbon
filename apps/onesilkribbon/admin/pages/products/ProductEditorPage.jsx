@@ -10,7 +10,7 @@ import { api } from '../../lib/api'
 import { PageHeader, Notice, SkeletonRows, Card } from '../../ui'
 import ProductEditor from './ProductEditor'
 
-export default function ProductEditorPage({ id, template = '' }) {
+export default function ProductEditorPage({ id }) {
   const router = useRouter()
   const isNew = id === 'new'
   const [data, setData] = useState(null)
@@ -36,7 +36,7 @@ export default function ProductEditorPage({ id, template = '' }) {
   }, [isNew, load])
 
   if (isNew) {
-    return <ProductEditor product="new" initialSkus={[]} template={template} onSaved={newId => router.replace(`/admin/products/${newId}`)} />
+    return <ProductEditor key="new" product="new" initialSkus={[]} onSaved={newId => router.replace(`/admin/products/${newId}`)} />
   }
   if (error) {
     return (

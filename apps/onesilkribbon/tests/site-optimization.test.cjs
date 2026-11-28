@@ -100,7 +100,7 @@ test('search cancels timers and ignores late results from an obsolete query', as
     useState: () => { const slot = index++; return [state[slot], value => { state[slot] = value }] },
     useRef: () => ({ current: null }), useCallback: fn => fn, useEffect: (callback, deps) => { effects.push({ callback, deps }) },
     useBodyScrollLock() {}, usePathname: () => '/', useRouter: () => ({}),
-    useCart: () => ({}), useAuth: () => ({}), AbortController, encodeURIComponent,
+    useCart: () => ({}), useAuth: () => ({}), shopGroupsFor: () => [], AbortController, encodeURIComponent,
     setTimeout: callback => { const id = {}; timers.set(id, callback); return id }, clearTimeout: id => timers.delete(id),
     fetch: (url, options) => new Promise(resolve => pending.push({ url, options, resolve })),
   })

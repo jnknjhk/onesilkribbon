@@ -491,7 +491,7 @@ function CheckoutContent() {
                 <div key={item.skuId} style={{ display:'flex', gap:14 }}>
                   <div className="cart-item-img" style={{ width:52, height:52, background: item.colourHex || 'var(--warm)', position: 'relative' }}>
                     {item.image && <Image src={item.image} alt={item.name || ''} fill sizes="52px" style={{ objectFit:'cover' }} />}
-                    <span className="cart-badge">{item.qty}</span>
+                    <span className="cart-badge">{item.qty}{item.unit || ''}</span>
                   </div>
                   <div style={{ flex:1 }}>
                     <p style={{ fontSize:13, color:'var(--ink)', marginBottom:4, fontFamily:'var(--font-display)', fontWeight:400 }}>{item.name}</p>

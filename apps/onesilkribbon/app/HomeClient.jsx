@@ -35,16 +35,18 @@ export default function HomeClient({ doors = [], ribbonHouses = [], ribbonCabine
           <Reveal className="osr-doors-head">
             <div>
               <span className="osr-eyebrow">The gallery rooms</span>
-              <h2 className="osr-title osr-title--sm" style={{ marginTop: 16 }}>Three ways to begin.</h2>
+              <h2 className="osr-title osr-title--sm" style={{ marginTop: 16 }}>{doors.length > 3 ? 'Four ways' : 'Three ways'} to begin.</h2>
             </div>
-            <p>Start with ribbon, with a hand-finished adornment, or with the tools that hold the work steady. Every room returns to the same studio.</p>
+            <p>{doors.length > 3
+              ? 'Start with ribbon, with cloth cut to order, with a hand-finished adornment, or with the tools that hold the work steady. Every room returns to the same studio.'
+              : 'Start with ribbon, with a hand-finished adornment, or with the tools that hold the work steady. Every room returns to the same studio.'}</p>
           </Reveal>
 
-          <div className="osr-doors-grid">
+          <div className={`osr-doors-grid ${doors.length > 3 ? 'osr-doors-grid--four' : ''}`}>
             {doors.map((door, index) => (
               <Reveal key={door.number} className="osr-door" delay={index * 90}>
                 <Link href={door.href} className="osr-door-media" aria-label={`${door.title} — ${door.cta}`}>
-                  <ProductImage src={door.image} alt={door.alt} sizes="(max-width: 960px) 100vw, 33vw" />
+                  <ProductImage src={door.image} alt={door.alt} sizes={doors.length > 3 ? '(max-width: 960px) 100vw, 25vw' : '(max-width: 960px) 100vw, 33vw'} />
                   <span className="osr-badge osr-badge--ink">{door.badge}</span>
                   <span className="osr-door-num">{door.number}</span>
                 </Link>

@@ -11,6 +11,7 @@ import { parseStockQuantity } from '../lib/stock-quantity'
 import { revalidateCatalog } from '../lib/revalidate'
 import { recordAdminAction } from '../lib/audit'
 import { canAccessInternalProductNames } from '../lib/internal-product-names'
+import { FABRIC_COLLECTION, fabricPublishErrors, normalizeFabricDraftSkus } from '@/lib/fabric'
 
 const DEFAULT_LOW_STOCK = 3
 
@@ -238,8 +239,67 @@ export async function POST(req) {
           (deletedSkuIds !== undefined && (!Array.isArray(deletedSkuIds) || deletedSkuIds.length > 2000))) {
         return Response.json({ error: '规格列表不完整，请刷新后重试' }, { status: 400 })
       }
+      // An explicit null/object/string is not a valid specification list. Do this
+      // before reading the existing row so a malformed request can never be
+      // validated against old data and then saved as an empty array.
+      if (Object.hasOwn(product, 'specifications') && !Array.isArray(product.specifications)) {
+        return Response.json({
+          error: '规格参数 specifications 必须是数组；如需清空请传空数组 []，不能传 null、对象或字符串',
+          fields: ['规格参数 specifications'],
+        }, { status: 400 })
+      }
+      const hasSpecifications = Object.hasOwn(product, 'specifications')
+
+      // The editor sends collection/is_active/specifications. Other callers may
+      // omit them, so resolve the effective state from the existing row before
+      // deciding whether this save is a draft or a publication.
+      let existingProduct = null
+      const needsExisting = action === 'update' &&
+        (product.collection === undefined || product.is_active === undefined || !hasSpecifications)
+      if (needsExisting) {
+        const { data, error } = await supabase.from('products')
+          .select('collection,is_active,specifications')
+          .eq('id', product.id)
+          .maybeSingle()
+        if (error) return errorResponse(error, { tag: 'admin-products-publish-check' })
+        existingProduct = data
+      }
+
+      const effectiveCollection = Object.hasOwn(product, 'collection')
+        ? product.collection
+        : existingProduct?.collection
+      const requestedActive = product.is_active === undefined
+        ? undefined
+        : !(product.is_active === false || product.is_active === 'false')
+      const effectiveActive = requestedActive === undefined
+        ? (existingProduct ? existingProduct.is_active !== false : true)
+        : requestedActive
+      const effectiveSpecifications = hasSpecifications
+        ? product.specifications
+        : (existingProduct?.specifications ?? [])
+      const effectiveProduct = {
+        ...(existingProduct || {}),
+        ...product,
+        collection: effectiveCollection,
+        is_active: effectiveActive,
+        specifications: effectiveSpecifications,
+      }
+      const isFabric = effectiveCollection === FABRIC_COLLECTION
+      const fabricDraft = isFabric && !effectiveActive
+      const normalizedSkus = fabricDraft ? normalizeFabricDraftSkus(skus) : skus
+
+      if (isFabric && effectiveActive) {
+        const publishErrors = fabricPublishErrors(effectiveProduct, normalizedSkus)
+        if (publishErrors.length) {
+          return Response.json({
+            error: `面料上架前请补全或修正：${publishErrors.join('、')}`,
+            fields: publishErrors,
+          }, { status: 400 })
+        }
+      }
+
       const ids = new Set()
-      for (const sku of skus) {
+      for (const sku of normalizedSkus) {
         if (!sku || typeof sku !== 'object' || Array.isArray(sku) ||
             (sku.id != null && (typeof sku.id !== 'string' || !sku.id || ids.has(sku.id)))) {
           return Response.json({ error: '规格列表有无效或重复记录，请刷新后重试' }, { status: 400 })
@@ -253,6 +313,13 @@ export async function POST(req) {
             !Number.isFinite(price) || price < 0 || price > 99999999.99 ||
             (parseStockQuantity(sku.stock_qty) === null && !(sku.id && sku.stock_qty === null && sku.loaded_stock_qty === null)) ||
             (Object.hasOwn(sku, 'loaded_stock_qty') && sku.loaded_stock_qty !== null && parseStockQuantity(sku.loaded_stock_qty, { allowNegative: true }) === null)) {
+          if (isFabric) {
+            const label = sku.attributes?.Colour || sku.attributes?.Color || sku.attributes?.颜色 || sku.colour || '未命名'
+            return Response.json({
+              error: `面料 SKU「${label}」的每米价或库存无效；请填写有效每米价和 0/正整数库存，或停用该 SKU`,
+              fields: ['SKU 每米价/库存'],
+            }, { status: 400 })
+          }
           return Response.json({ error: '规格价格或库存无效；库存请填写 0 或正整数' }, { status: 400 })
         }
       }
@@ -262,12 +329,28 @@ export async function POST(req) {
 
       // 2026-11-06-product-save-atomic.sql 已应用到所有环境；数据库事务是唯一保存路径。
       // 新建时不能把调用方误传的 id 带进去，否则 RPC 会把它当成更新。
+      // Send the same effective state that was validated. This matters when an
+      // update omits specifications/is_active/collection: the API keeps the old
+      // values, and the RPC must receive those values rather than its own
+      // defaults. Non-array legacy specifications are left untouched so the RPC
+      // preserves them instead of coercing them through admin_json_array().
       const rpcProduct = action === 'create'
-        ? Object.fromEntries(Object.entries(product).filter(([key]) => key !== 'id'))
-        : product
+        ? {
+            ...Object.fromEntries(Object.entries(product).filter(([key]) => key !== 'id')),
+            is_active: effectiveActive,
+          }
+        : {
+            ...product,
+            is_active: effectiveActive,
+            ...(effectiveCollection === undefined ? {} : { collection: effectiveCollection }),
+          }
+      if (hasSpecifications || !existingProduct || existingProduct.specifications == null ||
+          Array.isArray(existingProduct.specifications)) {
+        rpcProduct.specifications = Array.isArray(effectiveSpecifications) ? effectiveSpecifications : []
+      }
       const { data, error } = await supabase.rpc('admin_save_product', {
         p_product: rpcProduct,
-        p_skus: skus || [],
+        p_skus: normalizedSkus || [],
         p_deleted_sku_ids: [...new Set(deletedSkuIds || [])],
       })
       if (error) return atomicProductError(error)

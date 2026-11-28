@@ -169,6 +169,26 @@ export default async function HomePage() {
     },
   ]
 
+  const fabricStats = collectionStats['silk-fabric']
+  if ((fabricStats?.count || 0) > 0 && fabricStats.minPrice > 0) {
+    doors.splice(1, 0, {
+      number: '02',
+      title: 'Silk Fabric by the Metre',
+      href: '/collections/silk-fabric',
+      image: fabricStats.image || null,
+      alt: 'Silk fabric cut to order by the metre',
+      badge: 'Live collection',
+      copy: `${fabricStats.count} ${fabricStats.count === 1 ? 'cloth' : 'cloths'} cut to order by the metre — browse by fabric type, use or weight.`,
+      cta: 'Enter the fabric room',
+      links: [
+        { label: 'By fabric type', href: '/collections/silk-fabric#by-type' },
+        { label: 'By use', href: '/collections/silk-fabric#by-use' },
+        { label: 'By weight', href: '/collections/silk-fabric#by-weight' },
+      ],
+    })
+  }
+  doors.forEach((door, index) => { door.number = String(index + 1).padStart(2, '0') })
+
   const settingsMap = Object.fromEntries((settingsResult.data || []).map(row => [row.key, row.value]))
   const freeThreshold = settingsMap.free_shipping_threshold || FREE_SHIPPING_THRESHOLD
   const freeEnabled = settingsMap.free_shipping_enabled !== 'false'

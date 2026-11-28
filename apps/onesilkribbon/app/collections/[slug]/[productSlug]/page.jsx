@@ -2,8 +2,10 @@ import { cache } from 'react'
 import { supabaseAdmin as supabaseServer } from '@osr/core/lib/supabase'
 import { permanentRedirect, notFound } from 'next/navigation'
 import ProductClient from './ProductClient'
+import FabricProductClient from '@/components/fabric/FabricProductClient'
 import { findRenamedProduct } from '@osr/core/lib/product-redirects'
 import { safeProductHtml } from '@/lib/product-content'
+import { FABRIC_COLLECTION, fabricView } from '@/lib/fabric'
 import { selectInitialSku, validSkus, productGroupSchema, variantUrl } from '@/lib/product-variants'
 import { FINE_SILK_COLLECTION, FINE_SILK_SOURCE_SLUG, readFineSilkFamily, fineSilkLegacyTarget, fineSilkColourChoices } from '@/lib/fine-silk-ribbons'
 import { fineSilkColourNote } from '@/lib/fine-silk-colour-notes'
@@ -261,7 +263,16 @@ export default async function ProductPage({ params, searchParams }) {
           ]) }}
         />
       )}
-      <ProductClient key={`${product.id}:${initialSku?.id || ''}`} initialProduct={{ ...product, descriptionHtml: safeProductHtml(product.description) }} initialSkus={purchasableSkus} initialSku={initialSku} initialShippingSettings={settings} slug={productSlug} related={related} colours={colours} colourNote={colourNote} spoolSizes={spoolSizes} />
+      {product.collection === FABRIC_COLLECTION ? (
+        <FabricProductClient
+          product={{ ...fabricView(product, purchasableSkus), descriptionHtml: safeProductHtml(product.description) }}
+          initialSkuId={initialSku?.id || ''}
+          initialShippingSettings={settings}
+          related={related}
+        />
+      ) : (
+        <ProductClient key={`${product.id}:${initialSku?.id || ''}`} initialProduct={{ ...product, descriptionHtml: safeProductHtml(product.description) }} initialSkus={purchasableSkus} initialSku={initialSku} initialShippingSettings={settings} slug={productSlug} related={related} colours={colours} colourNote={colourNote} spoolSizes={spoolSizes} />
+      )}
     </>
   )
 }

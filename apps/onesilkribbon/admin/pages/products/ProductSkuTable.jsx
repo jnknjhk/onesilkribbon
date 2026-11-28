@@ -3,7 +3,7 @@ import { useState } from 'react'
 import MediaPicker from '../../MediaPicker'
 import { Card, Input, Segmented, Button, EmptyState, Icon, styles as s } from '../../ui'
 
-export default function ProductSkuTable({ skus, attrNames, hasAttributes, deletedSkuIds, onUpdate, onUpdateAttr, onRemove, onAdd, onBatch }) {
+export default function ProductSkuTable({ skus, attrNames, hasAttributes, fabricMode = false, deletedSkuIds, onUpdate, onUpdateAttr, onRemove, onAdd, onBatch }) {
   return (
     <Card title="SKU · 价格与库存" subtitle={`${skus.length} 个 SKU。每个 SKU 是一种可以单独下单的规格`} padded={false}
       actions={skus.length > 0 && <Button size="sm" icon="edit" onClick={onBatch}>批量调整</Button>}>
@@ -15,7 +15,7 @@ export default function ProductSkuTable({ skus, attrNames, hasAttributes, delete
             <thead>
               <tr>
                 {attrNames.map(n => <th key={n}>{n}</th>)}
-                <th>图片</th><th style={{ width: 110 }}>价格 (£)</th><th style={{ width: 100 }}>库存</th><th>状态</th><th style={{ width: 44 }} />
+                <th>图片</th><th style={{ width: 120 }}>{fabricMode ? '价格 (£/米)' : '价格 (£)'}</th><th style={{ width: 100 }}>{fabricMode ? '库存（米）' : '库存'}</th>{fabricMode && <th style={{ width: 150 }}>色值</th>}<th>状态</th><th style={{ width: 44 }} />
               </tr>
             </thead>
             <tbody>
@@ -29,16 +29,25 @@ export default function ProductSkuTable({ skus, attrNames, hasAttributes, delete
                       </td>
                     ))}
                     <td data-label="图片"><SkuImages images={k.images || []} onChange={imgs => onUpdate(i, { images: imgs })} /></td>
-                    <td data-label="价格 (£)">
+                    <td data-label={fabricMode ? '价格 (£/米)' : '价格 (£)'}>
                       <Input size="sm" type="number" step="0.01" min="0" value={k.price_gbp ?? ''} placeholder="0.00"
                         onChange={e => onUpdate(i, { price_gbp: e.target.value })} style={{ width: 96 }} />
                     </td>
-                    <td data-label="库存">
+                    <td data-label={fabricMode ? '库存（米）' : '库存'}>
                       <div>
                         <Input size="sm" type="number" min="0" value={k.stock_qty ?? ''} onChange={e => onUpdate(i, { stock_qty: e.target.value })} style={{ width: 80 }} />
                         {stockChanged && <div className={s.cellSub}>原来 {k._loaded_stock_qty ?? 0}</div>}
                       </div>
                     </td>
+                    {fabricMode && (
+                      <td data-label="色值">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span aria-hidden="true" style={{ width: 18, height: 18, borderRadius: '50%', flexShrink: 0, background: k.colour_hex || '#D4C5B0', border: '1px solid var(--border)' }} />
+                          <Input size="sm" value={k.colour_hex || ''} placeholder="#D4C5B0"
+                            onChange={e => onUpdate(i, { colour_hex: e.target.value })} style={{ width: 86 }} />
+                        </div>
+                      </td>
+                    )}
                     <td data-label="状态">
                       <Segmented value={k.is_active !== false} onChange={v => onUpdate(i, { is_active: v })}
                         options={[{ value: true, label: '启用' }, { value: false, label: '停用' }]} />

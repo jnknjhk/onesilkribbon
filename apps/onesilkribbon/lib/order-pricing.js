@@ -1,6 +1,7 @@
 import { skuAttributes } from '@/lib/product-variants'
 import { supabaseAdmin } from '@osr/core/lib/supabase'
 import { calculateTotals, gbpToPence, penceToGBP, cartSubtotalPence, couponDiscountPence, SHIPPING_RATE, FREE_SHIPPING_THRESHOLD } from '@/lib/pricing'
+import { FABRIC_COLLECTION, fabricQuantityError, fabricSkuDescription } from './fabric'
 
 // 服务端权威计价：绝不信任客户端传来的 price / totals，一切以数据库为准。
 // 返回 { ok:true, lineItems, totals } 或 { ok:false, error, unavailable }
@@ -36,7 +37,7 @@ export async function computeAuthoritativeOrder({ items, couponCode, shippingSet
   }
 
   const { data: products, error: productError } = await supabaseAdmin.from('products')
-    .select('id,name,is_active,slug,attribute_config').in('id', [...new Set((skus || []).map(s => s.product_id))])
+    .select('id,name,is_active,slug,collection,attribute_config,specifications').in('id', [...new Set((skus || []).map(s => s.product_id))])
   if (productError) return { ok: false, error: 'Could not verify products, please try again' }
   const productMap = Object.fromEntries((products || []).map(p => [p.id, p]))
 
@@ -57,7 +58,13 @@ export async function computeAuthoritativeOrder({ items, couponCode, shippingSet
       unavailable.push({ name: product.name, reason: 'price unavailable' })
       continue
     }
-    if ((sku.stock_qty || 0) < qty) {
+    if (product.collection === FABRIC_COLLECTION) {
+      const fabricError = fabricQuantityError(product, sku, qty)
+      if (fabricError) {
+        unavailable.push({ name: product.name, reason: fabricError })
+        continue
+      }
+    } else if ((sku.stock_qty || 0) < qty) {
       unavailable.push({ name: item.name || 'Item', reason: `only ${sku.stock_qty || 0} left in stock` })
       continue
     }
@@ -69,9 +76,12 @@ export async function computeAuthoritativeOrder({ items, couponCode, shippingSet
       skuId: sku.id,
       productId: sku.product_id,
       name: product.name,
-      skuDesc: [...new Set(chosenAttributes)].join(' · '),
+      skuDesc: product.collection === FABRIC_COLLECTION
+        ? `${fabricSkuDescription(product, sku)} · continuous cut ${qty} m`
+        : [...new Set(chosenAttributes)].join(' · '),
       qty,
       price: sku.price_gbp, // Preserve the database decimal for exact arithmetic.
+      ...(product.collection === FABRIC_COLLECTION ? { unit: 'm' } : {}),
     })
   }
 

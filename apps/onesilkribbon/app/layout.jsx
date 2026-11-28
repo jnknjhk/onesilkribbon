@@ -1,16 +1,16 @@
 import './globals.css'
 import './gallery.css'
+import './fabric.css'
 import { Suspense } from 'react'
 import { Playfair_Display, Lora, Jost } from 'next/font/google'
 import Analytics from '@/components/Analytics'
-import { Footer } from '@/components/Footer'
 import { CartProvider } from '@/components/CartProvider'
 import { CartDrawer } from '@/components/CartDrawer'
 import ShellWrapper from '@osr/core/components/ShellWrapper'
 import WelcomePopup from '@/components/WelcomePopup'
 import CookieBanner from '@/components/CookieBanner'
 import { AuthProvider } from '@osr/core/lib/auth'
-import { Navbar } from '@/components/Navbar'
+import { StorefrontNavbar, StorefrontFooter } from '@/components/StorefrontChrome'
 
 const playfairDisplay = Playfair_Display({
   subsets: ['latin'],
@@ -115,7 +115,7 @@ export default function RootLayout({ children }) {
         />
         <CartProvider>
           <AuthProvider>
-            <ShellWrapper navbar={<Navbar />} cartDrawer={<CartDrawer />} footer={<Footer />} cookieBanner={<CookieBanner />}>
+            <ShellWrapper navbar={<StorefrontNavbar />} cartDrawer={<CartDrawer />} footer={<StorefrontFooter />} cookieBanner={<CookieBanner />}>
               {children}
             </ShellWrapper>
             <Suspense fallback={null}>

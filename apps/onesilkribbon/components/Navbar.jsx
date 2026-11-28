@@ -7,9 +7,9 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useCart } from '@/lib/cart'
 import { useAuth } from '@osr/core/lib/auth'
 import { useBodyScrollLock } from '@/lib/use-body-scroll-lock'
-import { SHOP_GROUPS } from '@/lib/storefront-nav'
+import { shopGroupsFor } from '@/lib/storefront-nav'
 
-export function Navbar() {
+export function Navbar({ fabricAvailable = false } = {}) {
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -36,6 +36,7 @@ export function Navbar() {
   const itemCount = getItemCount ? getItemCount() : 0
 
   const isShopActive = pathname.startsWith('/collections')
+  const groups = shopGroupsFor(fabricAvailable)
 
   const closeAll = useCallback(() => {
     setShopOpen(false)
@@ -393,8 +394,8 @@ export function Navbar() {
         inert={!shopOpen}
         aria-hidden={!shopOpen}
       >
-        <div className="osr-mega-inner">
-          {SHOP_GROUPS.map(group => (
+        <div className={`osr-mega-inner ${groups.length > 3 ? 'has-fabric' : ''}`}>
+          {groups.map(group => (
             <div key={group.id} className="osr-mega-group">
               <Link href={group.href} onClick={() => setShopOpen(false)}>
                 {group.label} <span>{group.note}</span>
@@ -439,7 +440,7 @@ export function Navbar() {
           <Link href="/collections" onClick={() => setMenuOpen(false)}>Shop all collections</Link>
         </div>
 
-        {SHOP_GROUPS.map((group, index) => (
+        {groups.map((group, index) => (
           <MobileGroup key={group.id} group={group} index={index} onNavigate={() => setMenuOpen(false)} />
         ))}
 

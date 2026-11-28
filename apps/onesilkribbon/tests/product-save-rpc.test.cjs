@@ -14,11 +14,22 @@ const parseStockQuantity = value => {
   return Number.isInteger(n) && n >= 0 ? n : null
 }
 
+const fabric = (() => {
+  const fabricSource = fs.readFileSync(
+    path.resolve(__dirname, '../lib/fabric.js'),
+    'utf8'
+  ).replace(/^export /gm, '')
+  return new Function(
+    fabricSource + ';return { FABRIC_COLLECTION, fabricPublishErrors, normalizeFabricDraftSkus }'
+  )()
+})()
+
 function compile({ rpc, from }) {
   return new Function(
     'supabase', 'verifyAdmin', 'errorResponse', 'parseStockQuantity',
     'cleanSearch', 'pageRange', 'readSettings', 'revalidateCatalog',
     'isMissingRpc', 'recordAdminAction',
+    'FABRIC_COLLECTION', 'fabricPublishErrors', 'normalizeFabricDraftSkus',
     source + ';return { POST }'
   )(
     { rpc, from },
@@ -30,7 +41,10 @@ function compile({ rpc, from }) {
     async () => ({}),
     async () => {},
     () => false,
-    async () => {}
+    async () => {},
+    fabric.FABRIC_COLLECTION,
+    fabric.fabricPublishErrors,
+    fabric.normalizeFabricDraftSkus
   )
 }
 

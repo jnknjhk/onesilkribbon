@@ -38,7 +38,10 @@ export default async function CollectionsPage() {
     return { ...config, count: item.count, image: item.image, desc: item.desc }
   }).filter(Boolean)
 
-  const otherCollectionItems = () => available.filter(collection => !RIBBON_HOUSE_SLUGS.includes(collection.slug))
+  const otherCollectionItems = () => available.filter(collection =>
+    !RIBBON_HOUSE_SLUGS.includes(collection.slug) && collection.slug !== 'silk-fabric'
+  )
+  const fabricItem = available.find(collection => collection.slug === 'silk-fabric') || null
 
   return (
     <div className="collections-page">
@@ -83,6 +86,32 @@ export default async function CollectionsPage() {
                 </div>
               </Reveal>
             ))}
+          </div>
+        </section>
+      )}
+
+      {fabricItem && (
+        <section className="osr-fabric-entry osr-container" id="fabric">
+          <div className="osr-fabric-entry-grid">
+            <Link href="/collections/silk-fabric" className="osr-fabric-entry-media" aria-label={fabricItem.name}>
+              {fabricItem.image ? (
+                <Image src={fabricItem.image} alt={fabricItem.name} fill sizes="(max-width: 960px) 100vw, 50vw" style={{ objectFit: 'cover' }} />
+              ) : (
+                <div style={{ position: 'absolute', inset: 0, background: fabricItem.bg }} />
+              )}
+              <span className="osr-badge osr-badge--ink">Live collection · {fabricItem.count} {fabricItem.count === 1 ? 'cloth' : 'cloths'}</span>
+            </Link>
+            <div className="osr-fabric-entry-body">
+              <span className="osr-eyebrow">Silk Fabric by the Metre</span>
+              <h2>Cloth, cut to order.</h2>
+              <p>{fabricItem.desc}</p>
+              <div className="osr-fabric-entry-links">
+                <Link href="/collections/silk-fabric#by-type">By fabric type</Link>
+                <Link href="/collections/silk-fabric#by-use">By use</Link>
+                <Link href="/collections/silk-fabric#by-weight">By weight</Link>
+              </div>
+              <Link className="osr-textlink" href="/collections/silk-fabric">Browse the fabric library</Link>
+            </div>
           </div>
         </section>
       )}

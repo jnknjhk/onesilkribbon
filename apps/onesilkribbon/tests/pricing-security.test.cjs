@@ -10,6 +10,7 @@ function load(file, bindings, names) {
 }
 const { skuAttributes } = load('lib/product-variants.js', {}, 'skuAttributes')
 const money = load('lib/pricing.js', {}, 'gbpToPence,penceToGBP,calculateTotals,cartSubtotalPence,couponDiscountPence,SHIPPING_RATE,FREE_SHIPPING_THRESHOLD')
+const fabric = load('lib/fabric.js', {}, 'FABRIC_COLLECTION,fabricQuantityError,fabricSkuDescription')
 function pricingMock(overrides = {}) {
   const rows = {
     product_skus: [{ id: 'sku', product_id: 'product', price_gbp: '1.01', stock_qty: 100, is_active: true }],
@@ -23,7 +24,7 @@ function pricingMock(overrides = {}) {
     const query = { select() { return query }, eq() { return query }, in: async () => result(), single: async () => result() }
     return query
   } }
-  return load('lib/order-pricing.js', { ...money, supabaseAdmin, skuAttributes }, 'computeAuthoritativeOrder').computeAuthoritativeOrder
+  return load('lib/order-pricing.js', { ...money, supabaseAdmin, skuAttributes, ...fabric }, 'computeAuthoritativeOrder').computeAuthoritativeOrder
 }
 test('currency rounds decimal ties away from zero and sums exact decimals', () => {
   assert.equal(money.gbpToPence('1.005'), 101)
@@ -60,6 +61,42 @@ test('authoritative pricing ignores forged prices and computes exact discount wi
   assert.equal(result.totals.total, '5.46')
   for (const skuId of [null, {}, [], 1]) assert.equal((await pricingMock()({ items: [{ skuId, qty: 1 }] })).ok, false)
 })
+test('fabric checkout enforces whole metres, stock and the continuous cut limit', async () => {
+  const fabricProduct = {
+    id: 'fabric', name: '16 Momme Silk Crêpe de Chine', is_active: true, collection: 'silk-fabric',
+    specifications: [{ key: 'Max continuous cut', value: '6 m' }, { key: 'Width', value: '114 cm' }],
+    attribute_config: [{ name: 'Colour', options: ['Oyster'] }],
+  }
+  const fabricSku = { id: 'fabric-sku', product_id: 'fabric', price_gbp: '28.00', stock_qty: 10, is_active: true, colour: 'Oyster' }
+  const price = pricingMock({ product_skus: [fabricSku], products: [fabricProduct] })
+  const ok = await price({ items: [{ skuId: 'fabric-sku', qty: 5 }] })
+  assert.equal(ok.ok, true)
+  assert.equal(ok.totals.subtotal, '140.00')
+  assert.equal(ok.lineItems[0].unit, 'm')
+  assert.match(ok.lineItems[0].skuDesc, /sold by the metre/)
+  assert.match(ok.lineItems[0].skuDesc, /continuous cut 5 m/)
+  for (const qty of [0, 1.5, 7, 11]) {
+    const result = await price({ items: [{ skuId: 'fabric-sku', qty }] })
+    assert.equal(result.ok, false, `qty ${qty} must be rejected`)
+  }
+  const merged = await price({ items: [{ skuId: 'fabric-sku', qty: 4 }, { skuId: 'fabric-sku', qty: 3 }] })
+  assert.equal(merged.ok, false)
+  assert.match(merged.error, /longest continuous cut is 6 m/)
+  const mergedWithinLimit = await price({ items: [{ skuId: 'fabric-sku', qty: 2 }, { skuId: 'fabric-sku', qty: 3 }] })
+  assert.equal(mergedWithinLimit.ok, true)
+  assert.equal(mergedWithinLimit.lineItems[0].qty, 5)
+  assert.match(mergedWithinLimit.lineItems[0].skuDesc, /continuous cut 5 m/)
+  const threeMetres = await price({ items: [{ skuId: 'fabric-sku', qty: 3 }] })
+  assert.equal(threeMetres.ok, true)
+  assert.equal(threeMetres.totals.subtotal, '84.00')
+  assert.match(threeMetres.lineItems[0].skuDesc, /continuous cut 3 m/)
+  const noCut = pricingMock({
+    product_skus: [fabricSku],
+    products: [{ ...fabricProduct, specifications: [{ key: 'Width', value: '114 cm' }] }],
+  })
+  assert.equal((await noCut({ items: [{ skuId: 'fabric-sku', qty: 1 }] })).ok, false)
+})
+
 test('preview rejects malformed bodies and hides all coupon details on invalid codes', async () => {
   const POST = load('app/api/coupon/route.js', { computeAuthoritativeOrder: pricingMock() }, 'POST').POST
   for (const body of [null, [], { code: {} }, { code: 'SAVE', subtotal: 999 }, { code: 'SAVE', items: [] }]) {

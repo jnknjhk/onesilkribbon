@@ -511,6 +511,14 @@
   padding: clamp(34px, 4vw, 54px) clamp(22px, 4.8vw, 68px);
 }
 
+.osr-mega-inner.has-fabric {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.osr-mega-inner.has-fabric .osr-mega-tile {
+  display: none;
+}
+
 .osr-mega-group > a {
   display: inline-flex;
   align-items: baseline;
@@ -1097,6 +1105,87 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: clamp(16px, 2.4vw, 34px);
+}
+
+.osr-doors-grid--four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* ── Fabric entry on the collections index ─────────────────────────── */
+.osr-fabric-entry {
+  padding: 0 0 clamp(56px, 7vw, 96px);
+}
+
+.osr-fabric-entry-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: clamp(24px, 4vw, 64px);
+  align-items: center;
+  background: var(--osr-paper-2);
+}
+
+.osr-fabric-entry-media {
+  position: relative;
+  display: block;
+  aspect-ratio: 4 / 3;
+  min-height: 320px;
+  overflow: hidden;
+  background: var(--osr-paper-3);
+}
+
+.osr-fabric-entry-media img {
+  transition: transform 0.8s ease;
+}
+
+.osr-fabric-entry-media:hover img {
+  transform: scale(1.04);
+}
+
+.osr-fabric-entry-media .osr-badge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+}
+
+.osr-fabric-entry-body {
+  padding: clamp(28px, 4.5vw, 64px);
+}
+
+.osr-fabric-entry-body h2 {
+  margin: 14px 0;
+  font-family: var(--osr-serif);
+  font-size: clamp(30px, 3.8vw, 50px);
+  font-weight: 400;
+  line-height: 1.08;
+}
+
+.osr-fabric-entry-body p {
+  max-width: 520px;
+  font-size: 14px;
+  line-height: 1.9;
+  color: var(--osr-muted);
+}
+
+.osr-fabric-entry-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  margin: 18px 0 6px;
+}
+
+.osr-fabric-entry-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  border-bottom: 1px solid transparent;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--osr-berry);
+}
+
+.osr-fabric-entry-links a:hover {
+  border-bottom-color: var(--osr-berry);
 }
 
 .osr-door {
@@ -2300,6 +2389,18 @@
 
   .osr-mega-tile {
     display: none;
+  }
+
+  .osr-doors-grid--four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .osr-fabric-entry-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .osr-fabric-entry-media {
+    min-height: 0;
   }
 
   .coll-grid {

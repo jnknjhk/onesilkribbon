@@ -4,6 +4,7 @@ import { supabaseAdmin as supabaseServer } from '@osr/core/lib/supabase'
 import { notFound } from 'next/navigation'
 import CollectionClient from './CollectionClient'
 import { COLLECTION_META } from '@/lib/collection-content'
+import { fabricView } from '@/lib/fabric'
 
 export const revalidate = 60
 
@@ -24,7 +25,7 @@ const getHeroImage = cache(async (slug) => {
 const getActiveProducts = cache(async (slug) => {
   const { data, error } = await supabaseServer
     .from('products')
-    .select('id, name, slug, images, collection, description')
+    .select('id, name, slug, images, collection, description, specifications')
     .eq('collection', slug)
     .eq('is_active', true)
     .order('sort_order', { ascending: true, nullsFirst: false })
@@ -94,16 +95,19 @@ export default async function CollectionPage({ params }) {
     const productIds = products.map(p => p.id)
     const { data: allSkus, error: skuError } = await supabaseServer
       .from('product_skus')
-      .select('product_id, price_gbp, colour_hex, id, stock_qty')
+      .select('product_id, price_gbp, colour_hex, colour, attributes, id, stock_qty, images')
       .in('product_id', productIds)
       .eq('is_active', true)
       .order('price_gbp', { ascending: true })
     if (skuError) throw new Error('Unable to load collection prices. Please try again.')
 
     const skuMap = {}
+    const skusByProduct = {}
     if (allSkus) {
       allSkus.forEach(s => {
         if (!skuMap[s.product_id]) skuMap[s.product_id] = s
+        if (!skusByProduct[s.product_id]) skusByProduct[s.product_id] = []
+        skusByProduct[s.product_id].push(s)
       })
     }
 
@@ -111,6 +115,7 @@ export default async function CollectionPage({ params }) {
       ...p,
       lowestPrice: parseFloat(skuMap[p.id]?.price_gbp || 0),
       firstSku: skuMap[p.id] || null,
+      ...(slug === 'silk-fabric' ? { fabric: fabricView(p, skusByProduct[p.id] || []).fabric } : {}),
     }))
   }
 

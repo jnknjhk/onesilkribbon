@@ -247,7 +247,9 @@ function pricing({qty=2,active=true}={}) {
   const money=new Function(moneySource+';return {calculateTotals,gbpToPence,penceToGBP,cartSubtotalPence,couponDiscountPence,SHIPPING_RATE,FREE_SHIPPING_THRESHOLD}')()
   const variantsSource=fs.readFileSync(path.join(__dirname,'../lib/product-variants.js'),'utf8').replace(/^export /gm,'')
   const skuAttributes=new Function(variantsSource+';return skuAttributes')()
-  const bindings={supabaseAdmin:mock,skuAttributes,...money}
+  const fabricSource=fs.readFileSync(path.join(__dirname,'../lib/fabric.js'),'utf8').replace(/^export /gm,'')
+  const fabric=new Function(fabricSource+';return {FABRIC_COLLECTION,fabricQuantityError,fabricSkuDescription}')()
+  const bindings={supabaseAdmin:mock,skuAttributes,...money,...fabric}
   return new Function(...Object.keys(bindings),source+';return computeAuthoritativeOrder')(...Object.values(bindings))
 }
 test('pricing merges duplicate lines and uses database product identity',async()=>{

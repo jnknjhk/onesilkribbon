@@ -143,7 +143,7 @@ test('switching product routes cancels stale reads and keys editor state by prod
     } }
   let resolve
   const api = () => new Promise(done => { resolve = done })
-  const prefix = source.split('export default function ProductEditorPage({ id }) {')[1].split('  if (isNew) {')[0]
+  const prefix = source.split("export default function ProductEditorPage({ id, template = '' }) {")[1].split('  if (isNew) {')[0]
   const render = new Function(...Object.keys(hooks), 'api', `return function Component(id) {${prefix}}`)(...Object.values(hooks), api)
   render('product-1')
   const cleanup = effects[0]()

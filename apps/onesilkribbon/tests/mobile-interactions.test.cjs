@@ -26,6 +26,7 @@ function navbar({ initial = {}, fetch = async () => Response.json([]), window = 
   const source = read('components/Navbar.jsx').split('\n  return (')[0] + '\n}'
   const render = compile(source, { ...h.bindings, fetch, window, document, AbortController,
     useBodyScrollLock() {}, usePathname: () => '/', useRouter: () => ({}), useCart: () => cart, useAuth: () => ({}),
+    shopGroupsFor: () => [],
   }, 'Navbar')
   return { ...h, render() { h.begin(); render() } }
 }

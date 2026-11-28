@@ -135,6 +135,9 @@ export function productGroupSchema(product, skus, url, shippingDetails, returnPo
           itemCondition: 'https://schema.org/NewCondition',
           seller: { '@type': 'Organization', '@id': 'https://onesilkribbon.com/#organization', name: 'One Silk Ribbon', url: 'https://onesilkribbon.com' },
           shippingDetails, hasMerchantReturnPolicy: returnPolicy,
+          ...(product.collection === 'silk-fabric'
+            ? { eligibleQuantity: { '@type': 'QuantitativeValue', unitCode: 'MTR', minValue: 1, stepValue: 1 } }
+            : {}),
         },
       }
     }), ...(family?.siblingUrls || []).map(siblingUrl => ({ '@type': 'Product', url: siblingUrl }))],

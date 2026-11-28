@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-import { FOOTER_SHOP_LINKS } from '@/lib/storefront-nav'
+import { footerShopLinksFor } from '@/lib/storefront-nav'
 
 const SOCIAL_LINKS = [
   { label: 'Ig', href: 'https://www.instagram.com/onesilkribbon' },
@@ -11,7 +11,7 @@ const SOCIAL_LINKS = [
   { label: 'Fb', href: 'https://www.facebook.com/profile.php?id=61586481380538' },
 ]
 
-export function Footer() {
+export function Footer({ fabricAvailable = false }) {
   return (
     <footer className="site-footer osr-footer">
       <div className="osr-footer-inner">
@@ -32,7 +32,7 @@ export function Footer() {
             </div>
           </div>
 
-          <FooterCol title="Shop" links={FOOTER_SHOP_LINKS} />
+          <FooterCol title="Shop" links={footerShopLinksFor(fabricAvailable)} />
 
           <FooterCol
             title="Studio"

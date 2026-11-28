@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { COLLECTION_META } from '@/lib/collection-content'
 import { RIBBON_HOUSES, RIBBON_HOUSE_SLUGS } from '@/lib/storefront-nav'
 import { formatGBP } from '@/lib/pricing'
+import FabricCollectionClient from '@/components/fabric/FabricCollectionClient'
 
 function safe(value) {
   if (value === null || value === undefined) return ''
@@ -62,6 +63,13 @@ export default function CollectionClient({ initialProducts, slug: initialSlug, i
       </header>
 
       <div className="coll-body">
+        {slug === 'silk-fabric' ? (
+          <>
+            <FabricCollectionClient products={products} />
+            {products.length > 0 && <CollectionGuide meta={meta} relatedArticle={relatedArticle} slug={slug} />}
+          </>
+        ) : (
+          <>
         {RIBBON_HOUSE_SLUGS.includes(slug) && (
           <nav className="coll-house-nav" aria-label="Ribbon houses">
             {RIBBON_HOUSES.map(house => (
@@ -137,21 +145,28 @@ export default function CollectionClient({ initialProducts, slug: initialSlug, i
           </aside>
         )}
 
-        {products.length > 0 && meta.guidance?.length > 0 && (
-          <section className="coll-guide" aria-labelledby="collection-guide-title">
-            <h2 id="collection-guide-title">{meta.guideTitle}</h2>
-            <div className="coll-guide-cols">
-              {meta.guidance.map(paragraph => <p key={paragraph}>{paragraph}</p>)}
-            </div>
-            <p className="coll-guide-links">
-              <Link href="/ribbon-guide">Help choosing ribbon</Link>
-              {relatedArticle && <Link href={`/journal/${relatedArticle.slug}`}>{relatedArticle.title}</Link>}
-              <Link href="/care-guide">Silk care guide</Link>
-              <Link href="/shipping-returns">Delivery &amp; returns</Link>
-            </p>
-          </section>
+        {products.length > 0 && <CollectionGuide meta={meta} relatedArticle={relatedArticle} slug={slug} />}
+          </>
         )}
       </div>
     </div>
+  )
+}
+
+function CollectionGuide({ meta, relatedArticle, slug }) {
+  if (!meta?.guidance?.length) return null
+  return (
+    <section className="coll-guide" aria-labelledby="collection-guide-title">
+      <h2 id="collection-guide-title">{meta.guideTitle}</h2>
+      <div className="coll-guide-cols">
+        {meta.guidance.map(paragraph => <p key={paragraph}>{paragraph}</p>)}
+      </div>
+      <p className="coll-guide-links">
+        {slug !== 'silk-fabric' && <Link href="/ribbon-guide">Help choosing ribbon</Link>}
+        {relatedArticle && <Link href={`/journal/${relatedArticle.slug}`}>{relatedArticle.title}</Link>}
+        <Link href="/care-guide">Silk care guide</Link>
+        <Link href="/shipping-returns">Delivery &amp; returns</Link>
+      </p>
+    </section>
   )
 }

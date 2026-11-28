@@ -134,6 +134,15 @@ test('feed advertises matching variant URLs, sizes and prices', async () => {
   assert.match(xml, /<g:size>5mm × 10m<\/g:size>/)
 })
 
+test('fabric feed items declare a one-metre unit price', async () => {
+  const fabricProduct = { ...product, id: 'fabric-1', name: 'Silk Crêpe de Chine', slug: 'silk-crepe-de-chine', collection: 'silk-fabric' }
+  const fabricSku = { ...skus[0], id: 'fabric-sku', sku_code: 'F1', colour: 'Oyster', width_mm: null, length_m: null, price_gbp: 28, stock_qty: 10 }
+  const xml = await feedXml(fabricProduct, [fabricSku])
+  assert.match(xml, /<g:price>28.00 GBP<\/g:price>/)
+  assert.match(xml, /<g:unit_pricing_measure>1 m<\/g:unit_pricing_measure>/)
+  assert.match(xml, /<g:unit_pricing_base_measure>1 m<\/g:unit_pricing_base_measure>/)
+})
+
 test('split colours keep the former merchant group and give each available SKU its new landing page', async () => {
   const { productGroupSchema } = await helper
   const colourProduct = { ...product, name: 'Gold Mulberry Silk Ribbon', slug: 'mulberry-silk-ribbon-gold' }

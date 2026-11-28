@@ -83,9 +83,38 @@ export const SHOP_GROUPS = [
   },
 ]
 
+export const FABRIC_GROUP = {
+  id: 'silk-fabric',
+  label: 'Silk Fabric by the Metre',
+  href: '/collections/silk-fabric',
+  note: 'Cut to order by the metre',
+  links: [
+    { label: 'Fabric Library', href: '/collections/silk-fabric', note: 'All cloths by the metre' },
+    { label: 'By Fabric Type', href: '/collections/silk-fabric#by-type', note: 'Chiffon, crêpe, charmeuse' },
+    { label: 'By Use', href: '/collections/silk-fabric#by-use', note: 'Dresses, bridal, home' },
+    { label: 'By Weight', href: '/collections/silk-fabric#by-weight', note: 'Weight in momme' },
+  ],
+}
+
+// Fabric is only offered once at least one active fabric product exists.
+// Inactive drafts never create a storefront entry.
+export function shopGroupsFor(fabricAvailable) {
+  if (!fabricAvailable) return SHOP_GROUPS
+  return [SHOP_GROUPS[0], FABRIC_GROUP, ...SHOP_GROUPS.slice(1)]
+}
+
 export const FOOTER_SHOP_LINKS = [
   { label: 'Silk Ribbons', href: '/collections#ribbons' },
   ...RIBBON_HOUSES.map(({ label, href }) => ({ label, href })),
   { label: 'Handcrafted Adornments', href: '/collections/handcrafted-adornments' },
   { label: 'Studio Tools', href: '/collections/studio-tools' },
 ]
+
+export function footerShopLinksFor(fabricAvailable) {
+  if (!fabricAvailable) return FOOTER_SHOP_LINKS
+  return [
+    FOOTER_SHOP_LINKS[0],
+    { label: 'Silk Fabric by the Metre', href: '/collections/silk-fabric' },
+    ...FOOTER_SHOP_LINKS.slice(1),
+  ]
+}

@@ -31,18 +31,24 @@ import {
   initialSpecifications, loadAttributeConfig, loadSku,
 } from './product-editor-helpers'
 import {
-  PageHeader, Button, Badge, ConfirmDialog, Icon, useToast, useUnsavedWarning, styles as s, cx,
+  PageHeader, Button, Badge, ConfirmDialog, Icon, Notice, useToast, useUnsavedWarning, styles as s, cx,
 } from '../../ui'
+import { FABRIC_COLLECTION, fabricDraftTemplate } from '@/lib/fabric'
 
-export default function ProductEditor({ product, initialSkus, onSaved }) {
+export default function ProductEditor({ product, initialSkus, onSaved, template = '' }) {
   const cfg = useAdminConfig()
   const router = useRouter()
   const toast = useToast()
   const isNew = product === 'new'
-  const defaultCollection = cfg.collections[0]?.value || ''
+  const fabricDraft = isNew && template === 'fabric'
+  const draft = fabricDraft ? fabricDraftTemplate() : null
+  const defaultCollection = draft?.collection || cfg.collections[0]?.value || ''
+  const initialAttrConfig = fabricDraft
+    ? draft.attributeConfig
+    : (isNew ? [] : loadAttributeConfig(product.attribute_config))
 
   const [form, setForm] = useState(() => isNew
-    ? { name: '', slug: '', description: '', collection: defaultCollection, active: true }
+    ? { name: '', slug: '', description: '', collection: defaultCollection, active: !fabricDraft }
     : {
         name: product.name || '', slug: product.slug || '',
         description: product.description || '',
@@ -52,9 +58,12 @@ export default function ProductEditor({ product, initialSkus, onSaved }) {
         sort_order: product.sort_order || 0,
       })
   const [images, setImages] = useState(() => (isNew ? [] : product.images || []))
-  const [specifications, setSpecifications] = useState(() => initialSpecifications(product, isNew))
-  const [attrConfig, setAttrConfig] = useState(() => (isNew ? [] : loadAttributeConfig(product.attribute_config)))
-  const [skus, setSkus] = useState(() => (initialSkus || []).map(loadSku))
+  const [specifications, setSpecifications] = useState(() => fabricDraft ? draft.specifications : initialSpecifications(product, isNew))
+  const [attrConfig, setAttrConfig] = useState(initialAttrConfig)
+  const [skus, setSkus] = useState(() => {
+    if (fabricDraft && (initialSkus || []).length === 0) return [createSku(initialAttrConfig)]
+    return (initialSkus || []).map(loadSku)
+  })
   const [deletedSkuIds, setDeletedSkuIds] = useState([])
 
   const [batchOpen, setBatchOpen] = useState(false)
@@ -115,8 +124,12 @@ export default function ProductEditor({ product, initialSkus, onSaved }) {
     setError('')
     if (!form.name.trim()) { setError('请填写商品名称'); return }
     if (!form.slug.trim()) { setError('请填写网址'); return }
-    const noPrice = skus.filter(k => k.is_active !== false && !(parseFloat(k.price_gbp) > 0))
-    if (noPrice.length) { setConfirm({ kind: 'price', count: noPrice.length }); return }
+    // Fabric drafts may omit price/stock; the API normalizes blanks and blocks
+    // publication until the required fields and at least one sellable SKU exist.
+    if (form.collection !== FABRIC_COLLECTION) {
+      const noPrice = skus.filter(k => k.is_active !== false && !(parseFloat(k.price_gbp) > 0))
+      if (noPrice.length) { setConfirm({ kind: 'price', count: noPrice.length }); return }
+    }
     save()
   }
 
@@ -168,7 +181,7 @@ export default function ProductEditor({ product, initialSkus, onSaved }) {
     <div>
       <PageHeader
         back="/admin/products"
-        title={isNew ? '新建商品' : (form.name || '未命名商品')}
+        title={isNew ? (fabricDraft ? '新建面料草稿' : '新建商品') : (form.name || '未命名商品')}
         subtitle={!isNew && <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <Badge tone={form.active ? 'success' : 'neutral'}>{form.active ? '上架中' : '已下架'}</Badge>
           <span>{skus.length} 个 SKU · 库存共 {totalStock}</span>
@@ -181,6 +194,12 @@ export default function ProductEditor({ product, initialSkus, onSaved }) {
         </>}
       />
 
+      {form.collection === FABRIC_COLLECTION && (
+        <Notice style={{ marginBottom: 14 }}>
+          面料按整米销售：SKU 价格填<strong>每米价</strong>，库存填<strong>可用米数</strong>。规格参数保留 Fabric type、Weight（如 19 momme）、Width、Use、Max continuous cut（只能填正整数米，如 5 或 5 m）。草稿可缺字段；上架前必须补全，并至少有一个启用的颜色 SKU 和有效每米价。草稿默认下架，上架后才会出现在正式导航、sitemap 和商品 Feed。
+        </Notice>
+      )}
+
       <div className={s.split}>
         <div className={s.stack}>
           <ProductBasicCard form={form} isNew={isNew} setForm={setForm} product={product} />
@@ -189,6 +208,7 @@ export default function ProductEditor({ product, initialSkus, onSaved }) {
             onAdd={urls => setImages(p => [...p, ...urls])} />
           <ProductOptionsCard attrConfig={attrConfig} setAttrConfig={setAttrConfig} onGenerate={askGenerate} />
           <ProductSkuTable skus={skus} attrNames={attrNames} hasAttributes={attrConfig.length > 0}
+            fabricMode={form.collection === FABRIC_COLLECTION}
             deletedSkuIds={deletedSkuIds} onUpdate={updateSku} onUpdateAttr={updateSkuAttr}
             onRemove={removeSku} onAdd={addSku} onBatch={() => setBatchOpen(true)} />
           <ProductSpecificationsCard specifications={specifications} setSpecifications={setSpecifications} />

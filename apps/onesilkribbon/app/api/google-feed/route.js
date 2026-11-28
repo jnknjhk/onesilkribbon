@@ -60,6 +60,10 @@ function buildItemXml({ product, sku, family }) {
   const colour = family?.colours?.[product.id] || color
   if (colour) fields.push(['g:color', colour])
   if (fixedSize || size) fields.push(['g:size', fixedSize || size])
+  if (product.collection === 'silk-fabric') {
+    fields.push(['g:unit_pricing_measure', '1 m'])
+    fields.push(['g:unit_pricing_base_measure', '1 m'])
+  }
 
   const fieldsXml = fields
     .map(([tag, value]) => `      <${tag}>${xmlEscape(value)}</${tag}>`)

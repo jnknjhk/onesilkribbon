@@ -95,6 +95,22 @@ export const COLLECTIONS = [
       'Make a sample bow or wrap before planning a larger quantity. Measure the ribbon used in that sample, including the knot and tails, and check the listed length of the selected option. For storage and gentle handling, see our silk care guide.',
     ],
   },
+  {
+    slug: 'silk-fabric',
+    label: '真丝面料 Silk Fabric',
+    shortName: 'Silk Fabric',
+    homeCount: 'Cut to Order',
+    name: 'Silk Fabric by the Metre',
+    seoTitle: 'Silk Fabric by the Metre — Chiffon, Crêpe & Charmeuse',
+    desc: 'Shop silk fabric by the metre. Compare chiffon, crêpe de chine and charmeuse by fabric type, intended use and weight, with per-metre prices and a continuous cut length shown on each cloth.',
+    bg: 'linear-gradient(135deg,#D9D0C2,#6E6256)',
+    homeBg: 'linear-gradient(160deg,#E4DACC,#A99A88,#6E6256)',
+    guideTitle: 'Choosing silk fabric by the metre',
+    guidance: [
+      'Begin with the fabric type you know, the use you have in mind or the weight you want in the hand. Each cloth page shows its weave, width, per-metre price, available colours, stock in metres and the longest continuous cut available.',
+      'Fabric is sold in whole metres and cut in one continuous length up to the maximum shown. Measure a sample or test piece before ordering a larger cut, and compare colour against the paper, lining or flowers it will sit beside.',
+    ],
+  },
 ]
 
 export const COLLECTION_SLUGS = COLLECTIONS.map(collection => collection.slug)

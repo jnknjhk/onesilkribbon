@@ -10,7 +10,8 @@ const fabric = new Function(`${source};return {
   FABRIC_COLLECTION,FABRIC_WEIGHT_GROUPS,fabricView,fabricQuantityError,fabricQuantityLimit,
   fabricSkuDescription,fabricFilterSlug,buildFabricFilters,filterFabricProducts,fabricDraftTemplate,
   fabricSpecRows,fabricType,fabricWeight,fabricWidth,fabricUses,fabricMaxCutM,parseFabricMaxCut,
-  fabricMomme,parseFabricMomme,fabricWeightGroup,fabricPublishErrors,normalizeFabricDraftSkus
+  fabricMomme,parseFabricMomme,fabricWeightGroup,fabricPublishErrors,normalizeFabricDraftSkus,
+  orderFabricSkus
 }`)()
 
 const product = {
@@ -208,6 +209,36 @@ test('fabric filters use weight groups and do not classify invalid weights', () 
   assert.deepEqual(fabric.filterFabricProducts(products, { weight: 'heavier' }).map(item => item.id), ['heavy'])
   assert.deepEqual(fabric.filterFabricProducts(products, { weight: 'medium', colour: 'lotus-pink' }).map(item => item.id), ['second'])
   assert.deepEqual(fabric.filterFabricProducts(products, { type: 'charmeuse', weight: 'heavier' }).map(item => item.id), ['heavy'])
+})
+
+test('fabric skus follow the configured colour order, not database row order', () => {
+  const numericProduct = {
+    ...product,
+    attribute_config: [{ name: 'Colour', options: ['1#', '2#', '10#', '11#', '100#'] }],
+  }
+  const unordered = ['100#', '10#', '2#', '11#', '1#'].map((colour, index) => ({
+    id: `sku-${index}`, colour, colour_hex: '#D4C5B0', price_gbp: '14.99', stock_qty: 999, is_active: true,
+  }))
+  assert.deepEqual(
+    fabric.orderFabricSkus(numericProduct, unordered).map(sku => sku.colour),
+    ['1#', '2#', '10#', '11#', '100#'],
+  )
+  const view = fabric.fabricView(numericProduct, fabric.orderFabricSkus(numericProduct, unordered))
+  assert.deepEqual(view.fabric.colours.map(colour => colour.name), ['1#', '2#', '10#', '11#', '100#'])
+})
+
+test('fabric colour filters sort numeric labels naturally', () => {
+  const numericProduct = {
+    ...product,
+    id: 'numeric-product',
+    slug: 'numeric-product',
+    attribute_config: [{ name: 'Colour', options: ['1#', '2#', '10#', '11#', '100#'] }],
+  }
+  const numericSkus = ['100#', '10#', '2#', '11#', '1#'].map((colour, index) => ({
+    id: `numeric-sku-${index}`, colour, colour_hex: '#D4C5B0', price_gbp: '14.99', stock_qty: 999, is_active: true,
+  }))
+  const options = fabric.buildFabricFilters([fabric.fabricView(numericProduct, numericSkus)])
+  assert.deepEqual(options.colours.map(colour => colour.label), ['1#', '2#', '10#', '11#', '100#'])
 })
 
 test('fabric publish validation reports every missing field and sellable SKU failure', () => {

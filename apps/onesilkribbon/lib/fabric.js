@@ -191,6 +191,30 @@ const colourName = sku => explicitColour(sku) || 'Natural'
 
 export const fabricSkuColour = sku => explicitColour(sku)
 
+// Same-price SKUs come back from the database in physical row order, which for
+// a large colour range can start in the middle. Show the merchant's configured
+// colour order instead, falling back to a natural sort for unlisted colours.
+export function orderFabricSkus(product, skus = []) {
+  const configured = (Array.isArray(product?.attribute_config) ? product.attribute_config : [])
+    .find(attribute => /^(colou?r|颜色)$/i.test(cleanText(attribute?.name)))
+  const optionOrder = new Map()
+  if (Array.isArray(configured?.options)) {
+    configured.options.forEach((option, index) => {
+      const value = cleanText(option && typeof option === 'object' ? option.value : option)
+      if (value && !optionOrder.has(value)) optionOrder.set(value, index)
+    })
+  }
+  return (Array.isArray(skus) ? skus : [])
+    .map((sku, index) => ({ sku, index, name: colourName(sku) }))
+    .sort((a, b) => {
+      const aOrder = optionOrder.has(a.name) ? optionOrder.get(a.name) : Number.POSITIVE_INFINITY
+      const bOrder = optionOrder.has(b.name) ? optionOrder.get(b.name) : Number.POSITIVE_INFINITY
+      if (aOrder !== bOrder) return aOrder - bOrder
+      return a.name.localeCompare(b.name, undefined, { numeric: true }) || a.index - b.index
+    })
+    .map(entry => entry.sku)
+}
+
 const isBlank = value => value === null || value === undefined ||
   (typeof value === 'string' && value.trim() === '')
 
@@ -368,7 +392,7 @@ export function buildFabricFilters(products = []) {
     types: [...types.values()].sort((a, b) => a.label.localeCompare(b.label)),
     uses: [...uses.values()].sort((a, b) => a.label.localeCompare(b.label)),
     weights: [...weights.values()],
-    colours: [...colours.values()].sort((a, b) => a.label.localeCompare(b.label)),
+    colours: [...colours.values()].sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true })),
   }
 }
 
